@@ -1,10 +1,14 @@
-# app/config.py
-# Configuration settings placeholder
-
 import os
+from dotenv import load_dotenv
 
-class Settings:
-    SECRET_KEY = os.getenv('SECRET_KEY', 'change-me')
-    DATABASE_URL = os.getenv('DATABASE_URL')
+load_dotenv()
 
-settings = Settings()
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
+
+SECRET_KEY = os.getenv("SECRET_KEY", "ethiobingo-secret")
+
+DEBUG = True
