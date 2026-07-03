@@ -1,14 +1,30 @@
-# app/main.py
-# Placeholder for EthioBingo FastAPI entrypoint
-
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
-app = FastAPI()
+from app.database import Base, engine
 
-@app.get('/')
+# Create database tables
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(
+    title="Pick & Win V3",
+    version="3.0.0"
+)
+
+# Static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/")
 async def root():
-    return {"message": "EthioBingo placeholder"}
+    return {
+        "app": "Pick & Win V3",
+        "status": "Running"
+    }
 
-if __name__ == '__main__':
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000)
+
+@app.get("/health")
+async def health():
+    return {
+        "status": "OK"
+    }
