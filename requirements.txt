@@ -1,1 +1,6 @@
-
+# Requirements for EthioBingo
+# Add Python package requirements here, for example:
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg[binary]

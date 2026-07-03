@@ -1,0 +1,7 @@
+# Recommended ignores
+.env
+__pycache__/
+*.pyc
+venv/
+.env.local
+*.db
