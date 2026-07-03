@@ -1,6 +1,10 @@
-# Requirements for EthioBingo
-# Add Python package requirements here, for example:
 fastapi
 uvicorn[standard]
 sqlalchemy
-psycopg[binary]
+psycopg2-binary
+python-dotenv
+python-multipart
+jinja2
+websockets
+httpx
+python-telegram-bot
