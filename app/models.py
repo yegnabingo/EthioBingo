@@ -66,6 +66,12 @@ class Card(Base):
 
     data = Column(Text)
 
+    is_taken = Column(Boolean, default=False)
+
+    current_game_id = Column(Integer, nullable=True)
+
+    reserved_by = Column(Integer, nullable=True)
+
 
 class PlayerCard(Base):
     __tablename__ = "player_cards"
