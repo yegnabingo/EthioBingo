@@ -162,27 +162,6 @@ class Admin(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
-class Game(Base):
-    __tablename__ = "games"
-
-    id = Column(Integer, primary_key=True)
-
-    game_no = Column(Integer, unique=True, index=True)
-
-    status = Column(String, default="WAITING")
-
-    ticket_price = Column(Float, default=0)
-
-    total_players = Column(Integer, default=0)
-
-    total_pool = Column(Float, default=0)
-
-    winner_id = Column(Integer, nullable=True)
-
-    started_at = Column(DateTime)
-
-    ended_at = Column(DateTime)
-
 
 class Ticket(Base):
     __tablename__ = "tickets"
