@@ -67,6 +67,95 @@ class Card(Base):
     data = Column(Text)
 
 
+class PlayerCard(Base):
+    __tablename__ = "player_cards"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    game_id = Column(Integer, index=True)
+
+    user_id = Column(Integer, index=True)
+
+    card_number = Column(Integer)
+
+    is_winner = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Game(Base):
+    __tablename__ = "games"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    status = Column(String, default="waiting")
+
+    started_at = Column(DateTime, nullable=True)
+
+    finished_at = Column(DateTime, nullable=True)
+
+    winner_id = Column(Integer, nullable=True)
+
+    winning_card = Column(Integer, nullable=True)
+
+    prize = Column(Float, default=0)
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(Integer, index=True)
+
+    amount = Column(Float)
+
+    transaction_type = Column(String)
+
+    status = Column(String, default="pending")
+
+    telegram_message_id = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    game_fee = Column(Float, default=10)
+
+    countdown_seconds = Column(Integer, default=30)
+
+    draw_interval = Column(Float, default=2.0)
+
+    max_cards = Column(Integer, default=5)
+
+    min_deposit = Column(Float, default=20)
+
+    min_withdraw = Column(Float, default=50)
+
+    jackpot_percent = Column(Float, default=10)
+
+    is_registration_open = Column(Boolean, default=True)
+
+
+class Admin(Base):
+    __tablename__ = "admins"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    telegram_id = Column(String, unique=True)
+
+    username = Column(String)
+
+    full_name = Column(String)
+
+    is_super_admin = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class Game(Base):
     __tablename__ = "games"
 
