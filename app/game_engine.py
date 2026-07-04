@@ -2,7 +2,7 @@ import random
 import asyncio
 
 from sqlalchemy.orm import Session
-
+from app.websocket_manager import manager
 from app.database import SessionLocal
 from app.models import Game, Setting
 
@@ -66,11 +66,32 @@ class GameEngine:
 
             self.called_numbers.append(number)
 
-            print("CALL:", number)
+            letter = ""
+
+            if number <= 15:
+                letter = "B"
+            elif number <= 30:
+                letter = "I"
+            elif number <= 45:
+                letter = "N"
+            elif number <= 60:
+                letter = "G"
+            else:
+                letter = "O"
+
+            await manager.broadcast({
+
+               "type": "ball",
+
+               "letter": letter,
+
+               "number": number
+
+            })
 
             await asyncio.sleep(interval)
 
-        self.running = False
+                self.running = False
 
 
-engine = GameEngine()
+                engine = GameEngine()
