@@ -1,7 +1,7 @@
 import asyncio
 from fastapi import WebSocket
 from app.websocket_manager import manager
-from app.game_engine import engine
+from app.database import Base, engine as db_engine
 from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -11,9 +11,10 @@ from app.schemas import PickCardRequest, PickCardResponse
 from app.card_service import reserve_card
 from app.database import SessionLocal
 from app.models import User, Game
+from fastapi import FastAPI
 
 # Create database tables
-Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=db_engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
