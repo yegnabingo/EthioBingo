@@ -1,14 +1,27 @@
 from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 
+from contextlib import asynccontextmanager
 from app.database import Base, engine
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+
+    print("=" * 40)
+    print(" Pick & Win V3 Starting...")
+    print("=" * 40)
+
+    yield
+
+    print("Server Stopped")
+
 app = FastAPI(
     title="Pick & Win V3",
-    version="3.0.0"
+    version="3.0.0",
+    lifespan=lifespan
 )
 
 # Static files
