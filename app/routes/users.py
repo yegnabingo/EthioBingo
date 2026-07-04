@@ -44,3 +44,22 @@ def register_user(
     db.refresh(new_user)
 
     return new_user
+
+@router.get("/{telegram_id}", response_model=UserResponse)
+def get_user(
+    telegram_id: str,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(
+        User.telegram_id == telegram_id
+    ).first()
+
+    if not user:
+        return {
+            "telegram_id": telegram_id,
+            "telegram_name": "",
+            "first_name": "Guest",
+            "balance": 0
+        }
+
+    return user
