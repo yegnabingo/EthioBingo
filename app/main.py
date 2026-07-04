@@ -18,6 +18,7 @@ from app.routes.deposit import router as deposit_router
 from app.routes.admin import router as admin_router
 from app.routes.withdraw import router as withdraw_router
 from app.routes.games import router as games_router
+from fastapi.responses import FileResponse
 
 # Create database tables
 Base.metadata.create_all(bind=db_engine)
@@ -74,10 +75,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def root():
-    return {
-        "app": "Pick & Win V3",
-        "status": "Running"
-    }
+    return FileResponse("static/index.html")
 
 
 @app.get("/health")
