@@ -1,3 +1,6 @@
+import asyncio
+
+from app.game_engine import engine
 from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 
@@ -26,6 +29,13 @@ app = FastAPI(
 )
 
 initialize_database()
+
+
+@app.on_event("startup")
+async def startup_event():
+
+    asyncio.create_task(engine.start_game())
+
 
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
