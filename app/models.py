@@ -62,9 +62,17 @@ class Game(Base):
 
     id = Column(Integer, primary_key=True)
 
-    game_no = Column(Integer)
+    game_no = Column(Integer, unique=True, index=True)
 
-    status = Column(String)
+    status = Column(String, default="WAITING")
+
+    ticket_price = Column(Float, default=0)
+
+    total_players = Column(Integer, default=0)
+
+    total_pool = Column(Float, default=0)
+
+    winner_id = Column(Integer, nullable=True)
 
     started_at = Column(DateTime)
 
@@ -81,6 +89,12 @@ class Ticket(Base):
     game_id = Column(Integer, ForeignKey("games.id"))
 
     picked_numbers = Column(Text)
+
+    card_data = Column(Text)
+
+    is_winner = Column(Boolean, default=False)
+
+    prize = Column(Float, default=0)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
