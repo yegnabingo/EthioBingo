@@ -24,6 +24,20 @@ class UserResponse(BaseModel):
 
 
 # -------------------------
+# Card Pick
+# -------------------------
+
+class PickCardRequest(BaseModel):
+    telegram_id: str
+    card_number: int
+
+
+class PickCardResponse(BaseModel):
+    success: bool
+    message: str
+
+
+# -------------------------
 # Deposit
 # -------------------------
 
