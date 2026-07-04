@@ -13,6 +13,8 @@ from app.database import SessionLocal
 from app.models import User, Game
 from fastapi import FastAPI
 from app.routes.cards import router as cards_router
+from app.routes.users import router as users_router
+from app.routes.deposit import router as deposit_router
 
 # Create database tables
 Base.metadata.create_all(bind=db_engine)
@@ -57,6 +59,8 @@ async def startup_event():
     asyncio.create_task(engine.start_game())
 
 app.include_router(cards_router)
+app.include_router(users_router)
+app.include_router(deposit_router)
 
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
