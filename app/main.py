@@ -12,6 +12,7 @@ from app.card_service import reserve_card
 from app.database import SessionLocal
 from app.models import User, Game
 from fastapi import FastAPI
+from app.routes.cards import router as cards_router
 
 # Create database tables
 Base.metadata.create_all(bind=db_engine)
@@ -48,53 +49,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
         manager.disconnect(websocket)
 
-@app.post("/api/pick", response_model=PickCardResponse)
-def pick_card(request: PickCardRequest):
-
-    db = SessionLocal()
-
-    try:
-
-        user = db.query(User).filter(
-            User.telegram_id == request.telegram_id
-        ).first()
-
-        if not user:
-            return PickCardResponse(
-                success=False,
-                message="User not found"
-            )
-
-        game = db.query(Game).filter(
-            Game.status == "running"
-        ).first()
-
-        if not game:
-            return PickCardResponse(
-                success=False,
-                message="No active game"
-            )
-
-        success, result = reserve_card(
-            db=db,
-            card_number=request.card_number,
-            user_id=user.id,
-            game_id=game.id
-        )
-
-        if not success:
-            return PickCardResponse(
-                success=False,
-                message=result
-            )
-
-        return PickCardResponse(
-            success=True,
-            message="Card reserved successfully"
-        )
-
-    finally:
-        db.close()
         
 initialize_database()
 @app.on_event("startup")
@@ -102,6 +56,7 @@ async def startup_event():
 
     asyncio.create_task(engine.start_game())
 
+app.include_router(cards_router)
 
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
