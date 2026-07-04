@@ -17,6 +17,7 @@ from app.routes.users import router as users_router
 from app.routes.deposit import router as deposit_router
 from app.routes.admin import router as admin_router
 from app.routes.withdraw import router as withdraw_router
+from app.routes.games import router as games_router
 
 # Create database tables
 Base.metadata.create_all(bind=db_engine)
@@ -65,6 +66,7 @@ app.include_router(users_router)
 app.include_router(deposit_router)
 app.include_router(admin_router)
 app.include_router(withdraw_router)
+app.include_router(games_router)
 
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
