@@ -54,5 +54,5 @@ def create_withdraw(
 
     return {
         "success": True,
-        "message": "Withdrawl request sent to admin"
+        "message": "Withdraw request sent to admin"
     }
