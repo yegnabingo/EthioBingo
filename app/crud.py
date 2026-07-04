@@ -33,3 +33,39 @@ def create_user(
     db.refresh(user)
 
     return user
+
+
+# ==========================
+# GAMES
+# ==========================
+
+def create_game(db: Session, game_no: int, ticket_price: float):
+    game = models.Game(
+        game_no=game_no,
+        ticket_price=ticket_price,
+        status="WAITING"
+    )
+
+    db.add(game)
+    db.commit()
+    db.refresh(game)
+
+    return game
+
+
+def get_current_game(db: Session):
+    return (
+        db.query(models.Game)
+        .order_by(models.Game.id.desc())
+        .first()
+    )
+
+
+def update_game_status(db: Session, game, status: str):
+    game.status = status
+
+    db.commit()
+
+    db.refresh(game)
+
+    return game
