@@ -1,9 +1,9 @@
 import asyncio
-
+from fastapi import WebSocket
+from app.websocket_manager import manager
 from app.game_engine import engine
 from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
-
 from contextlib import asynccontextmanager
 from app.database import Base, engine
 from app.init_db import initialize_database
@@ -28,6 +28,21 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+
+    await manager.connect(websocket)
+
+    try:
+
+        while True:
+
+            await websocket.receive_text()
+
+    except:
+
+        manager.disconnect(websocket)
+        
 initialize_database()
 
 
