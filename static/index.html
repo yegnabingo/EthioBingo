@@ -1,15 +1,56 @@
-<!-- static/index.html -->
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>EthioBingo</title>
-  <link rel="stylesheet" href="/static/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pick & Win V3</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
+
 <body>
-  <!-- Placeholder index.html -->
-  <h1>EthioBingo</h1>
-  <div id="app"></div>
-  <script src="/static/app.js"></script>
+
+<div class="container">
+
+    <h1>🎯 Pick & Win V3</h1>
+
+    <div class="card profile">
+
+        <h3>Player</h3>
+
+        <p id="username">Loading...</p>
+
+        <h2 id="balance">0 ETB</h2>
+
+    </div>
+
+    <button id="pickBtn">
+        🎴 Pick Card
+    </button>
+
+    <button id="depositBtn">
+        💰 Deposit
+    </button>
+
+    <button id="withdrawBtn">
+        💸 Withdraw
+    </button>
+
+    <div class="status">
+
+        <h3>Current Game</h3>
+
+        <p id="gameStatus">
+            Loading...
+        </p>
+
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+
 </body>
 </html>
