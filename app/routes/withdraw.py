@@ -20,9 +20,9 @@ def get_db():
 
 
 @router.post("/request")
-def create_withdrawl(
+def create_withdraw(
     telegram_id: str,
-    withdraw: WithdrawlCreate,
+    withdraw: WithdrawCreate,
     db: Session = Depends(get_db)
 ):
 
