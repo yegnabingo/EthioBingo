@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 
 from contextlib import asynccontextmanager
 from app.database import Base, engine
+from app.init_db import initialize_database
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -23,6 +24,8 @@ app = FastAPI(
     version="3.0.0",
     lifespan=lifespan
 )
+
+initialize_database()
 
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
