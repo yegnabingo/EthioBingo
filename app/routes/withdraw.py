@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import User, Withdrawal
-from app.schemas import WithdrawlCreate
+from app.schemas import WithdrawCreate
 
 router = APIRouter(
     prefix="/api/withdraw",
@@ -42,11 +42,11 @@ def create_withdraw(
             "message": "Insufficient balance"
         }
 
-    new_withdraw = Withdrawl(
+    new_withdraw = Withdrawal(
         user_id=user.id,
         amount=withdraw.amount,
         wallet=withdraw.wallet,
-        status="pending"
+        status="Pending"
     )
 
     db.add(new_withdraw)
