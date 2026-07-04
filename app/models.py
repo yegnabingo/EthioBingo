@@ -57,6 +57,16 @@ class Withdrawal(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class Card(Base):
+    __tablename__ = "cards"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    card_number = Column(Integer, unique=True, index=True)
+
+    data = Column(Text)
+
+
 class Game(Base):
     __tablename__ = "games"
 
