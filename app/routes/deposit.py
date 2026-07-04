@@ -40,7 +40,7 @@ def create_deposit(
         user_id=user.id,
         amount=deposit.amount,
         tx_hash=deposit.tx_hash,
-        status="pending"
+        status="Pending"
     )
 
     db.add(new_deposit)
