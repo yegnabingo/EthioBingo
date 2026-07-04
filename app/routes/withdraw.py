@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
-from app.models import User, Withdraw
-from app.schemas import WithdrawCreate
+from app.models import User, Withdrawal
+from app.schemas import WithdrawlCreate
 
 router = APIRouter(
     prefix="/api/withdraw",
@@ -20,9 +20,9 @@ def get_db():
 
 
 @router.post("/request")
-def create_withdraw(
+def create_withdrawl(
     telegram_id: str,
-    withdraw: WithdrawCreate,
+    withdraw: WithdrawlCreate,
     db: Session = Depends(get_db)
 ):
 
@@ -42,7 +42,7 @@ def create_withdraw(
             "message": "Insufficient balance"
         }
 
-    new_withdraw = Withdraw(
+    new_withdraw = Withdrawl(
         user_id=user.id,
         amount=withdraw.amount,
         wallet=withdraw.wallet,
@@ -54,5 +54,5 @@ def create_withdraw(
 
     return {
         "success": True,
-        "message": "Withdraw request sent to admin"
+        "message": "Withdrawl request sent to admin"
     }
