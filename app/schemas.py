@@ -1,16 +1,49 @@
-# app/schemas.py
-# Pydantic schemas / serializers placeholder
-
 from pydantic import BaseModel
+from typing import List
 
-class UserBase(BaseModel):
-    username: str
 
-class UserCreate(UserBase):
-    password: str
+# -------------------------
+# User
+# -------------------------
 
-class UserRead(UserBase):
+class UserCreate(BaseModel):
+    telegram_id: str
+    telegram_name: str
+    first_name: str
+
+
+class UserResponse(BaseModel):
     id: int
+    telegram_id: str
+    telegram_name: str
+    first_name: str
+    balance: float
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+
+# -------------------------
+# Deposit
+# -------------------------
+
+class DepositCreate(BaseModel):
+    amount: float
+    tx_hash: str
+
+
+# -------------------------
+# Withdraw
+# -------------------------
+
+class WithdrawCreate(BaseModel):
+    amount: float
+    wallet: str
+
+
+# -------------------------
+# Ticket
+# -------------------------
+
+class TicketCreate(BaseModel):
+    numbers: List[int]
