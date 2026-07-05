@@ -340,3 +340,143 @@ button {
     cursor: not-allowed;
     opacity: 0.6;
 }
+
+/* 🔴 የኳሶች እርስ በርስ መደራረቢያ ስታይል (Overlapping Balls) */
+.recent-balls-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    padding: 20px 10px;
+    background: #11141a;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    min-height: 60px;
+}
+
+.overlapping-ball {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    border: 2px solid #fff;
+    margin-left: -12px; /* 💡 ኳሶቹ እርስ በእርስ እንዲደራረቡ የሚያደርገው ሚስጥር */
+    position: relative;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    transition: transform 0.2s;
+}
+
+/* ኳሱ ውስጥ ያሉት የፊደል እና የቁጥር አቀማመጥ */
+.overlapping-ball .b-letter {
+    font-size: 10px;
+    line-height: 1;
+    opacity: 0.9;
+}
+.overlapping-ball .b-number {
+    font-size: 15px;
+    line-height: 1;
+}
+
+/* 🌟 አሁን የወረደው ዋነኛው ትልቅ ኳስ (በግራ በኩል ያለው) */
+.overlapping-ball.current-live-ball {
+    width: 54px;
+    height: 54px;
+    font-size: 18px;
+    margin-left: 0;
+    z-index: 100;
+    transform: scale(1.1);
+    border: 3px solid #ffd700;
+}
+.overlapping-ball.current-live-ball .b-letter { font-size: 12px; }
+.overlapping-ball.current-live-ball .b-number { font-size: 20px; }
+
+
+/* 🎴 የጎን Next/Back አዝራሮች እና የካርድ ሌአውት */
+.main-slider-layout {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    background: #151821;
+    padding: 10px;
+    border-radius: 14px;
+    box-sizing: border-box;
+}
+
+.side-nav-btn {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.15);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: 0.2s;
+}
+.side-nav-btn:hover {
+    background: #ffd700;
+    color: black;
+}
+
+.card-display-center {
+    flex: 1;
+    margin: 0 10px;
+    max-width: 290px;
+}
+
+.card-title-label {
+    color: #ffd700;
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+/* የካርዱ መነሻ የ B I N G O ራስጌ ፊደላት */
+.bingo-header-letters {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-bottom: 8px;
+    text-align: center;
+}
+.bingo-header-letters span {
+    color: white;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 4px 0;
+    border-radius: 4px;
+}
+
+.bingo-card-grid-5x5 {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+}
+
+.bingo-cell {
+    background: #242834;
+    color: #fff;
+    text-align: center;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 10px 0;
+    border-radius: 8px;
+    border: 1px solid #333949;
+    user-select: none;
+}
+
+.bingo-cell.free-star {
+    background: #ffd700 !important;
+    color: #000 !important;
+    font-size: 18px;
+}
