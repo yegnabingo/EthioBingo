@@ -23,15 +23,18 @@ if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
 document.getElementById("username").innerText = username;
 
 async function loadUser() {
-    const res = await fetch(API + "/api/users/" + telegramId);
+    try {
+        const res = await fetch(API + "/api/users/" + telegramId);
+        const user = await res.json();
 
-    const user = await res.json();
+        document.getElementById("username").innerText =
+            user.first_name;
 
-    document.getElementById("username").innerText =
-        user.first_name;
-
-    document.getElementById("balance").innerText =
-        user.balance + " ETB";
+        document.getElementById("balance").innerText =
+            user.balance + " ETB";
+    } catch (e) {
+        console.log(e);
+    }
 }
 
 async function loadGame() {
