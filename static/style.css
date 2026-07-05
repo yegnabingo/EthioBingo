@@ -218,7 +218,7 @@ body{
 
 }
 
-.info{
+.infoBox{
 
     flex:1;
 
@@ -240,7 +240,7 @@ body{
 
     display:grid;
 
-    grid-template-columns:40px repeat(15,1fr);
+    grid-template-columns:repeat(15,1fr);
 
     align-items:center;
 
@@ -270,7 +270,7 @@ body{
 
     display:grid;
 
-    grid-template-columns:40px repeat(15,1fr);
+    grid-template-columns:repeat(15,1fr);
 
     gap:6px;
 
