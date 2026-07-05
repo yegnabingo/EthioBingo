@@ -253,20 +253,20 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Pick & Win V3", version="3.0.0", lifespan=lifespan)
 
-# 📡 ዌብሶኬት ማገናኛ ሎጂክ - 💡 [ማስተካከያ] የ 403 Forbidden ስህተትን ለመፍታት ቼኩ ተነስቷል
+# 📡 ዌብሶኬት ማገናኛ ሎጂክ - [ትክክለኛው ማስተካከያ]
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    # ሁሉንም ዓይነት የገጽ ጥያቄዎችን (Origins) እንዲቀበል ይፈቀድለታል
-    await websocket.accept() 
+    # 💡 እዚህ ላይ የነበረው 'await websocket.accept()' ተነስቷል!
+    # ምክንያቱም 'manager.connect(websocket)' በውስጡ በራሱ አክሴፕት ያደርጋል።
     await manager.connect(websocket)
     try:
         while True:
+            # ከብሮውዘሩ የሚላክ ዳታ ካለ ዝም ብሎ መቀበል (ግንኙነቱ እንዳይዘጋ)
             await websocket.receive_text()
     except Exception as e:
         print(f"Websocket disconnected: {e}")
     finally:
         manager.disconnect(websocket)
-
 
 # የራውተሮች ማገናኛ
 from app.routes.cards import router as cards_router
