@@ -396,87 +396,119 @@ button {
 .overlapping-ball.current-live-ball .b-number { font-size: 20px; }
 
 
-/* 🎴 የጎን Next/Back አዝራሮች እና የካርድ ሌአውት */
+/* 🎴 የካርድ እና የጎን ፍላጻዎች ዋና መዋቅር ማስተካከያ */
 .main-slider-layout {
     display: flex;
     justify-content: space-between;
     align-items: center;
     width: 100%;
+    max-width: 100%;
     background: #151821;
-    padding: 10px;
+    padding: 6px 4px; /* ቦታ ለመቆጠብ ማጥበብ */
     border-radius: 14px;
     box-sizing: border-box;
+    position: relative;
+    margin-bottom: 5px; /* ከታች ካለው የቢንጎ በተን ጋር እንዳይጣበቅ */
 }
 
-.side-nav-btn {
-    background: rgba(255, 255, 255, 0.08);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.15);
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    font-size: 18px;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: 0.2s;
-}
-.side-nav-btn:hover {
-    background: #ffd700;
-    color: black;
-}
-
+/* 🎯 የካርዱ መካከለኛ ክፍል */
 .card-display-center {
     flex: 1;
-    margin: 0 10px;
-    max-width: 290px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 260px; /* በሞባይል ስክሪን ልክ የተጠበበ */
 }
 
-.card-title-label {
-    color: #ffd700;
-    text-align: center;
-    font-weight: bold;
-    margin-bottom: 8px;
-    font-size: 14px;
-}
-
-/* የካርዱ መነሻ የ B I N G O ራስጌ ፊደላት */
+/* 📍 ፊደላቱ ከታች ካሉት ቁጥሮች ጋር ፍጹም ትይዩ (Align) ማድረጊያ */
 .bingo-header-letters {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 6px;
-    margin-bottom: 8px;
+    gap: 5px; /* ከታች ካለው ማትሪክስ gap ጋር እኩል መሆን አለበት */
+    width: 100%;
+    margin-bottom: 6px;
     text-align: center;
+    box-sizing: border-box;
 }
+
 .bingo-header-letters span {
     color: white;
     font-weight: bold;
-    font-size: 16px;
-    padding: 4px 0;
-    border-radius: 4px;
+    font-size: 14px;
+    padding: 6px 0;
+    border-radius: 6px;
+    text-shadow: 1px 1px 2px #000;
+    display: block;
+    width: 100%; /* ሙሉ ሳጥኑን እንዲይዝ */
 }
 
+/* 🎴 የ 5x5 ማትሪክስ ሳጥኖች */
 .bingo-card-grid-5x5 {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 6px;
+    gap: 5px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
+/* እያንዳንዱ የቁጥር ሳጥን ቁመትና ስፋት */
 .bingo-cell {
     background: #242834;
     color: #fff;
     text-align: center;
     font-weight: bold;
-    font-size: 16px;
-    padding: 10px 0;
+    font-size: 15px; 
+    padding: 10px 0; /* ቁመቱን ትንሽ ቀንሰነዋል ቦታ ለመቆጠብ */
     border-radius: 8px;
     border: 1px solid #333949;
     user-select: none;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-.bingo-cell.free-star {
-    background: #ffd700 !important;
-    color: #000 !important;
-    font-size: 18px;
+/* ◀ እና ▶ የጎን ፍላጻዎች */
+.side-nav-btn {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    width: 32px; /* በሞባይል እንዳይገፋ ትንሽ የቀነሰ */
+    height: 32px;
+    border-radius: 50%;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+/* 🚨 የታችኞቹ Refresh እና Exit አዝራሮች ወደ ላይ ከፍ እንዲሉ ማስተካከያ */
+#drawScreen {
+    padding-bottom: 70px !important; /* ከታች ለነካኪው ባር በቂ ክፍት ቦታ መስጠት */
+    box-sizing: border-box;
+}
+
+/* አዝራሮቹ ስልኩ ግርጌ ላይ ተደብቀው እንዳይቀሩ መጠንና ማርጅናቸውን ማስተካከል */
+.draw-controls-row, 
+#drawScreen button.refresh-btn, 
+#drawScreen .control-buttons {
+    margin-top: 10px !important;
+    margin-bottom: 5px !important;
+}
+
+/* በዕጣ ገጹ ላይ ያለው ትልቁ BINGO አዝራር ስታይል ማሳመሪያ */
+.bingo-claim-btn {
+    width: 100%;
+    max-width: 260px;
+    padding: 10px 0 !important;
+    font-size: 16px !important;
+    font-weight: bold;
+    margin: 5px auto !important;
 }
