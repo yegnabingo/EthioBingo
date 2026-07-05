@@ -122,6 +122,76 @@ body{
     font-weight:bold;
 }
 
+.game-area{
+    margin-top:20px;
+}
+
+.timer{
+    text-align:center;
+    font-size:28px;
+    font-weight:bold;
+    color:#ffcc00;
+    margin-bottom:10px;
+}
+
+.pick-info{
+    text-align:center;
+    color:#bbb;
+    margin-bottom:15px;
+}
+
+.card-grid{
+    display:grid;
+    grid-template-columns:repeat(10,1fr);
+    gap:8px;
+    margin-bottom:20px;
+}
+
+.card-number{
+    background:#1f1f1f;
+    color:white;
+    border:1px solid #444;
+    border-radius:10px;
+    height:42px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    cursor:pointer;
+    transition:.2s;
+    font-weight:bold;
+}
+
+.card-number:hover{
+    background:#2f80ed;
+}
+
+.card-number.selected{
+    background:#27ae60;
+}
+
+.card-number.taken{
+    background:#c0392b;
+    cursor:not-allowed;
+    opacity:.8;
+}
+
+.actions{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+
+#confirmBtn{
+    background:#27ae60;
+    color:white;
+    border:none;
+    padding:15px;
+    border-radius:12px;
+    font-size:18px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
 #confirmBtn:hover{
-    background:#19a53d;
+    background:#229954;
 }
