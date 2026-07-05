@@ -1,8 +1,22 @@
+// ==========================================
+// 📡 የቴሌግራም እና የሰርቨር ግንኙነት ቅንብር
+// ==========================================
 const tg = window.Telegram ? window.Telegram.WebApp : null;
-let telegramId = "123456789"; 
-if (tg?.initDataUnsafe?.user) {
-    telegramId = tg.initDataUnsafe.user.id.toString();
+let telegramId = "123456789"; // ፎልባክ ዲሞ አይዲ (ዳታቤዝ ውስጥ መኖር አለበት)
+let username = "Guest Player";
+
+if (tg) {
+    tg.ready();
+    tg.expand();
+    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        telegramId = tg.initDataUnsafe.user.id.toString();
+        username = tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name || "Player";
+    }
 }
+
+// ⚠️ ለሙከራ እንዲመችህ፡ በብሮውዘር (Chrome/Safari) ስትከፍተው "User not found" እንዳይልህ 
+// በዳታቤዝህ ውስጥ ያለውን ትክክለኛ የመጀመሪያ ተጫዋች የቴሌግራም ID እዚህ ላይ መጻፍ ትችላለህ።
+
 
 const pickScreen = document.getElementById("pickScreen");
 const drawScreen = document.getElementById("drawScreen");
