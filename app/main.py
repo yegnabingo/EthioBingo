@@ -66,11 +66,28 @@ async def startup_event():
 
 async def run_automated_game_loop():
     """
-    ይህ ፈንክሽን በየ 30 ሰከንዱ አዲስ ዙር እየጀመረ፣ 
-    ሰዓቱ ሲያልቅ ለሁሉም ተጫዋች በዌብሶኬት (manager) እጣዎችን የሚጥል ዋናው ሞተር ነው!
+    በየ 30 ሰከንዱ ዙር እየቀያየረ የዳታቤዙን ሁኔታ 'running' የሚያደርግ 
+    እና እጣዎችን የሚጥለው ዋናው ሞተር
     """
     import random
+    from app.database import SessionLocal
+    from app.models import Game # የጨዋታ ሞዴልህን ያመጣል
+
     while True:
+        db = SessionLocal()
+        try:
+            # 1. በዳታቤዝ ውስጥ አዲስ የነቃ ጨዋታ መፍጠር ወይም ያለውን 'running' ማድረግ
+            active_game = db.query(Game).filter(Game.status == "running").first()
+            if not active_game:
+                active_game = Game(status="running")
+                db.add(active_game)
+                db.commit()
+                db.refresh(active_game)
+        except Exception as e:
+            print(f"Database game session error: {e}")
+        finally:
+            db.close()
+
         # --- ሀ. PICK PHASE (30 ሰከንድ መቁጠሪያ) ---
         for seconds_left in range(30, -1, -1):
             await manager.broadcast({
@@ -80,32 +97,39 @@ async def run_automated_game_loop():
             })
             await asyncio.sleep(1)
         
-        # --- ለ. DRAW PHASE (30 ሰከንዱ ሲያልቅ በራሱ በቀጥታ) ---
+        # --- ለ. DRAW PHASE (በቀጥታ ይጀምራል) ---
         await manager.broadcast({
             "type": "phase_change",
             "phase": "DRAW"
         })
         
-        # 1-75 ቁጥሮችን በዘፈቀደ ማደባለቅ
         bingo_balls = list(range(1, 76))
         random.shuffle(bingo_balls)
         
         call_count = 0
         for ball in bingo_balls:
             call_count += 1
-            # ኳሱን ለሁሉም በዌብሶኬት በ2 ሰከንድ ልዩነት መላክ
             await manager.broadcast({
                 "type": "ball",
                 "number": ball,
                 "call_count": call_count
             })
             
-            # TODO: እዚህ ጋ `check_winner()` ፈንክሽን በመጨመር አሸናፊ ካለ ሉፑን ሰብሮ (break) መውጣት ይቻላል።
+            # TODO: እዚህ ጋ የዊነር ቼክ መጨመር ይቻላል
+            await asyncio.sleep(2) # በ2 ሰከንድ ልዩነት ጥሪ
             
-            await asyncio.sleep(2) # ⚡️ ልክ ባልከው ህግ መሰረት በ2 ሰከንድ ልዩነት ይጠራሉ
-            
-        # ዙሩ ሲያልቅ ለ5 ሰከንድ አርፎ እንደገና ወደ 30 ሰከንድ Pick Phase ይመለሳል
+        # ዙሩ ሲያልቅ ጨዋታውን በዳታቤዝ አጠናቅቆ ለቀጣዩ ማዘጋጀት
+        db = SessionLocal()
+        try:
+            active_game = db.query(Game).filter(Game.status == "running").first()
+            if active_game:
+                active_game.status = "finished"
+                db.commit()
+        finally:
+            db.close()
+
         await asyncio.sleep(5)
+
 
 # 5. ሁሉንም የኤፒአይ መንገዶች (Routers) ማገናኘት
 app.include_router(cards_router)
