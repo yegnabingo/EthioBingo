@@ -325,3 +325,18 @@ button {
     background: #c62828;
     color: white;
 }
+
+/* ለጊዜው የተመረጠ ግን ገና ያልተረጋገጠ ካርድ ቀለም (ለምሳሌ ሰማያዊ ወይም ብርቱካንማ) */
+.card-btn.selected-temp {
+    background-color: #ff9f43 !important;
+    color: white !important;
+    border: 2px solid #fff !important;
+}
+
+/* ሙሉ በሙሉ የተገዛ እና የተረጋገጠ ካርድ ቀለም */
+.card-btn.bought {
+    background-color: #2ed573 !important;
+    color: white !important;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
