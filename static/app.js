@@ -162,3 +162,31 @@ if (numberBoard) {
     );
 
 };
+
+// ==========================
+// WebSocket Connection
+// ==========================
+
+const protocol = location.protocol === "https:" ? "wss" : "ws";
+
+const socket = new WebSocket(
+    protocol + "://" + location.host + "/ws"
+);
+
+let callCount = 0;
+
+socket.onmessage = function(event){
+
+    const data = JSON.parse(event.data);
+
+    if(data.type !== "ball") return;
+
+    callCount++;
+
+    document.getElementById("callCount").innerText = callCount;
+
+    document
+        .getElementById("ball-" + data.number)
+        ?.classList.add("called");
+
+};
