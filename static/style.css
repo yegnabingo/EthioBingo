@@ -192,6 +192,10 @@ body{
     cursor:pointer;
 }
 
+#confirmBtn:hover{
+    background:#229954;
+}
+
 /* ========================= */
 /* Bingo Draw Board */
 /* ========================= */
@@ -310,6 +314,78 @@ body{
 
 }
 
-#confirmBtn:hover{
-    background:#229954;
+/* ========================= */
+/* Player Bingo Card */
+/* ========================= */
+
+.bingoCard{
+
+    margin-top:25px;
+
+    background:#1b2233;
+
+    padding:18px;
+
+    border-radius:18px;
+
+}
+
+.cardTitle{
+
+    text-align:center;
+
+    color:#fff;
+
+    font-size:22px;
+
+    font-weight:bold;
+
+    margin-bottom:15px;
+
+}
+
+.playerCard{
+
+    display:grid;
+
+    grid-template-columns:repeat(5,1fr);
+
+    gap:8px;
+
+}
+
+.cell{
+
+    height:55px;
+
+    border-radius:10px;
+
+    background:#111827;
+
+    color:white;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    font-weight:bold;
+
+    font-size:18px;
+
+}
+
+.free{
+
+    background:gold;
+
+    color:#111;
+
+}
+
+.marked{
+
+    background:#7c3aed;
+
 }
