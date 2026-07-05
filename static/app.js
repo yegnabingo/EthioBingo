@@ -1,66 +1,91 @@
-const API = window.location.origin;
+const grid = document.getElementById("grid");
+const timerText = document.getElementById("timer");
 
-// Telegram WebApp
-const tg = window.Telegram?.WebApp;
-if (tg) {
-    tg.ready();
-    tg.expand();
+let selected = [];
+let seconds = 30;
+
+// Demo player info
+document.getElementById("username").innerText = "Test Player";
+document.getElementById("balance").innerText = "0 ETB";
+
+// Create cards 1-200
+for (let i = 1; i <= 200; i++) {
+
+    const btn = document.createElement("button");
+
+    btn.className = "cardBtn";
+
+    btn.innerText = i;
+
+    btn.dataset.id = i;
+
+    btn.onclick = () => {
+
+        if (btn.classList.contains("locked"))
+            return;
+
+        if (btn.classList.contains("selected")) {
+
+            btn.classList.remove("selected");
+
+            selected = selected.filter(x => x != i);
+
+            return;
+        }
+
+        if (selected.length >= 5) {
+
+            alert("Maximum 5 cards.");
+
+            return;
+        }
+
+        btn.classList.add("selected");
+
+        selected.push(i);
+
+    };
+
+    grid.appendChild(btn);
+
 }
 
-let telegramId = "";
-let username = "Guest";
+// Timer
+const timer = setInterval(() => {
 
-// Read Telegram user if available
-if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-    telegramId = String(tg.initDataUnsafe.user.id);
-    username = tg.initDataUnsafe.user.first_name || "Player";
-} else {
-    // Temporary for browser testing
-    telegramId = "123456789";
-    username = "Test Player";
-}
+    seconds--;
 
-document.getElementById("username").innerText = username;
+    timerText.innerText = seconds;
 
-async function loadUser() {
-    try {
-        const res = await fetch(API + "/api/users/" + telegramId);
-        const user = await res.json();
+    if (seconds <= 0) {
 
-        document.getElementById("username").innerText =
-            user.first_name;
+        clearInterval(timer);
 
-        document.getElementById("balance").innerText =
-            user.balance + " ETB";
-    } catch (e) {
-        console.log(e);
+        document.getElementById("confirmBtn").disabled = true;
+
+        alert("Pick Phase Finished.\nNext: Bingo Draw");
+
+        // Next screen will be connected here.
+
     }
-}
 
-async function loadGame() {
-    try {
-        const res = await fetch(API + "/api/games/current");
-        const game = await res.json();
+},1000);
 
-        document.getElementById("gameStatus").innerText =
-            game.status || "Waiting...";
-    } catch (e) {
-        document.getElementById("gameStatus").innerText =
-            "Server Offline";
+// Confirm
+
+document.getElementById("confirmBtn").onclick = ()=>{
+
+    if(selected.length==0){
+
+        alert("Select at least one card.");
+
+        return;
+
     }
-}
 
-document.getElementById("pickBtn").onclick = () => {
-    alert("Pick Card page will be connected next.");
+    alert(
+        "Cards Selected:\n\n"+
+        selected.join(", ")
+    );
+
 };
-
-document.getElementById("depositBtn").onclick = () => {
-    alert("Deposit feature coming next.");
-};
-
-document.getElementById("withdrawBtn").onclick = () => {
-    alert("Withdraw feature coming next.");
-};
-
-loadUser();
-loadGame();
