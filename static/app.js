@@ -190,3 +190,42 @@ socket.onmessage = function(event){
         ?.classList.add("called");
 
 };
+
+// =========================
+// Render Player Bingo Card
+// =========================
+
+function renderPlayerCard(card){
+
+    const board = document.getElementById("playerCard");
+
+    board.innerHTML = "";
+
+    card.forEach(row=>{
+
+        row.forEach(value=>{
+
+            const cell=document.createElement("div");
+
+            cell.className="cell";
+
+            if(value==="FREE"){
+
+                cell.classList.add("free");
+
+                cell.innerHTML="★";
+
+            }else{
+
+                cell.innerHTML=value;
+
+            }
+
+            board.appendChild(cell);
+
+        });
+
+    });
+
+}
+    
