@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pick & Win V3</title>
+    <title>Cartela Bingo</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
@@ -11,69 +11,81 @@
 
 <div class="container">
 
-    <div class="header">
-        <h1>🎯 Pick & Win V3</h1>
-        <div class="wallet">
-            💰 <span id="balance">0 ETB</span>
+    <div id="pickScreen">
+        <div class="app-title-zone">
+            <h2>Cartela Bingo</h2>
+            <small>mini app</small>
         </div>
-    </div>
 
-    <div class="playerInfo">
-        <div>
-            <small>Player</small>
-            <h3 id="username">Loading...</h3>
+        <div class="top-status-bar">
+            <div class="derash-badge">Derash 10 📋</div>
         </div>
-        <div>
-            <small>Round</small>
-            <h3 id="round">#0001</h3>
+
+        <div class="stats-grid">
+            <div class="stat-box"><div>Game</div><strong>604606</strong></div>
+            <div class="stat-box"><div>Bet</div><strong>10 ETB</strong></div>
+            <div class="stat-box"><div>Active Game</div><strong>84</strong></div>
+            <div class="stat-box"><div>Wallet</div><strong>0.00 ETB</strong></div>
+            <div class="stat-box"><div>Gift</div><strong>0.00 Coin</strong></div>
         </div>
-    </div>
 
-    <div class="timerBox">
-        ⏳ <span id="timer">30</span>s
-        <p>Pick up to 5 Cards</p>
-    </div>
+        <div id="cardGrid" class="card-grid-200"></div>
 
-    <div id="pickSection">
-        <div class="pick-info">
-            Select up to 5 Cards
-        </div>
-        <div id="cardGrid" class="card-grid"></div>
-    </div>
-
-    <div id="drawBoard" style="display: none;">
-        <div class="drawHeader">
-            <div class="infoBox">
-                Call <span id="callCount">0</span>
-            </div>
-            <div class="infoBox">
-                Players <span id="playerCount">0</span>
-            </div>
-            <div class="infoBox">
-                Stake <span>10 ETB</span>
+        <div class="timer-container-circle">
+            <div class="circle-timer">
+                <span id="timerText">30</span>
+                <small>Seconds</small>
             </div>
         </div>
 
-        <div id="bingoCard" class="bingoCard">
-            <div class="cardTitle">Your Bingo Card</div>
-            <div id="playerCard" class="playerCard"></div>
+        <div class="pick-actions">
+            <button id="confirmBtn" class="btn-confirm">CONFIRM PICKS</button>
+            <button id="pickRefreshBtn" class="btn-refresh-blue">Refresh</button>
         </div>
-
-        <div class="bingoLetters">
-            <span class="letter b">B</span>
-            <span class="letter i">I</span>
-            <span class="letter n">N</span>
-            <span class="letter g">G</span>
-            <span class="letter o">O</span>
-        </div>
-
-        <div id="numberBoard"></div>
     </div>
 
-    <div class="actions">
-        <button id="confirmBtn">✅ Confirm Picks</button>
-        <button id="depositBtn">💰 Deposit</button>
-        <button id="withdrawBtn">💸 Withdraw</button>
+
+    <div id="drawScreen" style="display: none;">
+        <div class="bingo-header">
+            <div class="info-group">
+                <div class="info-badge purple">Call <span id="callCount">60</span></div>
+                <div class="info-badge purple-light">Players <span id="playerCount">84</span></div>
+                <div class="info-badge green">Stake <span id="stakeAmt">10</span></div>
+                <div class="info-badge green-dark">Derash <span id="derashAmt">672</span></div>
+            </div>
+            <div class="game-meta">
+                <span>Game 572920</span>
+                <div class="bonus-toggle">
+                    <span>Bonus</span>
+                    <span class="toggle-icon">●</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bingo-board-75">
+            <div class="bingo-row"><div class="letter b">B</div><div id="b-container" class="num-row"></div></div>
+            <div class="bingo-row"><div class="letter i">I</div><div id="i-container" class="num-row"></div></div>
+            <div class="bingo-row"><div class="letter n">N</div><div id="n-container" class="num-row"></div></div>
+            <div class="bingo-row"><div class="letter g">G</div><div id="g-container" class="num-row"></div></div>
+            <div class="bingo-row"><div class="letter o">O</div><div id="o-container" class="num-row"></div></div>
+        </div>
+
+        <div class="recent-balls-row">
+            <div class="recent-ball live">29</div>
+            <div class="recent-ball">36</div>
+            <div class="recent-ball">22</div>
+            <div class="recent-ball">19</div>
+        </div>
+
+        <div class="player-card-wrapper">
+            <div id="playerBingoCard" class="player-bingo-card"></div>
+            <button id="bingoClaimBtn" class="btn-bingo-gold">BINGO</button>
+        </div>
+
+        <div class="draw-actions">
+            <button id="drawRefreshBtn" class="btn-refresh-blue">🔄 Refresh</button>
+            <button id="exitBtn" class="btn-exit-red">Exit</button>
+        </div>
     </div>
 
 </div>
