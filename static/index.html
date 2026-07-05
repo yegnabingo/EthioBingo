@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Pick & Win V3</title>
+
+<link rel="stylesheet" href="/static/style.css">
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+
+        <h1>🎯 Pick & Win V3</h1>
+
+        <div class="wallet">
+            💰 <span id="balance">0 ETB</span>
+        </div>
+
+    </div>
+
+    <div class="playerInfo">
+
+        <div>
+
+            <small>Player</small>
+
+            <h3 id="username">Loading...</h3>
+
+        </div>
+
+        <div>
+
+            <small>Round</small>
+
+            <h3 id="round">#0001</h3>
+
+        </div>
+
+    </div>
+
+    <div class="timerBox">
+
+        ⏳ <span id="timer">30</span>s
+
+        <p>Pick up to 5 Cards</p>
+
+    </div>
+
+    <!-- PICK SCREEN -->
+
+    <div id="pickSection">
+
+        <div class="pick-info">
+
+            Pick up to 5 cards
+
+        </div>
+
+        <div id="cardGrid" class="card-grid"></div>
+
+    </div>
+
+    <!-- DRAW SCREEN -->
+
+    <div id="drawBoard" class="hidden">
+
+        <div class="drawHeader">
+
+            <div class="infoBox">
+
+                Call
+
+                <span id="callCount">0</span>
+
+            </div>
+
+            <div class="infoBox">
+
+                Players
+
+                <span id="playerCount">0</span>
+
+            </div>
+
+            <div class="infoBox">
+
+                Stake
+
+                <span>10 ETB</span>
+
+            </div>
+
+        </div>
+
+        <div id="bingoCard" class="bingoCard">
+
+            <div class="cardTitle">
+
+                Your Bingo Card
+
+            </div>
+
+            <div id="playerCard" class="playerCard">
+
+            </div>
+
+        </div>
+
+        <div class="bingoLetters">
+
+            <span class="letter b">B</span>
+
+            <span class="letter i">I</span>
+
+            <span class="letter n">N</span>
+
+            <span class="letter g">G</span>
+
+            <span class="letter o">O</span>
+
+        </div>
+
+        <div id="numberBoard"></div>
+
+    </div>
+
+    <div class="actions">
+
+        <button id="confirmBtn">
+
+            ✅ Confirm Pick
+
+        </button>
+
+        <button id="depositBtn">
+
+            💰 Deposit
+
+        </button>
+
+        <button id="withdrawBtn">
+
+            💸 Withdraw
+
+        </button>
+
+    </div>
+
+</div>
+
+<script src="/static/app.js"></script>
+
+</body>
+</html>
