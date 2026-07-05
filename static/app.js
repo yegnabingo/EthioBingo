@@ -274,7 +274,6 @@ function updateRecentBallsUI() {
     }
 }
 
-// 🎴 [ማሻሻያ] ልክ በምስሉ ላይ እንዳለው Next/Back አዝራሮችን በጎን በኩል የማድረጊያ መዋቅር
 async function renderMyBoughtCards() {
     const container = document.getElementById("playerBingoCard");
     if (!container) return;
@@ -296,10 +295,12 @@ async function renderMyBoughtCards() {
         mainSliderLayout.className = "main-slider-layout";
 
         let html = `
-            <button class="side-nav-btn left-arrow" onclick="moveSlider(-1)">◀</button>
+            <button class="side-nav-btn" onclick="moveSlider(-1)">◀</button>
             
             <div class="card-display-center">
-                <div class="card-title-label">ካርድ #${activeCardNum} (${currentCardIndex + 1}/${selectedCards.length})</div>
+                <div class="card-title-label" style="color: #ffd700; font-weight: bold; margin-bottom: 6px; font-size: 13px;">
+                    ካርድ #${activeCardNum} (${currentCardIndex + 1}/${selectedCards.length})
+                </div>
                 
                 <div class="bingo-header-letters">
                     <span style="background:${getBingoColor('B')}">B</span>
@@ -317,10 +318,8 @@ async function renderMyBoughtCards() {
                 if (cell === "FREE") {
                     html += `<div class="bingo-cell free-star">★</div>`;
                 } else {
-                    // ከዚህ ቀደም የወረደ ኳስ ከሆነ ቀለሙ እንዳይጠፋ ማረጋገጫ
                     const isAlreadyDrawn = recentBallsList.some(b => b.num === cell);
                     if (isAlreadyDrawn) {
-                        // የቁጥሩን ፊደል መፈለግ
                         let letterPrefix = '';
                         if (cell <= 15) letterPrefix = 'B';
                         else if (cell <= 30) letterPrefix = 'I';
@@ -330,7 +329,7 @@ async function renderMyBoughtCards() {
                         
                         const savedColor = getBingoColor(letterPrefix);
                         html += `
-                            <div class="bingo-cell cell-${cell} marked-auto" style="background:${savedColor}; color:#fff; box-shadow: 0 0 12px ${savedColor};">
+                            <div class="bingo-cell cell-${cell} marked-auto" style="background:${savedColor} !important; color:#fff; box-shadow: 0 0 10px ${savedColor}; border-color: #fff;">
                                 ${cell}
                             </div>`;
                     } else {
@@ -347,7 +346,7 @@ async function renderMyBoughtCards() {
                 </div>
             </div>
             
-            <button class="side-nav-btn right-arrow" onclick="moveSlider(1)">▶</button>
+            <button class="side-nav-btn" onclick="moveSlider(1)">▶</button>
         `;
 
         mainSliderLayout.innerHTML = html;
