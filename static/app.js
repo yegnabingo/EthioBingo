@@ -111,15 +111,42 @@ const timer = setInterval(() => {
 
         document.getElementById("confirmBtn").disabled = true;
 
-        alert("Pick Phase Finished.\nNext: Bingo Draw");
+        document.getElementById("pickSection").style.display = "none";
 
-        // Next screen will be connected here.
+        document.getElementById("bingoSection").style.display = "block";
+
+        // ከጊዜያዊ demo card ጋር እየሞከርን ነው
+        renderPlayerCard(demoCard);
 
     }
 
 },1000);
 
 
+// =============================
+// Create Bingo Board (1-75)
+// =============================
+
+const numberBoard = document.getElementById("numberBoard");
+
+if (numberBoard) {
+
+    for (let n = 1; n <= 75; n++) {
+
+        const ball = document.createElement("div");
+
+        ball.className = "ball";
+
+        ball.id = "ball-" + n;
+
+        ball.innerText = n;
+
+        numberBoard.appendChild(ball);
+
+    }
+
+}
+    
 // ==========================
 // WebSocket Connection
 // ==========================
@@ -186,3 +213,18 @@ function renderPlayerCard(card){
 
 }
     
+const demoCard=[
+
+[4,25,37,51,61],
+
+[7,16,35,60,72],
+
+[5,20,"FREE",57,73],
+
+[14,17,39,48,75],
+
+[3,24,45,50,71]
+
+];
+
+renderPlayerCard(demoCard);
