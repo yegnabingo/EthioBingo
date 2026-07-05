@@ -1,63 +1,127 @@
-body{
+*{
     margin:0;
     padding:0;
-    font-family:Arial,sans-serif;
-    background:#111827;
+    box-sizing:border-box;
+    font-family:Arial,Helvetica,sans-serif;
+}
+
+body{
+    background:#0d1224;
     color:white;
 }
 
 .container{
-    max-width:420px;
+    max-width:430px;
     margin:auto;
     padding:20px;
 }
 
-h1{
-    text-align:center;
+.header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
     margin-bottom:20px;
 }
 
-.profile{
-    background:#1f2937;
-    border-radius:15px;
-    padding:20px;
-    text-align:center;
-    margin-bottom:20px;
+.header h1{
+    font-size:32px;
 }
 
-#balance{
-    color:#00ff99;
-    font-size:30px;
-}
-
-button{
-    width:100%;
-    padding:16px;
-    margin-top:12px;
-    border:none;
+.wallet{
+    background:#19d463;
+    color:#fff;
+    padding:10px 16px;
     border-radius:12px;
+    font-weight:bold;
     font-size:18px;
+}
+
+.info{
+    display:flex;
+    justify-content:space-between;
+    background:#1a2238;
+    border-radius:16px;
+    padding:18px;
+    margin-bottom:20px;
+}
+
+.info p{
+    color:#9fa8c5;
+    font-size:14px;
+}
+
+.info h3{
+    margin-top:6px;
+    font-size:22px;
+}
+
+.timerBox{
+    text-align:center;
+    margin-bottom:25px;
+}
+
+#timerCircle{
+    width:120px;
+    height:120px;
+    border-radius:50%;
+    border:8px solid #8a2be2;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    margin:auto;
+    font-size:40px;
+    font-weight:bold;
+    color:#fff;
+    box-shadow:0 0 20px #8a2be2;
+}
+
+.timerBox p{
+    margin-top:15px;
+    color:#ccc;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:repeat(10,1fr);
+    gap:8px;
+}
+
+.cardBtn{
+    height:42px;
+    border:none;
+    border-radius:8px;
+    background:#c96b14;
+    color:#fff;
+    font-weight:bold;
     cursor:pointer;
+    transition:.2s;
 }
 
-#pickBtn{
-    background:#22c55e;
-    color:white;
+.cardBtn:hover{
+    transform:scale(1.05);
 }
 
-#depositBtn{
-    background:#2563eb;
-    color:white;
+.cardBtn.selected{
+    background:#21d64f;
 }
 
-#withdrawBtn{
-    background:#ef4444;
-    color:white;
+.cardBtn.locked{
+    background:#555;
+    cursor:not-allowed;
 }
 
-.status{
+#confirmBtn{
     margin-top:25px;
-    background:#1f2937;
-    border-radius:15px;
-    padding:20px;
+    width:100%;
+    height:56px;
+    border:none;
+    border-radius:14px;
+    background:#1fbf47;
+    color:white;
+    font-size:22px;
+    font-weight:bold;
+}
+
+#confirmBtn:hover{
+    background:#19a53d;
 }
