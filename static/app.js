@@ -8,45 +8,94 @@ let seconds = 30;
 document.getElementById("username").innerText = "Test Player";
 document.getElementById("balance").innerText = "0 ETB";
 
-// Create cards 1-200
+// ----------------------------
+// Pick System
+// ----------------------------
+
+let selectedCard = null;
+let pickedCount = 0;
+
+const grid = document.getElementById("cardGrid");
+
 for (let i = 1; i <= 200; i++) {
 
-    const btn = document.createElement("button");
+    const card = document.createElement("div");
 
-    btn.className = "cardBtn";
+    card.className = "card-number";
 
-    btn.innerText = i;
+    card.innerText = i;
 
-    btn.dataset.id = i;
+    card.dataset.number = i;
 
-    btn.onclick = () => {
+    card.onclick = () => {
 
-        if (btn.classList.contains("locked"))
-            return;
+        if (card.classList.contains("taken")) return;
 
-        if (btn.classList.contains("selected")) {
+        document.querySelectorAll(".card-number.selected")
+            .forEach(c => c.classList.remove("selected"));
 
-            btn.classList.remove("selected");
+        selectedCard = i;
 
-            selected = selected.filter(x => x != i);
-
-            return;
-        }
-
-        if (selected.length >= 5) {
-
-            alert("Maximum 5 cards.");
-
-            return;
-        }
-
-        btn.classList.add("selected");
-
-        selected.push(i);
+        card.classList.add("selected");
 
     };
 
-    grid.appendChild(btn);
+    grid.appendChild(card);
+
+}
+
+document.getElementById("confirmBtn").onclick = async () => {
+
+    if (selectedCard == null){
+
+        alert("Select one card first.");
+
+        return;
+
+    }
+
+    if(pickedCount >= 5){
+
+        alert("Maximum 5 cards reached.");
+
+        return;
+
+    }
+
+    const response = await fetch("/api/cards/pick", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+        telegram_id: telegramId,
+        card_number: selectedCard
+    })
+});
+
+const result = await response.json();
+
+if(result.success){
+
+    pickedCount++;
+
+    document
+        .querySelector(`[data-number="${selectedCard}"]`)
+        .classList.remove("selected");
+
+    document
+        .querySelector(`[data-number="${selectedCard}"]`)
+        .classList.add("taken");
+
+    alert(
+        `Card ${selectedCard} reserved (${pickedCount}/5)`
+    );
+
+    selectedCard = null;
+
+}else{
+
+    alert(result.message);
 
 }
 
