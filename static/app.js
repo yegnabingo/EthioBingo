@@ -132,6 +132,30 @@ document.getElementById("confirmBtn").onclick = ()=>{
 
     }
 
+// =============================
+// Create Bingo Board (1-75)
+// =============================
+
+const numberBoard = document.getElementById("numberBoard");
+
+if (numberBoard) {
+
+    for (let n = 1; n <= 75; n++) {
+
+        const ball = document.createElement("div");
+
+        ball.className = "ball";
+
+        ball.id = "ball-" + n;
+
+        ball.innerText = n;
+
+        numberBoard.appendChild(ball);
+
+    }
+
+}
+    
     alert(
         "Cards Selected:\n\n"+
         selected.join(", ")
