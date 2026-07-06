@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import User, Withdrawal
-from app.schemas import WithdrawCreate
 
 router = APIRouter(
     prefix="/api/withdraw",
@@ -19,40 +18,91 @@ def get_db():
         db.close()
 
 
+# 📤 1. ተጫዋቾች የገንዘብ ማውጫ ጥያቄ የሚልኩበት API
 @router.post("/request")
 def create_withdraw(
     telegram_id: str,
-    withdraw: WithdrawCreate,
+    amount: float = Body(...),
+    method: str = Body(...),   # Telebirr, CBE, Commercial Bank, ወዘተ
+    wallet: str = Body(...),   # ብሩ የሚገባበት የአካውንት ወይም የስልክ ቁጥር
     db: Session = Depends(get_db)
 ):
-
-    user = db.query(User).filter(
-        User.telegram_id == telegram_id
-    ).first()
-
+    # ተጠቃሚውን መፈለግ
+    user = db.query(User).filter(User.telegram_id == telegram_id).first()
     if not user:
-        return {
-            "success": False,
-            "message": "User not found"
-        }
+        return {"success": False, "message": "ተጠቃሚው አልተገኘም!"}
 
-    if user.balance < withdraw.amount:
-        return {
-            "success": False,
-            "message": "Insufficient balance"
-        }
+    # የገንዘብ መጠን ማረጋገጥ
+    if user.balance < amount:
+        return {"success": False, "message": "በቂ ቀሪ ሂሳብ (Balance) የለዎትም!"}
 
+    # 🔒 የደህንነት ህግ፡ ተጫዋቹ ጥያቄ ሲልክ ማውጣት የፈለገውን ብር ከዋሌቱ ላይ ወዲያውኑ እንቀንሳለን
+    # ይህ የሚደረገው ጥያቄው Pending እያለ ያንን ብር ደግሞ ሌላ ጨዋታ ላይ እንዳይጫወትበት ለመከላከል ነው
+    user.balance -= amount
+
+    # አዲሱን የዊዝድሮው ጥያቄ መመዝገብ
     new_withdraw = Withdrawal(
         user_id=user.id,
-        amount=withdraw.amount,
-        wallet=withdraw.wallet,
+        amount=amount,
+        method=method,
+        wallet=wallet,
         status="Pending"
     )
 
     db.add(new_withdraw)
     db.commit()
 
+    # 💡 [ማስታወሻ] እዚህ ቦታ ላይ ለአድሚኑ በቴሌግራም "ተጫዋች X በቴሌብር {amount} ብር ማውጣት ይፈልጋል" የሚል ማሳወቂያ መላክ ይቻላል።
+
     return {
         "success": True,
-        "message": "Withdraw request sent to admin"
+        "message": "የገንዘብ ማውጫ ጥያቄዎ ለአስተዳዳሪው ተልኳል፣ በአጭር ጊዜ ውስጥ ይስተናገዳል!"
     }
+
+
+# 🛠️ 2. አድሚኑ የዊዝድሮው ጥያቄውን አይቶ Approve ወይም Reject የሚያደርግበት API
+@router.post("/admin/approve")
+def admin_approve_withdrawal(
+    withdraw_id: int = Body(...),
+    action: str = Body(...),         # 'APPROVE' ወይም 'REJECT'
+    admin_telegram_id: str = Body(...),
+    db: Session = Depends(get_db)
+):
+    # አድሚኑን ማረጋገጥ
+    admin_user = db.query(User).filter(User.telegram_id == admin_telegram_id).first()
+    if not admin_user or not admin_user.is_admin:
+        return {"success": False, "message": "ይህንን ለማድረግ ፈቃድ የለዎትም!"}
+
+    # የዊዝድሮው ጥያቄውን መፈለግ
+    withdraw = db.query(Withdrawal).filter(Withdrawal.id == withdraw_id).first()
+    if not withdraw:
+        return {"success": False, "message": "የዊዝድሮው ጥያቄው አልተገኘም!"}
+
+    if withdraw.status != "Pending":
+        return {"success": False, "message": f"ይህ ጥያቄ አስቀድሞ {withdraw.status} ሆኗል!"}
+
+    # ተጫዋቹን መፈለግ
+    player = db.query(User).filter(User.id == withdraw.user_id).first()
+    if not player:
+        return {"success": False, "message": "ጥያቄውን የላከው ተጫዋች አልተገኘም!"}
+
+    if action == "APPROVE":
+        # አድሚኑ በባንክ ብሩን መላኩን አረጋግጦ ሲያጸድቀው ስታተሱን እናድሳለን
+        withdraw.status = "Approved"
+        withdraw.approved_by = admin_user.telegram_name or admin_telegram_id
+        db.commit()
+        
+        # 💡 [ማስታወሻ] ለተጫዋቹ በቦት "የማውጫ ጥያቄዎ ጸድቋል፣ ባንክዎን ያረጋግጡ" ማለት ይቻላል።
+        return {"success": True, "message": "የገንዘብ ማውጫ ጥያቄው በተሳካ ሁኔታ ጸድቋል!"}
+
+    elif action == "REJECT":
+        withdraw.status = "Rejected"
+        withdraw.approved_by = admin_user.telegram_name or admin_telegram_id
+        
+        # 🪙 [ዋናው የደህንነት ህግ] ጥያቄው ውድቅ ከተደረገ፣ ተቀንሶ የነበረውን ብር መልሰን ለተጫዋቹ ዋሌት እንጨምራለን
+        player.balance += withdraw.amount
+        db.commit()
+        
+        return {"success": True, "message": "የገንዘብ ማውጫ ጥያቄው ውድቅ ተደርጓል፣ ብሩ ወደ ተጫዋቹ ተመልሷል!"}
+
+    return {"success": False, "message": "የማይታወቅ ትዕዛዝ!"}
