@@ -131,13 +131,11 @@ function playBallSound(ballLabel) {
     const letter = ballLabel.charAt(0);
     const number = parseInt(ballLabel.substring(1));
 
-    const speakText =
-        getAmharicLetter(letter) + " " +
-        (amharicNumbers[number] || number);
+    const speakText = ballLabel;
 
     const speech = new SpeechSynthesisUtterance(speakText);
 
-    speech.lang = "am-ET";
+    speech.lang = "en-US";
     speech.rate = 0.8;
     speech.pitch = 1;
 
