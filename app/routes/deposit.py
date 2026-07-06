@@ -46,6 +46,44 @@ def create_deposit(
     db.add(new_deposit)
     db.commit()
 
+    # 💡 ከዚህ በታች ያለው ኮድ በዳታቤዝ db.commit() ከተደረገ በኋላ እና ከ return በፊት ይገባል፡-
+    
+    # 🔔 ለአድሚን በቴሌግራም ማሳወቂያ መላክ
+    try:
+        BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+        ADMIN_CHAT_ID = "YOUR_PERSONAL_TELEGRAM_ID"  #
+        
+        # የ Approve እና Reject inline ቁልፎችን ማዘጋጀት
+        inline_keyboard = {
+            "inline_keyboard": [
+                [
+                    {"text": "✅ Approve", "callback_data": f"app_wit_{new_withdraw.id}"},
+                    {"text": "❌ Reject", "callback_data": f"rej_wit_{new_withdraw.id}"}
+                ]
+            ]
+        }
+        
+        # ለአድሚኑ የሚላከው ዝርዝር መረጃ
+        notification_text = (
+            f"📤 <b>አዲስ የገንዘብ ማውጫ (Withdraw) ጥያቄ!</b>\n\n"
+            f"👤 <b>ተጫዋች፦</b> {user.telegram_name or telegram_id}\n"
+            f"💰 <b>የገንዘብ መጠን፦</b> {amount} ETB\n"
+            f"🏦 <b>እንዲገባበት የፈለገው ባንክ፦</b> {method}\n"
+            f"💳 <b>የባንክ አካውንት/ስልክ ቁጥር፦</b> <code>{wallet}</code>\n\n"
+            f"⚠️ <i>ማሳሰቢያ፦ እባክዎ መጀመሪያ ወደ ተጫዋቹ አካውንት ብሩን መላክዎን ያረጋግጡና ከዚያ 'Approve' የሚለውን ይጫኑ!</i>"
+        )
+        
+        import requests
+        telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        requests.post(telegram_url, json={
+            "chat_id": ADMIN_CHAT_ID,
+            "text": notification_text,
+            "parse_mode": "HTML",
+            "reply_markup": inline_keyboard
+        })
+    except Exception as e:
+        print(f"ለአድሚን የቴሌግራም መልዕክት መላክ አልተቻለም፦ {str(e)}")
+    
     # 💡 [ማስታወሻ] እዚህ ቦታ ላይ ለአድሚኑ በቴሌግራም ቦት ማሳወቂያ (Notification) መላክ ትችላለህ።
     # ለምሳሌ፡ "ተጫዋች X በቴሌብር 500 ብር አስገብቷል፣ እባክዎ ያረጋግጡ።"
 
