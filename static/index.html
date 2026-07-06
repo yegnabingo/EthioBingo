@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cartela Bingo</title>
+    <title>Yegna Bingo</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
@@ -12,31 +12,39 @@
 <div class="container">
 
     <div id="pickScreen">
-        <div class="app-title-zone">
-            <h2>Cartela Bingo</h2>
-            <small>mini app</small>
+    <div class="app-title-zone">
+        <h2>የYegnaኛ Bingo</h2>
+        <small>mini app</small>
+    </div>
+
+    <div class="timer-container-circle">
+        <div class="circle-timer">
+            <span id="timerText">30</span>
+            <small>Seconds</small>
+        </div>
+    </div>
+
+    <div class="top-status-bar">
+        <div class="derash-badge">Derash 10 📋</div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-box">Game<strong>-</strong></div>
+        <div class="stat-box">Bet<strong>10 ETB</strong></div>
+        <div class="stat-box">Active Game<strong>-</strong></div>
+        <div class="stat-box">Wallet<strong>- ETB</strong></div>
+        <div class="stat-box">Gift<strong>0.00 Coin</strong></div>
+    </div>
+
+    <div class="card-grid-200" id="cardGrid">
         </div>
 
-        <div class="top-status-bar">
-            <div class="derash-badge">Derash 10 📋</div>
-        </div>
+    <div class="pick-actions">
+        <button class="btn-confirm" id="confirmBtn">CONFIRM PICKS</button>
+        <button class="btn-refresh-blue" onclick="window.location.reload()">Refresh</button>
+    </div>
+</div>
 
-        <div class="stats-grid">
-            <div class="stat-box"><div>Game</div><strong>604606</strong></div>
-            <div class="stat-box"><div>Bet</div><strong>10 ETB</strong></div>
-            <div class="stat-box"><div>Active Game</div><strong>84</strong></div>
-            <div class="stat-box"><div>Wallet</div><strong>0.00 ETB</strong></div>
-            <div class="stat-box"><div>Gift</div><strong>0.00 Coin</strong></div>
-        </div>
-
-        <div id="cardGrid" class="card-grid-200"></div>
-
-        <div class="timer-container-circle">
-            <div class="circle-timer">
-                <span id="timerText">30</span>
-                <small>Seconds</small>
-            </div>
-        </div>
 
         <div class="pick-actions">
             <button id="confirmBtn" class="btn-confirm">CONFIRM PICKS</button>
@@ -82,10 +90,11 @@
             <button id="bingoClaimBtn" class="btn-bingo-gold">BINGO</button>
         </div>
 
-        <div class="draw-actions">
-            <button id="drawRefreshBtn" class="btn-refresh-blue">🔄 Refresh</button>
-            <button id="exitBtn" class="btn-exit-red">Exit</button>
+        <div class="small-control-row">
+            <button class="btn-refresh-blue" onclick="window.location.reload()">Refresh</button>
+            <button class="btn-exit-red" onclick="if(window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close();">Exit</button>
         </div>
+
     </div>
 
 </div>
