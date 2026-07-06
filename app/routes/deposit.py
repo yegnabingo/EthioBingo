@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import User, Deposit
-from app.schemas import DepositCreate
 
 router = APIRouter(
     prefix="/api/deposit",
@@ -19,34 +18,84 @@ def get_db():
         db.close()
 
 
+# 📥 1. ተጫዋቾች የገንዘብ ማስገቢያ ጥያቄ የሚልኩበት API
 @router.post("/request")
 def create_deposit(
     telegram_id: str,
-    deposit: DepositCreate,
+    amount: float = Body(...),
+    method: str = Body(...),         # Telebirr, CBE, ወዘተ
+    phone_or_acc: str = Body(...),   # የላከበት ስልክ ቁጥር
+    sms_text: str = Body(None),      # ኮፒ አድርጎ የለጠፈው የባንክ SMS
     db: Session = Depends(get_db)
 ):
-
-    user = db.query(User).filter(
-        User.telegram_id == telegram_id
-    ).first()
-
+    # ተጠቃሚውን መፈለግ
+    user = db.query(User).filter(User.telegram_id == telegram_id).first()
     if not user:
-        return {
-            "success": False,
-            "message": "User not found"
-        }
+        return {"success": False, "message": "ተጠቃሚው አልተገኘም!"}
 
+    # አዲሱን የዲፖዚት ጥያቄ በዳታቤዝ መመዝገብ
     new_deposit = Deposit(
         user_id=user.id,
-        amount=deposit.amount,
-        tx_hash=deposit.tx_hash,
+        amount=amount,
+        method=method,
+        phone_or_acc=phone_or_acc,
+        sms_text=sms_text,
         status="Pending"
     )
 
     db.add(new_deposit)
     db.commit()
 
+    # 💡 [ማስታወሻ] እዚህ ቦታ ላይ ለአድሚኑ በቴሌግራም ቦት ማሳወቂያ (Notification) መላክ ትችላለህ።
+    # ለምሳሌ፡ "ተጫዋች X በቴሌብር 500 ብር አስገብቷል፣ እባክዎ ያረጋግጡ።"
+
     return {
         "success": True,
-        "message": "Deposit request sent to admin"
+        "message": "የገንዘብ ማስገቢያ ጥያቄዎ ለአስተዳዳሪው ተልኳል፣ በትዕግስት ይጠብቁ!"
     }
+
+
+# 🛠️ 2. አድሚኑ ጥያቄውን አይቶ Approve ወይም Reject የሚያደርግበት API
+@router.post("/admin/approve")
+def admin_approve_deposit(
+    deposit_id: int = Body(...),
+    action: str = Body(...),         # 'APPROVE' ወይም 'REJECT'
+    admin_telegram_id: str = Body(...),
+    db: Session = Depends(get_db)
+):
+    # መጀመሪያ አድሚኑ እውነተኛ አድሚን መሆኑን ማረጋገጥ
+    admin_user = db.query(User).filter(User.telegram_id == admin_telegram_id).first()
+    if not admin_user or not admin_user.is_admin:
+        return {"success": False, "message": "ይህንን ለማድረግ ፈቃድ የለዎትም!"}
+
+    # የዲፖዚት ጥያቄውን መፈለግ
+    deposit = db.query(Deposit).filter(Deposit.id == deposit_id).first()
+    if not deposit:
+        return {"success": False, "message": "የዲፖዚት ጥያቄው አልተገኘም!"}
+
+    if deposit.status != "Pending":
+        return {"success": False, "message": f"ይህ ጥያቄ አስቀድሞ {deposit.status} ሆኗል!"}
+
+    # ጥያቄውን የላከውን ተጫዋች መፈለግ
+    player = db.query(User).filter(User.id == deposit.user_id).first()
+    if not player:
+        return {"success": False, "message": "ጥያቄውን የላከው ተጫዋች አልተገኘም!"}
+
+    if action == "APPROVE":
+        deposit.status = "Approved"
+        deposit.approved_by = admin_user.telegram_name or admin_telegram_id
+        
+        # 🪙 [ዋናው ህግ] የተጫዋቹን የገንዘብ መጠን (Balance) መጨመር
+        player.balance += deposit.amount
+        db.commit()
+        
+        # 💡 [ማስታወሻ] እዚህ ጋር ለተጫዋቹ በቴሌግራም ቦት "ብርዎ ገብቷል" የሚል መልዕክት መላክ ይቻላል።
+        return {"success": True, "message": f"የ {deposit.amount} ብር ማስገቢያ ጥያቄ በተሳካ ሁኔታ ጸድቋል!"}
+
+    elif action == "REJECT":
+        deposit.status = "Rejected"
+        deposit.approved_by = admin_user.telegram_name or admin_telegram_id
+        db.commit()
+        return {"success": True, "message": "የገንዘብ ማስገቢያ ጥያቄው ውድቅ ተደርጓል!"}
+
+    return {"success": False, "message": "የማይታወቅ ትዕዛዝ!"}
