@@ -258,40 +258,40 @@ class GameEngine:
         }
 
         def distribute_game_prize(self, db, game_id, total_pool_money, winner_user_id=None, winning_card=None):
-        # 🆕 ከዳታቤዝ አዲሱን የኮሚሽን ፐርሰንት ማንበቢያ (ከሌለ ወደ 20% ዲፎልት ያደርገዋል)
-        settings = db.query(Setting).first()
-        comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
+            # 🆕 ከዳታቤዝ አዲሱን የኮሚሽን ፐርሰንት ማንበቢያ (ከሌለ ወደ 20% ዲፎልት ያደርገዋል)
+            settings = db.query(Setting).first()
+            comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
         
-        admin_commission = total_pool_money * (comm_percent / 100.0)
-        player_prize = total_pool_money - admin_commission
+            admin_commission = total_pool_money * (comm_percent / 100.0)
+            player_prize = total_pool_money - admin_commission
 
-        admin_stats = db.query(AdminStats).first()
-        if not admin_stats:
-            admin_stats = AdminStats(house_balance=0.0, total_commission=0.0)
-            db.add(admin_stats)
+            admin_stats = db.query(AdminStats).first()
+            if not admin_stats:
+                admin_stats = AdminStats(house_balance=0.0, total_commission=0.0)
+                db.add(admin_stats)
         
-        admin_stats.total_commission += admin_commission
+            admin_stats.total_commission += admin_commission
 
-        game = db.query(Game).filter(Game.id == game_id).first()
-        if game:
-            game.status = "finished"
-            game.winning_card = winning_card
-            game.finished_at = datetime.utcnow()
+            game = db.query(Game).filter(Game.id == game_id).first()
+            if game:
+                game.status = "finished"
+                game.winning_card = winning_card
+                game.finished_at = datetime.utcnow()
 
-        if winner_user_id:
-            user = db.query(User).filter(User.id == winner_user_id).first()
-            if user:
-                user.balance += player_prize
-            if game:
-                game.winner_id = winner_user_id
-                game.prize = player_prize
-        else:
-            admin_stats.house_balance += player_prize
-            if game:
-                game.winner_id = 0
-                game.prize = player_prize
+            if winner_user_id:
+                user = db.query(User).filter(User.id == winner_user_id).first()
+                if user:
+                    user.balance += player_prize
+                if game:
+                    game.winner_id = winner_user_id
+                    game.prize = player_prize
+            else:
+                admin_stats.house_balance += player_prize
+                if game:
+                    game.winner_id = 0
+                    game.prize = player_prize
                 
-        db.commit()
+            db.commit()
 
 
 # 🎯 🧠 [ይህቺ ወሳኝ መስመር ናት ከታች የጎደለችው]
