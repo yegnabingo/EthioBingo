@@ -257,9 +257,13 @@ class GameEngine:
             "card_number": winning_card_num
         }
 
-    def distribute_game_prize(self, db, game_id, total_pool_money, winner_user_id=None, winning_card=None):
-        admin_commission = total_pool_money * 0.20
-        player_prize = total_pool_money * 0.80
+        def distribute_game_prize(self, db, game_id, total_pool_money, winner_user_id=None, winning_card=None):
+        # 🆕 ከዳታቤዝ አዲሱን የኮሚሽን ፐርሰንት ማንበቢያ (ከሌለ ወደ 20% ዲፎልት ያደርገዋል)
+        settings = db.query(Setting).first()
+        comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
+        
+        admin_commission = total_pool_money * (comm_percent / 100.0)
+        player_prize = total_pool_money - admin_commission
 
         admin_stats = db.query(AdminStats).first()
         if not admin_stats:
