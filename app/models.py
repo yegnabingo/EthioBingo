@@ -25,35 +25,34 @@ class Deposit(Base):
     __tablename__ = "deposits"
 
     id = Column(Integer, primary_key=True)
-
     user_id = Column(Integer, ForeignKey("users.id"))
-
     amount = Column(Float)
-
-    tx_hash = Column(String)
-
-    status = Column(String, default="Pending")
-
+    
+    # 💡 በእጅ ማረጋገጫ (Manual Approval) እንዲሰራ የተጨመሩ Column-ዎች
+    method = Column(String, nullable=True) # Telebirr, CBE, Bank ወዘተ
+    phone_or_acc = Column(String, nullable=True) # የላከበት ስልክ
+    sms_text = Column(Text, nullable=True) # ተጠቃሚው የለጠፈው SMS
+    
+    tx_hash = Column(String, nullable=True) # የነበረው (እንዳይጠፋ)
+    status = Column(String, default="Pending") # Pending, Approved, Rejected
     approved_by = Column(String, nullable=True)
-
     created_at = Column(DateTime, default=datetime.utcnow)
+
 
 
 class Withdrawal(Base):
     __tablename__ = "withdrawals"
 
     id = Column(Integer, primary_key=True)
-
     user_id = Column(Integer, ForeignKey("users.id"))
-
     amount = Column(Float)
-
-    wallet = Column(String)
-
-    status = Column(String, default="Pending")
-
+    
+    # 💡 ወደ የትኛው ባንክ/ስልክ እንደሚወጣ ለመለየት የተጨመረ
+    method = Column(String, nullable=True) # Telebirr, CBE, ወዘተ
+    wallet = Column(String) # የባንክ ወይም የቴሌብር አካውንት ቁጥር
+    
+    status = Column(String, default="Pending") # Pending, Approved, Rejected
     approved_by = Column(String, nullable=True)
-
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -130,20 +129,15 @@ class Setting(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    game_fee = Column(Float, default=10)
+    # 💡 የጨዋታው ኮሚሽን ፐርሰንት (በአንተ ህግ መሰረት 20% ተደርጓል)
+    game_commission_percent = Column(Float, default=20.0) 
 
     countdown_seconds = Column(Integer, default=30)
-
     draw_interval = Column(Float, default=2.0)
-
     max_cards = Column(Integer, default=5)
-
     min_deposit = Column(Float, default=20)
-
     min_withdraw = Column(Float, default=50)
-
     jackpot_percent = Column(Float, default=10)
-
     is_registration_open = Column(Boolean, default=True)
 
 
@@ -195,3 +189,11 @@ class BingoCard(Base):
     card_data = Column(Text)
 
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AdminStats(Base):
+    __tablename__ = "admin_stats"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    house_balance = Column(Float, default=0.0) # ማንም ያልገዛው ካርድ ሲያሸንፍ ብሩ እዚህ ይከማቻል
+    total_commission = Column(Float, default=0.0) # ካሲኖው ከጨዋታዎች የሚቆርጠው ጠቅላላ ኮሚሽን
