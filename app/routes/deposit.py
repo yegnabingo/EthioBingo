@@ -83,9 +83,6 @@ def create_deposit(
         })
     except Exception as e:
         print(f"ለአድሚን የቴሌግራም መልዕክት መላክ አልተቻለም፦ {str(e)}")
-    
-    # 💡 [ማስታወሻ] እዚህ ቦታ ላይ ለአድሚኑ በቴሌግራም ቦት ማሳወቂያ (Notification) መላክ ትችላለህ።
-    # ለምሳሌ፡ "ተጫዋች X በቴሌብር 500 ብር አስገብቷል፣ እባክዎ ያረጋግጡ።"
 
     return {
         "success": True,
