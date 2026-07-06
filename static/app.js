@@ -9,6 +9,8 @@ let myTelegramName = "ተጫዋች";
 let currentCardIndex = 0; 
 let recentBallsList = []; // የቅርብ 10 ኳሶች
 
+let soundEnabled = true;
+
 // 🌐 የቴሌግราม ሚኒ አፕ መረጃ
 if (window.Telegram && window.Telegram.WebApp) {
     const tg = window.Telegram.WebApp;
@@ -31,13 +33,129 @@ function getBingoColor(letter) {
         default: return '#2f3542';
     }
 }
+function getAmharicLetter(letter) {
+    switch (letter) {
+        case "B": return "ቢ";
+        case "I": return "አይ";
+        case "N": return "ኤን";
+        case "G": return "ጂ";
+        case "O": return "ኦ";
+        default: return "";
+    }
+}
+
+const amharicNumbers = {
+1:"አንድ",
+2:"ሁለት",
+3:"ሶስት",
+4:"አራት",
+5:"አምስት",
+6:"ስድስት",
+7:"ሰባት",
+8:"ስምንት",
+9:"ዘጠኝ",
+10:"አስር",
+11:"አስራ አንድ",
+12:"አስራ ሁለት",
+13:"አስራ ሶስት",
+14:"አስራ አራት",
+15:"አስራ አምስት",
+16:"አስራ ስድስት",
+17:"አስራ ሰባት",
+18:"አስራ ስምንት",
+19:"አስራ ዘጠኝ",
+20:"ሃያ",
+21:"ሃያ አንድ",
+22:"ሃያ ሁለት",
+23:"ሃያ ሶስት",
+24:"ሃያ አራት",
+25:"ሃያ አምስት"
+26:"ሃያ ስድስት",
+27:"ሃያ ሰባት",
+28:"ሃያ ስምንት",
+29:"ሃያ ዘጠኝ",
+30:"ሠላሳ",
+31:"ሠላሳ አንድ",
+32:"ሠላሳ ሁለት",
+33:"ሠላሳ ሶስት",
+34:"ሠላሳ አራት",
+35:"ሠላሳ አምስት",
+36:"ሠላሳ ስድስት",
+37:"ሠላሳ ሰባት",
+38:"ሠላሳ ስምንት",
+39:"ሠላሳ ዘጠኝ",
+40:"አርባ",
+41:"አርባ አንድ",
+42:"አርባ ሁለት",
+43:"አርባ ሶስት",
+44:"አርባ አራት",
+45:"አርባ አምስት",
+46:"አርባ ስድስት",
+47:"አርባ ሰባት",
+48:"አርባ ስምንት",
+49:"አርባ ዘጠኝ",
+50:"ሀምሳ",  
+51:"ሀምሳ አንድ",
+52:"ሀምሳ ሁለት",
+53:"ሀምሳ ሶስት",
+54:"ሀምሳ አራት",
+55:"ሀምሳ አምስት",
+56:"ሀምሳ ስድስት",
+57:"ሀምሳ ሰባት",
+58:"ሀምሳ ስምንት",
+59:"ሀምሳ ዘጠኝ",
+60:"ስልሳ",
+61:"ስልሳ አንድ",
+62:"ስልሳ ሁለት",
+63:"ስልሳ ሶስት",
+64:"ስልሳ አራት",
+65:"ስልሳ አምስት",
+66:"ስልሳ ስድስት",
+67:"ስልሳ ሰባት",
+68:"ስልሳ ስምንት",
+69:"ስልሳ ዘጠኝ",
+70:"ሰባ",
+71:"ሰባ አንድ",
+72:"ሰባ ሁለት",
+73:"ሰባ ሶስት",
+74:"ሰባ አራት",
+75:"ሰባ አምስት"    
+};
 
 function playBallSound(ballLabel) {
-    try {
-        const audio = new Audio(`/static/sounds/${ballLabel}.mp3`);
-        audio.play();
-    } catch (e) {
-        console.log("የድምፅ ፋይል ስህተት፦", e);
+
+    if (!soundEnabled) return;
+
+    speechSynthesis.cancel();
+
+    const letter = ballLabel.charAt(0);
+    const number = parseInt(ballLabel.substring(1));
+
+    const speakText =
+        getAmharicLetter(letter) + " " +
+        (amharicNumbers[number] || number);
+
+    const speech = new SpeechSynthesisUtterance(speakText);
+
+    speech.lang = "am-ET";
+    speech.rate = 0.8;
+    speech.pitch = 1;
+
+    speechSynthesis.speak(speech);
+}
+
+function toggleSound() {
+
+    soundEnabled = !soundEnabled;
+
+    const btn = document.getElementById("soundBtn");
+
+    if (btn) {
+        btn.innerHTML = soundEnabled ? "🔊" : "🔇";
+    }
+
+    if (!soundEnabled) {
+        speechSynthesis.cancel();
     }
 }
 
