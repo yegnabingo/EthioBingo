@@ -5,14 +5,13 @@ from app.seed_cards import seed_cards
 
 def initialize_database():
 
-    # Create all tables
+    # 1. የዳታቤዝ ቴብሎችን መፍጠር
     Base.metadata.create_all(bind=engine)
 
     db = SessionLocal()
 
-    # Create default settings
+    # 2. መነሻ ሴቲንጎችን በዳታቤዝ ውስጥ መፍጠር (ከአዲሱ የኮሚሽን ዓምድ ጋር)
     if db.query(Setting).count() == 0:
-
         db.add(
             Setting(
                 game_fee=10,
@@ -22,13 +21,13 @@ def initialize_database():
                 min_deposit=20,
                 min_withdraw=50,
                 jackpot_percent=10,
+                game_commission_percent=20.0,  # 🆕 [የተስተካከለ] የካሲኖው 20% ኮሚሽን እዚህ መነሻ ላይ ተካቷል
                 is_registration_open=True
             )
         )
-
         db.commit()
 
     db.close()
 
-    # Create cards if they don't exist
+    # 3. ጨዋታው የሚነሳባቸውን 200 ካርዶች በዳታቤዝ ውስጥ መዝራት (Seed)
     seed_cards()
