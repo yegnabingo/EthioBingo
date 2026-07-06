@@ -76,14 +76,17 @@ class GameEngine:
             finally:
                 db.close()
 
+            # ለድሮውም ለአዲሱም ፍሮንትኤንድ እንዲስማማ ጥምር ውሂብ መላክ
             await manager.broadcast({
-                "type": "time_update",
-                "time": seconds,
+                "type": "countdown",           # ለድሮው ጃቫስክሪፕት
+                "seconds": seconds,            # ለድሮው ጃቫስክሪፕት
+                "time": seconds,               # ለአዲሱ
                 "phase": "PICK",
                 "game_no": game_display_no,
-                "taken_cards": current_taken_list,
-                "seconds": seconds
+                "game_id": self.current_game.id if self.current_game else 0, # Game ID ማስተካከያ
+                "taken_cards": current_taken_list
             })
+
             
             await asyncio.sleep(1)
             seconds -= 1
