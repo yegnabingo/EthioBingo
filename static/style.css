@@ -430,3 +430,19 @@ button {
     padding-bottom: 20px !important;
     box-sizing: border-box;
 }
+
+#soundBtn {
+    background: #222;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-left: 10px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: 0.3s;
+}
+
+#soundBtn:hover {
+    background: #444;
+}
