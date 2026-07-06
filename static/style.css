@@ -83,37 +83,47 @@ body {
     margin-top: 2px;
 }
 
-/* 🎰 የ1-200 ግሪድ አቀማመጥ */
+/* 🎰 የ1-200 ግሪድ አቀማመጥ (ቦታ ለመቆጠብ የተስተካከለ) */
 .card-grid-200 {
     display: grid;
     grid-template-columns: repeat(10, 1fr); /* በየረድፉ 10 ቁጥር */
-    gap: 5px;
-    max-height: 320px; /* ሰዓቱ ወደ ላይ ስለወጣ ይህንን ትንሽ አሳነስነው */
-    overflow-y: auto;
-    padding: 5px;
+    gap: 3px; /* ሳጥኖቹ ወደ ጎን እንዳይሰፉ ክፍተቱን ወደ 3px ዝቅ አደረግነው */
+    max-height: 280px; /* በሞባይል ስክሪን ልክ ቁመቱን ሰብሰብ ለማድረግ */
+    overflow-y: auto; /* ቁጥሮቹ ሲበዙ ወደ ታች ለመንሸራተት (Scroll) */
+    padding: 6px;
     background: #090a14;
     border-radius: 12px;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
+    box-sizing: border-box;
+    width: 100%; /* ከዋናው ኮንቴይነር እንዳይወጣ */
 }
+
+/* 📦 እያንዳንዱ የቁጥር ሳጥን ስታይል ማስተካከያ (ጠበብ እንዲል) */
 .card-box {
-    background: #b35919;
+    background: #b35919; /* ቡኒ መልክ */
     color: #ffffff;
-    aspect-ratio: 1;
+    width: 100%;
+    /* aspect-ratio: 1; 💡 ቦታ እንዳይጋፋ ይህንን ትተን በቁመትና ስፋት እንቆጣጠረዋለን */
+    padding: 6px 0; /* ቁመቱን ጠበብ በማድረግ በስልኩ ሙሉ በሙሉ እንዲታይ */
     display: flex;
     justify-content: center;
     align-items: center;
-    border-radius: 6px;
-    font-size: 12px;
+    border-radius: 4px;
+    font-size: 11px; /* ቁጥሮቹ ሳጥኑን እንዳይሰብሩ መጠኑን 11px አደረግነው */
     font-weight: bold;
     cursor: pointer;
+    box-sizing: border-box;
     transition: all 0.2s;
 }
+
+/* ሲመረጥና ሲረጋገጥ የሚኖረው ስታይል */
 .card-box.selected {
-    background-color: #3b82f6 !important;
-    transform: scale(1.1);
+    background-color: #3b82f6 !important; /* ሰማያዊ */
+    transform: scale(1.05); /* መጋፋት እንዳይፈጥር ስኬሉን ከ1.1 ወደ 1.05 ቀነስነው */
 }
+
 .card-box.taken {
-    background-color: #22c55e !important;
+    background-color: #22c55e !important; /* አረንጓዴ */
 }
 
 /* ⏱️ የክብ ሰዓት ቆጣሪ አቀማመጥ ማስተካከያ (ወደ ላይ እንዲወጣ) */
