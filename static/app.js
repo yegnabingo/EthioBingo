@@ -50,18 +50,21 @@ function connectWebSocket() {
             update200CardsColors(data.taken_cards);
         }
 
-        // 1️⃣ PICK PHASE
-        if (data.type === "time_update" && data.phase === "PICK") {
+        // 1️⃣ PICK PHASE (የተስተካከለ)
+        if ((data.type === "countdown" || data.type === "time_update") && data.phase === "PICK") {
             document.getElementById("pickScreen").style.display = "block";
             if(document.getElementById("drawScreen")) document.getElementById("drawScreen").style.display = "none";
             
             const timerText = document.getElementById("timerText");
-            if(timerText) timerText.innerText = data.time;
+            if(timerText) {
+                // ባክኤንዱ በ 'seconds' ወይም በ 'time' የላከውን ሰከንድ መርጦ ያሳያል
+                timerText.innerText = (data.seconds !== undefined) ? data.seconds : data.time;
+            }
             
             const statsBoxes = document.querySelectorAll(".stats-grid .stat-box strong");
             if (statsBoxes.length >= 3) {
-                statsBoxes[0].innerText = data.game_no;
-                statsBoxes[2].innerText = data.total_players || "1";
+                if (data.game_no) statsBoxes[0].innerText = data.game_no;
+                if (data.total_players !== undefined) statsBoxes[2].innerText = data.total_players;
             }
             
             const oldPopup = document.getElementById("winner-popup");
@@ -69,6 +72,7 @@ function connectWebSocket() {
             
             recentBallsList = [];
         }
+
 
         // 2️⃣ PHASE CHANGE ➔ ወደ DRAW PHASE መሸጋገሪያ
         if (data.type === "phase_change" && data.phase === "DRAW") {
