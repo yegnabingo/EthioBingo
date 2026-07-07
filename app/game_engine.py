@@ -56,40 +56,36 @@ class GameEngine:
             # ከዙር ዙር መካከል የ 5 ሰከንድ እረፍት
             await asyncio.sleep(5)
 
-    async def countdown(self, seconds, game_display_no):
-        # 🔄 [የተጨመረ ሎጂክ 2] በየሰከንዱ የተያዙ ካርዶችን ዝርዝር ለይቶ ለዌብሶኬት ማሰራጨት
+        async def countdown(self, seconds, game_display_no):
         while seconds >= 0 and self.running:
-            db: Session = SessionLocal()
             current_taken_list = []
-            
             try:
+                db: Session = SessionLocal()
+                taken_cards = db.query(Card.card_number).filter(Card.is_taken == True).all()
+                current_taken_list = [c[0] for c in taken_cards]
+                
                 if self.current_game:
-                    taken_cards = db.query(Card.card_number).filter(Card.is_taken == True).all()
-                    current_taken_list = [c[0] for c in taken_cards]
-                    
                     game_record = db.query(Game).filter(Game.id == self.current_game.id).first()
                     if game_record:
                         game_record.taken_cards = json.dumps(current_taken_list)
                         db.commit()
+                db.close()
             except Exception as e:
                 print(f"❌ Error during countdown card fetch: {e}")
-            finally:
-                db.close()
 
-            # ለድሮውም ለአዲሱም ፍሮንትኤንድ እንዲስማማ ጥምር ውሂብ መላክ
+            # ለሁለቱም የጃቫስክሪፕት ስሪቶች መረጃውን መላክ
             await manager.broadcast({
-                "type": "countdown",           # ለድሮው ጃቫስክሪፕት
-                "seconds": seconds,            # ለድሮው ጃቫስክሪፕት
-                "time": seconds,               # ለአዲሱ
+                "type": "countdown",
+                "seconds": seconds,
+                "time": seconds,
                 "phase": "PICK",
                 "game_no": game_display_no,
-                "game_id": self.current_game.id if self.current_game else 0, # Game ID ማስተካከያ
+                "game_id": self.current_game.id if self.current_game else 0,
                 "taken_cards": current_taken_list
             })
-
-            
             await asyncio.sleep(1)
             seconds -= 1
+
 
     async def draw_numbers(self, interval, game_display_no):
         if not self.current_game:
