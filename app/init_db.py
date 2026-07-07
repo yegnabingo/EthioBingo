@@ -47,6 +47,62 @@ def initialize_database():
         db.execute(text("UPDATE settings SET game_commission_percent = 20.0 WHERE game_commission_percent IS NULL;"))
         db.commit()
 
+    # ---- Ensure schema compatibility for new columns ----
+    # Ensure users.gift_coin exists
+    try:
+        db.execute(text("SELECT gift_coin FROM users LIMIT 1;"))
+    except Exception:
+        db.rollback()
+        print("⚠️ users.gift_coin column is missing. Adding it to 'users' table...")
+        try:
+            db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS gift_coin FLOAT DEFAULT 0.0;"))
+            db.commit()
+            print("✅ Successfully added users.gift_coin column.")
+        except Exception as e:
+            print(f"❌ Failed to alter users table: {e}")
+            db.rollback()
+
+    # Ensure player_cards.bet_amount exists
+    try:
+        db.execute(text("SELECT bet_amount FROM player_cards LIMIT 1;"))
+    except Exception:
+        db.rollback()
+        print("⚠️ player_cards.bet_amount column is missing. Adding it to 'player_cards' table...")
+        try:
+            db.execute(text("ALTER TABLE player_cards ADD COLUMN IF NOT EXISTS bet_amount FLOAT DEFAULT 0.0;"))
+            db.commit()
+            print("✅ Successfully added player_cards.bet_amount column.")
+        except Exception as e:
+            print(f"❌ Failed to alter player_cards table: {e}")
+            db.rollback()
+
+    # Ensure games.total_players and games.total_pool exist
+    try:
+        db.execute(text("SELECT total_players FROM games LIMIT 1;"))
+    except Exception:
+        db.rollback()
+        print("⚠️ games.total_players column is missing. Adding it to 'games' table...")
+        try:
+            db.execute(text("ALTER TABLE games ADD COLUMN IF NOT EXISTS total_players INTEGER DEFAULT 0;"))
+            db.commit()
+            print("✅ Successfully added games.total_players column.")
+        except Exception as e:
+            print(f"❌ Failed to alter games table (total_players): {e}")
+            db.rollback()
+
+    try:
+        db.execute(text("SELECT total_pool FROM games LIMIT 1;"))
+    except Exception:
+        db.rollback()
+        print("⚠️ games.total_pool column is missing. Adding it to 'games' table...")
+        try:
+            db.execute(text("ALTER TABLE games ADD COLUMN IF NOT EXISTS total_pool FLOAT DEFAULT 0.0;"))
+            db.commit()
+            print("✅ Successfully added games.total_pool column.")
+        except Exception as e:
+            print(f"❌ Failed to alter games table (total_pool): {e}")
+            db.rollback()
+
     db.close()
 
     # 3. ጨዋታው የሚነሳባቸውን 200 ካርዶች በዳታቤዝ ውስጥ መዝራት
