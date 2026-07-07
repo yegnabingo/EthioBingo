@@ -1,6 +1,7 @@
 import random
 import asyncio
 import json
+import inspect
 from datetime import datetime
 from sqlalchemy.orm import Session
 
@@ -17,11 +18,72 @@ class GameEngine:
         self.current_game = None
 
     async def safe_broadcast(self, payload):
+        """Robust broadcast helper:
+        - handles manager.broadcast being awaitable or synchronous callable
+        - falls back to sending directly on manager connections if available
+        - logs success/errors so we can diagnose why clients aren't receiving frames
+        """
         try:
-            await manager.broadcast(payload)
+            # Short payload preview for logs
+            preview = payload if isinstance(payload, dict) else str(payload)
+            if isinstance(preview, dict):
+                preview = {k: preview.get(k) for k in list(preview)[:5]}
+            print(f"⬆️ broadcast attempt: {preview}")
+
+            maybe = None
+            try:
+                maybe = manager.broadcast(payload)
+            except Exception as e:
+                # manager.broadcast itself raised synchronously
+                print(f"❌ manager.broadcast raised synchronously: {e}")
+
+            # If manager.broadcast returned an awaitable (common), await it
+            try:
+                if inspect.isawaitable(maybe):
+                    await maybe
+                    print("⬆️ broadcast: awaitable completed")
+                    return True
+
+                # If manager.broadcast returned a callable (some implementations), call it
+                if callable(maybe):
+                    try:
+                        maybe()
+                        print("⬆️ broadcast: callable executed")
+                        return True
+                    except Exception as e:
+                        print(f"❌ manager.broadcast callable failed: {e}")
+            except Exception as e:
+                print(f"❌ Error while awaiting/calling manager.broadcast result: {e}")
+
+            # Fallback: try to send to sockets directly if manager exposes them
+            sent = False
+            for attr in ("connections", "active_connections", "websockets"):
+                conns = getattr(manager, attr, None)
+                if conns:
+                    # iterate a copy in case manager mutates list during sends
+                    for ws in list(conns):
+                        try:
+                            # attempt JSON send (works with FastAPI WebSocket)
+                            await ws.send_json(payload)
+                            sent = True
+                        except Exception as e:
+                            # remove dead socket if possible
+                            print(f"❌ Failed to send to socket, removing: {e}")
+                            try:
+                                conns.remove(ws)
+                            except Exception:
+                                pass
+                    if sent:
+                        print("⬆️ broadcast: fallback per-socket sends succeeded")
+                        return True
+
+            # If nothing sent
+            print("⚠️ broadcast: no awaitable/callable/fallback succeeded")
+            return False
+
         except Exception as e:
-            # Log but do not let a broken websocket broadcast kill the loop
-            print(f"❌ WebSocket broadcast error: {e}")
+            print(f"❌ safe_broadcast unexpected error: {e}")
+            return False
 
     async def start_game(self):
         if self.running:
@@ -30,7 +92,7 @@ class GameEngine:
         self.running = True
         print("🎯 የቢንጎ ጨዋታ ሞተር በማለቂያ በሌለው ዑደት (Loop) ስራ ጀምሯል...")
 
-        # Main loop: starts immediately without waiting for DB init flag
+        # Main loop: starts immediately
         while self.running:
             db: Session = None
             try:
@@ -106,7 +168,7 @@ class GameEngine:
                         pass
 
             # Broadcast within its own try so failures won't stop the loop
-            await self.safe_broadcast({
+            payload = {
                 "type": "countdown",
                 "seconds": seconds,
                 "time": seconds,
@@ -114,7 +176,11 @@ class GameEngine:
                 "game_no": game_display_no,
                 "game_id": self.current_game.id if self.current_game else 0,
                 "taken_cards": current_taken_list
-            })
+            }
+            await self.safe_broadcast(payload)
+
+            # Debug log so we can see server-side countdown ticks
+            print(f"⏱ server countdown tick: {seconds} (game {game_display_no})")
 
             await asyncio.sleep(1)
             seconds -= 1
@@ -179,6 +245,9 @@ class GameEngine:
                    "call_count": call_count,
                    "game_no": game_display_no
                 })
+
+                # debug print per ball
+                print(f"🔔 called ball: {letter}{number} (call #{call_count})")
 
                 result = self.process_drawn_ball_and_check_winner(
                     db,
