@@ -10,7 +10,7 @@ let currentCardIndex = 0;
 let recentBallsList = []; // የቅርብ 10 ኳሶች
 let soundEnabled = true;
 
-// 🌐 የቴሌግราม ሚኒ አፕ መረጃ መጫኛ
+// 🌐 የቴሌግራም ሚኒ አፕ መረጃ መጫኛ
 if (window.Telegram && window.Telegram.WebApp) {
     const tg = window.Telegram.WebApp;
     tg.ready();
@@ -152,7 +152,7 @@ function generate200Cards() {
         btn.className = "card-btn";
         btn.id = `pick-card-${i}`;
         btn.innerText = i;
-        btn.style.backgroundColor = "#ffffff"; 🤍
+        btn.style.backgroundColor = "#ffffff";
         btn.style.color = "#000000";
         btn.onclick = () => selectCardTemporarily(i);
         grid.appendChild(btn);
@@ -408,7 +408,7 @@ function showWinnerPopup(message) {
         <div style="background:#2f3542; border:3px solid #ffd700; border-radius:12px; padding:30px; text-align:center; max-width:85%;">
             <h1 style="color:#ffd700; margin-top:0; font-size:28px;">🎉 ቢንጎ ተጠናቀቀ! 🎉</h1>
             <p style="font-size:18px; line-height:1.6; margin:20px 0;">${message}</p>
-            <button onclick="this.parentElement.parentElement.remove()" style="background:#ffd700; color:black; border:none; padding:12px 30px; font-size:16px; font-weight:bold; border-radius:6px;">እሺ</button>
+            <button onclick="this.parentElement.parentElement.remove()" style="background:#ffd700; color:black; border:none; padding:12px 30px; font-size:16px; font-weight:bold; border-radius:6px; cursor:pointer;">Close</button>
         </div>
     `;
     document.body.appendChild(popup);
