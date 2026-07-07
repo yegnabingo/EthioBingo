@@ -3,8 +3,13 @@ from app.database import Base, engine, SessionLocal
 from app.models import Setting
 from app.seed_cards import seed_cards
 
+# Flag to indicate DB initialization completion
+DB_INIT_DONE = False
+
 
 def initialize_database():
+    global DB_INIT_DONE
+
     # 1. መጀመሪያ ያሉትን ቴብሎች መፍጠር
     Base.metadata.create_all(bind=engine)
 
@@ -134,3 +139,6 @@ def initialize_database():
 
     # 3. ጨዋታው የሚነሳባቸውን 200 ካርዶች በዳታቤዝ ውስጥ መዝራት
     seed_cards()
+
+    # mark DB init as done so other components (game engine) can proceed
+    DB_INIT_DONE = True
