@@ -71,6 +71,7 @@ class PlayerCard(Base):
     game_id = Column(Integer, index=True)
     user_id = Column(Integer, index=True)
     card_number = Column(Integer)
+    bet_amount = Column(Float, default=0.0)  # Store the bet amount for this player card
     is_winner = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -86,7 +87,11 @@ class Game(Base):
     winning_card = Column(Integer, nullable=True)
     prize = Column(Float, default=0.0)
     
-    # 🆕 [አዲሱ ማሻሻያ] በማንኛውም ሰው የተያዙ ካርዶችን ዝርዝር ለሁሉም በዌብሶኬት ለመላክ የሚጠቅም (ጃሰን ዝርዝር ለምሳሌ: "[1, 45, 120]")
+    # Track counts and pool
+    total_players = Column(Integer, default=0)
+    total_pool = Column(Float, default=0.0)
+
+    # 🆕 [አዲሱ ማሻሻያ] በማንኛውም ሰው የተያዙ ካርዶችን ዝርዝር ለሁሉም በዌብሶኬት ለመላክ የሚጠቅም (ጃሰን ዝርዝር ለምን)
     taken_cards = Column(Text, default="[]") 
     drawn_balls = Column(Text, default="[]") # የወደቁ ኳሶችን ዝርዝር በቅደም ተከተል መመዝገቢያ
 
