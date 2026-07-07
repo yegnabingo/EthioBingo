@@ -103,6 +103,33 @@ def initialize_database():
             print(f"❌ Failed to alter games table (total_pool): {e}")
             db.rollback()
 
+    # Ensure games.taken_cards and games.drawn_balls exist
+    try:
+        db.execute(text("SELECT taken_cards FROM games LIMIT 1;"))
+    except Exception:
+        db.rollback()
+        print("⚠️ games.taken_cards column is missing. Adding it to 'games' table...")
+        try:
+            db.execute(text("ALTER TABLE games ADD COLUMN IF NOT EXISTS taken_cards TEXT DEFAULT '[]';"))
+            db.commit()
+            print("✅ Successfully added games.taken_cards column.")
+        except Exception as e:
+            print(f"❌ Failed to alter games table (taken_cards): {e}")
+            db.rollback()
+
+    try:
+        db.execute(text("SELECT drawn_balls FROM games LIMIT 1;"))
+    except Exception:
+        db.rollback()
+        print("⚠️ games.drawn_balls column is missing. Adding it to 'games' table...")
+        try:
+            db.execute(text("ALTER TABLE games ADD COLUMN IF NOT EXISTS drawn_balls TEXT DEFAULT '[]';"))
+            db.commit()
+            print("✅ Successfully added games.drawn_balls column.")
+        except Exception as e:
+            print(f"❌ Failed to alter games table (drawn_balls): {e}")
+            db.rollback()
+
     db.close()
 
     # 3. ጨዋታው የሚነሳባቸውን 200 ካርዶች በዳታቤዝ ውስጥ መዝራት
