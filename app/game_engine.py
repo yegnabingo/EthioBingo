@@ -188,9 +188,15 @@ class GameEngine:
             bought_cards = {pc.card_number: pc.user_id for pc in db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).all()}
             all_200_cards = {str(c.card_number): json.loads(c.data) if isinstance(c.data, str) else c.data for c in db.query(Card).all()}
 
-            settings = db.query(Setting).first()
-            game_fee = settings.game_fee if settings else 10
+            # ✅ የተስተካከለ፡ የዳታቤዝ ፍለጋውን በመተው በቀጥታ 10 ETB እናደርገዋለን
+            game_fee = 10.0
             total_pool_money = len(bought_cards) * game_fee
+
+            # 🧪 ጊዜያዊ የሙከራ ማለፊያ (Test Mode Bypass)
+            # አሁን ላይ በዳታቤዝ ውስጥ ተጫዋች ስለማይኖር ጨዋታው እንዳይዘጋ ያደርገዋል
+            if not bought_cards:
+                bought_cards = {56: 1}  # ለሙከራ ቁጥር 56 ካርድ ተገዝቷል ብሎ እንዲያስብ
+                total_pool_money = 10.0 # የኳስ መጣሉ ስራ እንዲቀጥል ፑሉን 10 ያደርገዋል
 
             winner_detected = False
 
@@ -199,6 +205,7 @@ class GameEngine:
                 "phase": "DRAW",
                 "game_no": game_display_no
             })
+
 
             call_count = 0
             for number in numbers:
