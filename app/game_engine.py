@@ -16,6 +16,13 @@ class GameEngine:
         self.called_numbers = []
         self.current_game = None
 
+    async def safe_broadcast(self, payload):
+        try:
+            await manager.broadcast(payload)
+        except Exception as e:
+            # Log but do not let a broken websocket broadcast kill the loop
+            print(f"❌ WebSocket broadcast error: {e}")
+
     async def start_game(self):
         if self.running:
             return
@@ -23,58 +30,83 @@ class GameEngine:
         self.running = True
         print("🎯 የቢንጎ ጨዋታ ሞተር በማለቂያ በሌለው ዑደት (Loop) ስራ ጀምሯል...")
 
-        # 🔄 [የተጨመረ ሎጂክ 1] ጨዋታው 24 ሰዓት ሳይቋረጥ እንዲቀጥል የተደረገ ማለቂያ የሌለው ዑደት
+        # Main loop: starts immediately without waiting for DB init flag
         while self.running:
-            db: Session = SessionLocal()
-            settings = db.query(Setting).first()
-            
-            countdown_seconds = settings.countdown_seconds if settings else 30
-            draw_interval = settings.draw_interval if settings else 2.0
+            db: Session = None
+            try:
+                db = SessionLocal()
+                settings = db.query(Setting).first()
 
-            # አዲስ ጨዋታ በዳታቤዝ መፍጠር
-            game = Game(
-                status="running",
-                started_at=datetime.utcnow(),
-                taken_cards="[]",
-                drawn_balls="[]"
-            )
-            db.add(game)
-            db.commit()
-            db.refresh(game)
+                countdown_seconds = settings.countdown_seconds if settings else 30
+                draw_interval = settings.draw_interval if settings else 2.0
 
-            self.current_game = game
-            db.close()
+                # Create new game record (taken_cards/drawn_balls should now exist)
+                game = Game(
+                    status="running",
+                    started_at=datetime.utcnow(),
+                    taken_cards="[]",
+                    drawn_balls="[]"
+                )
+                db.add(game)
+                db.commit()
+                db.refresh(game)
 
-            # ሀ. የካርድ መምረጫ ምዕራፍ (PICK PHASE)
-            game_display_no = str(100000 + game.id)
-            await self.countdown(countdown_seconds, game_display_no)
-            
-            # ለ. የኳስ መጣያ ምዕራፍ (DRAW PHASE)
-            if self.running:
-                await self.draw_numbers(draw_interval, game_display_no)
+                self.current_game = game
 
-            # ከዙር ዙር መካከል የ 5 ሰከንድ እረፍት
-            await asyncio.sleep(5)
+                # PICK PHASE
+                game_display_no = str(100000 + game.id)
+                await self.countdown(countdown_seconds, game_display_no)
+
+                # DRAW PHASE
+                if self.running:
+                    await self.draw_numbers(draw_interval, game_display_no)
+
+                # short rest between rounds
+                await asyncio.sleep(5)
+
+            except Exception as e:
+                print(f"❌ Error in game loop iteration: {e}")
+                # small pause to avoid tight error loop
+                await asyncio.sleep(1)
+
+            finally:
+                if db:
+                    try:
+                        db.close()
+                    except Exception:
+                        pass
 
     async def countdown(self, seconds, game_display_no):
         while seconds >= 0 and self.running:
             current_taken_list = []
+            db: Session = None
             try:
-                db: Session = SessionLocal()
+                db = SessionLocal()
                 taken_cards = db.query(Card.card_number).filter(Card.is_taken == True).all()
                 current_taken_list = [c[0] for c in taken_cards]
-                
-                if self.current_game:
-                    game_record = db.query(Game).filter(Game.id == self.current_game.id).first()
-                    if game_record:
-                        game_record.taken_cards = json.dumps(current_taken_list)
-                        db.commit()
-                db.close()
-            except Exception as e:
-                print(f"❌ Error during countdown card fetch: {e}")
 
-            # ለሁለቱም የጃቫስክሪፕት ስሪቶች መረጃውን መላክ
-            await manager.broadcast({
+                if self.current_game:
+                    try:
+                        game_record = db.query(Game).filter(Game.id == self.current_game.id).first()
+                        if game_record:
+                            game_record.taken_cards = json.dumps(current_taken_list)
+                            db.commit()
+                    except Exception as e:
+                        # log DB update failure but continue
+                        print(f"❌ Failed to update game.taken_cards: {e}")
+
+            except Exception as e:
+                print(f"❌ Error during countdown DB fetch: {e}")
+
+            finally:
+                if db:
+                    try:
+                        db.close()
+                    except Exception:
+                        pass
+
+            # Broadcast within its own try so failures won't stop the loop
+            await self.safe_broadcast({
                 "type": "countdown",
                 "seconds": seconds,
                 "time": seconds,
@@ -83,6 +115,7 @@ class GameEngine:
                 "game_id": self.current_game.id if self.current_game else 0,
                 "taken_cards": current_taken_list
             })
+
             await asyncio.sleep(1)
             seconds -= 1
 
@@ -94,124 +127,140 @@ class GameEngine:
         random.shuffle(numbers)
         self.called_numbers = []
 
-        db: Session = SessionLocal()
-        
-        bought_cards = {pc.card_number: pc.user_id for pc in db.query(PlayerCard).filter(PlayerCard.game_id == self.current_game.id).all()}
-        all_200_cards = {str(c.card_number): json.loads(c.data) if isinstance(c.data, str) else c.data for c in db.query(Card).all()}
+        db: Session = None
+        try:
+            db = SessionLocal()
 
-        settings = db.query(Setting).first()
-        game_fee = settings.game_fee if settings else 10
-        total_pool_money = len(bought_cards) * game_fee
+            bought_cards = {pc.card_number: pc.user_id for pc in db.query(PlayerCard).filter(PlayerCard.game_id == self.current_game.id).all()}
+            all_200_cards = {str(c.card_number): json.loads(c.data) if isinstance(c.data, str) else c.data for c in db.query(Card).all()}
 
-        winner_detected = False
+            settings = db.query(Setting).first()
+            game_fee = settings.game_fee if settings else 10
+            total_pool_money = len(bought_cards) * game_fee
 
-        await manager.broadcast({
-            "type": "phase_change",
-            "phase": "DRAW",
-            "game_no": game_display_no
-        })
+            winner_detected = False
 
-        call_count = 0
-        for number in numbers:
-            if not self.running:
-                break
-
-            call_count += 1
-            self.called_numbers.append(number)
-
-            # 🔄 [የተጨመረ ሎጂክ 3] የወደቁ ኳሶችን ዝርዝር በየሴኮንዱ በዳታቤዝ (games) ላይ ማዘመን
-            try:
-                game_record = db.query(Game).filter(Game.id == self.current_game.id).first()
-                if game_record:
-                    game_record.drawn_balls = json.dumps(self.called_numbers)
-                    db.commit()
-            except Exception as e:
-                print(f"❌ Error saving drawn ball to DB: {e}")
-
-            letter = ""
-            if number <= 15: letter = "B"
-            elif number <= 30: letter = "I"
-            elif number <= 45: letter = "N"
-            elif number <= 60: letter = "G"
-            else: letter = "O"
-
-            await manager.broadcast({
-               "type": "ball",
-               "letter": letter,
-               "number": number,
-               "label": f"{letter}{number}",
-               "call_count": call_count,
-               "game_no": game_display_no
+            await self.safe_broadcast({
+                "type": "phase_change",
+                "phase": "DRAW",
+                "game_no": game_display_no
             })
 
-            result = self.process_drawn_ball_and_check_winner(
-                db, 
-                self.current_game.id, 
-                self.called_numbers, 
-                total_pool_money, 
-                bought_cards, 
-                all_200_cards
-            )
+            call_count = 0
+            for number in numbers:
+                if not self.running:
+                    break
 
-            if result["status"] in ["WINNER_FOUND", "HOUSE_WIN"]:
-                user_record = db.query(User).filter(User.id == result["winner_id"]).first()
-                winner_name = user_record.telegram_name if user_record else "የቤቱ ተጫዋች"
+                call_count += 1
+                self.called_numbers.append(number)
+
+                # persist drawn balls
+                try:
+                    game_record = db.query(Game).filter(Game.id == self.current_game.id).first()
+                    if game_record:
+                        game_record.drawn_balls = json.dumps(self.called_numbers)
+                        db.commit()
+                except Exception as e:
+                    print(f"❌ Error saving drawn ball to DB: {e}")
+
+                # broadcast ball
+                letter = ""
+                if number <= 15: letter = "B"
+                elif number <= 30: letter = "I"
+                elif number <= 45: letter = "N"
+                elif number <= 60: letter = "G"
+                else: letter = "O"
+
+                await self.safe_broadcast({
+                   "type": "ball",
+                   "letter": letter,
+                   "number": number,
+                   "label": f"{letter}{number}",
+                   "call_count": call_count,
+                   "game_no": game_display_no
+                })
+
+                result = self.process_drawn_ball_and_check_winner(
+                    db,
+                    self.current_game.id,
+                    self.called_numbers,
+                    total_pool_money,
+                    bought_cards,
+                    all_200_cards
+                )
+
+                if result["status"] in ["WINNER_FOUND", "HOUSE_WIN"]:
+                    try:
+                        user_record = db.query(User).filter(User.id == result["winner_id"]).first()
+                        winner_name = user_record.telegram_name if user_record else "የቤቱ ተጫዋች"
+                    except Exception:
+                        winner_name = "የቤቱ ተጫዋች"
+
+                    prize_amt = total_pool_money * 0.80
+
+                    await self.safe_broadcast({
+                        "type": "game_over",
+                        "status": result["status"],
+                        "result": "BINGO",
+                        "winner_name": winner_name,
+                        "winning_card": result["card_number"],
+                        "prize": round(prize_amt, 2),
+                        "message": result["message"],
+                        "card_number": result["card_number"],
+                        "winner_id": result["winner_id"]
+                    })
+                    winner_detected = True
+                    break
+
+                await asyncio.sleep(interval)
+
+            if not winner_detected and self.running:
+                result = self.force_house_win(db, self.current_game.id, self.called_numbers, total_pool_money, bought_cards, all_200_cards)
                 prize_amt = total_pool_money * 0.80
 
-                await manager.broadcast({
+                await self.safe_broadcast({
                     "type": "game_over",
                     "status": result["status"],
                     "result": "BINGO",
-                    "winner_name": winner_name,
+                    "winner_name": "የቤቱ ተጫዋች",
                     "winning_card": result["card_number"],
                     "prize": round(prize_amt, 2),
                     "message": result["message"],
                     "card_number": result["card_number"],
                     "winner_id": result["winner_id"]
                 })
-                winner_detected = True
-                break
 
-            await asyncio.sleep(interval)
-
-        if not winner_detected and self.running:
-            result = self.force_house_win(db, self.current_game.id, self.called_numbers, total_pool_money, bought_cards, all_200_cards)
-            prize_amt = total_pool_money * 0.80
-            
-            await manager.broadcast({
-                "type": "game_over",
-                "status": result["status"],
-                "result": "BINGO",
-                "winner_name": "የቤቱ ተጫዋች",
-                "winning_card": result["card_number"],
-                "prize": round(prize_amt, 2),
-                "message": result["message"],
-                "card_number": result["card_number"],
-                "winner_id": result["winner_id"]
-            })
-
-        # 🔄 [የተጨመረ ሎጂክ 4] ጨዋታው ሲያልቅ ሁሉንም 200 ካርዶች ለቀጣዩ ዙር ዝግጁ (Reset) ማድረጊያ
-        try:
-            db.query(Card).update({Card.is_taken: False, Card.reserved_by: None, Card.current_game_id: None})
-            db.commit()
-            print(f"🏁 Game ID {game_display_no} ተጠናቆ ካርዶች በሙሉ ለቀጣይ ዙር ጸድተዋል።")
         except Exception as e:
-            print(f"❌ Error resetting cards at game over: {e}")
+            print(f"❌ Error in draw_numbers: {e}")
 
-        db.close()
+        finally:
+            # reset all 200 cards
+            try:
+                if db:
+                    db.query(Card).update({Card.is_taken: False, Card.reserved_by: None, Card.current_game_id: None})
+                    db.commit()
+                    print(f"🏁 Game ID {game_display_no} ተጠናቆ ካርዶች በሙሉ ለቀጣይ ዙር ጸድተዋል።")
+            except Exception as e:
+                print(f"❌ Error resetting cards at game over: {e}")
+
+            if db:
+                try:
+                    db.close()
+                except Exception:
+                    pass
 
     def check_bingo_patterns(self, matrix, drawn_balls):
         drawn_set = set(drawn_balls)
         drawn_set.add("FREE")
         drawn_set.add(None)
-        
+
         for r in range(5):
             if all(matrix[r][c] in drawn_set for c in range(5)): return True
         for c in range(5):
             if all(matrix[r][c] in drawn_set for r in range(5)): return True
         if all(matrix[i][i] in drawn_set for i in range(5)): return True
         if all(matrix[i][4 - i] in drawn_set for i in range(5)): return True
-        
+
         corners = [(0, 0), (0, 4), (4, 0), (4, 4)]
         if all(matrix[r][c] in drawn_set for r, c in corners): return True
 
@@ -221,7 +270,10 @@ class GameEngine:
         for card_num, user_id in bought_cards.items():
             card_matrix = all_200_cards.get(str(card_num))
             if card_matrix and self.check_bingo_patterns(card_matrix, current_drawn_balls):
-                self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=user_id, winning_card=card_num)
+                try:
+                    self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=user_id, winning_card=card_num)
+                except Exception as e:
+                    print(f"❌ Error distributing prize: {e}")
                 return {
                     "status": "WINNER_FOUND",
                     "message": f"🎉 ካርድ #{card_num} አሸንፏል!",
@@ -238,16 +290,16 @@ class GameEngine:
                 if card_matrix and self.check_bingo_patterns(card_matrix, current_drawn_balls):
                     winning_card_num = card_num
                     break
-        
+
         if not winning_card_num:
             available_ids = [id for id in range(1, 201) if id not in bought_cards]
             winning_card_num = random.choice(available_ids) if available_ids else 1
 
         self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=None, winning_card=winning_card_num)
-        
+
         fake_names = ["Abebe_99", "Selam_🎰", "Bekele_K", "Aster_B", "Elias_Bingo"]
         random_name = random.choice(fake_names)
-        
+
         return {
             "status": "HOUSE_WIN",
             "message": f"🎉 ካርድ #{winning_card_num} ({random_name}) አሸንፏል!",
@@ -256,10 +308,9 @@ class GameEngine:
         }
 
     def distribute_game_prize(self, db, game_id, total_pool_money, winner_user_id=None, winning_card=None):
-        # 🆕 ከዳታቤዝ አዲሱን የኮሚሽን ፐርሰንት ማንበቢያ (ከሌለ ወደ 20% ዲፎልት ያደርገዋል)
         settings = db.query(Setting).first()
         comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
-    
+
         admin_commission = total_pool_money * (comm_percent / 100.0)
         player_prize = total_pool_money - admin_commission
 
@@ -267,7 +318,7 @@ class GameEngine:
         if not admin_stats:
             admin_stats = AdminStats(house_balance=0.0, total_commission=0.0)
             db.add(admin_stats)
-    
+
         admin_stats.total_commission += admin_commission
 
         game = db.query(Game).filter(Game.id == game_id).first()
@@ -288,8 +339,11 @@ class GameEngine:
             if game:
                 game.winner_id = 0
                 game.prize = player_prize
-            
-        db.commit()
+
+        try:
+            db.commit()
+        except Exception as e:
+            print(f"❌ Error committing prize distribution: {e}")
 
 
 # 🎯 🧠 የጌም ሞተሩን ውጭ መጥሪያ
