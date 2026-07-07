@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.websocket_manager import manager
 from app.database import SessionLocal
 from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
-from app.init_db import DB_INIT_DONE
 
 
 class GameEngine:
@@ -18,17 +17,6 @@ class GameEngine:
         self.current_game = None
 
     async def start_game(self):
-        # Wait for DB initialization to complete (guard against race)
-        max_wait = 60.0  # seconds
-        waited = 0.0
-        poll_interval = 0.5
-        while not DB_INIT_DONE:
-            if waited >= max_wait:
-                print(f"❌ DB init did not complete within {max_wait}s. Aborting game engine start.")
-                return  # fail-fast: do not start the engine
-            await asyncio.sleep(poll_interval)
-            waited += poll_interval
-
         if self.running:
             return
 
