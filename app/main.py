@@ -23,17 +23,28 @@ from app.game_engine import engine as bingo_engine
 # የዳታቤዝ ቴብሎችን መፍጠር
 Base.metadata.create_all(bind=db_engine)
 
+# --- Ensure initialize_database runs on FastAPI startup event ---
+DB_INIT_DONE = False
+
+app = FastAPI(title="Pick & Win V3", version="3.0.0")
+
+@app.on_event("startup")
+def on_startup_event():
+    global DB_INIT_DONE
+    if not DB_INIT_DONE:
+        print("=" * 40)
+        print(" 🎯 Pick & Win V3 Startup Event: running DB init...")
+        print("=" * 40)
+        try:
+            initialize_database()
+            DB_INIT_DONE = True
+            print("✅ Database Initialization Complete (startup event).")
+        except Exception as e:
+            print(f"❌ Database Init Error (startup event): {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("=" * 40)
-    print(" 🎯 Pick & Win V3 Starting...")
-    print("=" * 40)
-    try:
-        initialize_database()
-        print("✅ Database Initialization Complete.")
-    except Exception as e:
-        print(f"❌ Database Init Error: {e}")
-        
     # የጌም ኢንጂኑን ማለቂያ የሌለውን ሉፕ በጀርባ (Background) በጋራ መስመር ማስጀመር
     game_loop_task = asyncio.create_task(bingo_engine.start_game())
     yield
@@ -43,7 +54,8 @@ async def lifespan(app: FastAPI):
     print("🛑 Server Stopped")
 
 
-app = FastAPI(title="Pick & Win V3", version="3.0.0", lifespan=lifespan)
+# attach lifespan to app
+app.router.lifespan_context = lifespan
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
