@@ -48,13 +48,13 @@ def pick_card(request: AdvancedPickCardRequest):
         # 2. ተጫዋቹን በቴሌግራም አይዲ መፈለግ
         user = db.query(User).filter(User.telegram_id == request.telegram_id).first()
         if not user:
-            # ተጫዋቹ ከሌለ በአዲስ እና ከተስተካከሉ ሰንጠረዦች (gift_coins ጭምር) ጋር መፍጠር
+            # ተጫዋቹ ከሌለ በአዲስ እና ከተስተካከሉ ሰንጠረዦች ጋር መፍጠር
             user = User(
                 telegram_id=request.telegram_id,
                 telegram_name=f"User_{request.telegram_id[:5]}" if request.telegram_id else "Guest",
                 first_name="Player",
                 balance=500.0,
-                gift_coins=0.0
+                gift_coin=0.0
             )
             db.add(user)
             db.commit()
@@ -74,7 +74,7 @@ def pick_card(request: AdvancedPickCardRequest):
         if already_bought_count >= 5:
             return {"success": False, "message": "በአንድ ጨዋታ መግዛት የሚችሉት ከፍተኛው የካርድ መጠን 5 ብቻ ነው!"}
 
-        # 5. የካርዱ ቁጥር አስቀድሞ በሌላ ሰው መያዙን ማረጋገጥ (የተደጋገመው መስመር እዚህ ተስተካክሏል)
+        # 5. የካርዱ ቁጥር አስቀድሞ በሌላ ሰው መያዙን ማረጋገጥ
         card_taken = db.query(PlayerCard).filter(
             PlayerCard.game_id == game.id,
             PlayerCard.card_number == request.card_number
