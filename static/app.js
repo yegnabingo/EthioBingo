@@ -9,6 +9,7 @@ let myTelegramName = "ተጫዋች";
 let currentCardIndex = 0; 
 let recentBallsList = []; // የቅርብ 10 ኳሶች
 let soundEnabled = true;
+let isAutoMark = true;
 
 // 🌐 የቴሌግራም ሚኒ አፕ መረጃ መጫኛ
 if (window.Telegram && window.Telegram.WebApp) {
@@ -358,11 +359,17 @@ async function renderMyBoughtCards() {
         const mainSliderLayout = document.createElement("div");
         mainSliderLayout.className = "main-slider-layout";
 
+        // 🔘 እጅግ በጣም አነስተኛ እና ውብ የሆነች አዝራር (Compact Toggle)
         let html = `
             <button class="side-nav-btn" onclick="moveSlider(-1)">◀</button>
             <div class="card-display-center">
-                <div class="card-title-label" style="color: #ffd700; font-weight: bold; margin-bottom: 6px; font-size: 13px;">
-                    ካርድ #${activeCardNum} (${currentCardIndex + 1}/${selectedCards.length})
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; width: 100%; padding: 0 5px;">
+                    <div class="card-title-label" style="color: #ffd700; font-weight: bold; font-size: 13px;">
+                        ካርድ #${activeCardNum} (${currentCardIndex + 1}/${selectedCards.length})
+                    </div>
+                    <button id="toggleMarkBtn" onclick="toggleMarkingMode()" style="background: ${isAutoMark ? '#2ed573' : '#718093'}; color: white; border: none; padding: 4px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; cursor: pointer;">
+                        ${isAutoMark ? "🤖 Auto: ON" : "🖐 Manual"}
+                    </button>
                 </div>
                 <div class="bingo-header-letters">
                     <span style="background:${getBingoColor('B')}">B</span>
@@ -380,12 +387,15 @@ async function renderMyBoughtCards() {
                     html += `<div class="bingo-cell free-star">★</div>`;
                 } else {
                     const isAlreadyDrawn = recentBallsList.some(b => b.num === cell);
-                    if (isAlreadyDrawn) {
+                    
+                    // Auto-Mark የበራ ከሆነ ወይም ቁጥሩ ቀድሞውኑ ወጥቶ ከሆነ ያበራዋል
+                    if (isAlreadyDrawn && isAutoMark) {
                         let letterPrefix = cell <= 15 ? 'B' : cell <= 30 ? 'I' : cell <= 45 ? 'N' : cell <= 60 ? 'G' : 'O';
                         const savedColor = getBingoColor(letterPrefix);
                         html += `<div class="bingo-cell cell-${cell} marked-auto" style="background:${savedColor} !important; color:#fff;">${cell}</div>`;
                     } else {
-                        html += `<div class="bingo-cell cell-${cell}" onclick="this.classList.toggle('marked-manual')">${cell}</div>`;
+                        // በእጅ ሲነካ (Manual Click) የሚሰራ ሎጂክ
+                        html += `<div class="bingo-cell cell-${cell}" onclick="handleManualCellClick(this, ${cell})">${cell}</div>`;
                     }
                 }
             });
@@ -395,6 +405,7 @@ async function renderMyBoughtCards() {
         container.appendChild(mainSliderLayout);
     } catch (e) { console.log(e); }
 }
+
 
 function moveSlider(direction) {
     if (selectedCards.length <= 1) return;
@@ -423,3 +434,34 @@ window.onload = () => {
     const confirmBtn = document.getElementById("confirmBtn");
     if (confirmBtn) confirmBtn.onclick = () => confirmAllSelectedPicks();
 };
+
+// 🔄 ሁነታውን መቀያየሪያ (Toggle Function)
+function toggleMarkingMode() {
+    isAutoMark = !isAutoMark;
+    renderMyBoughtCards(); // ሁነታው ሲቀየር ካርዱን እንደገና ሪፍሬሽ ያደርገዋል
+}
+
+// 🖐 በእጅ ቁጥር ሲነካ የሚሰራ ሎጂክ (Manual Cell Click)
+function handleManualCellClick(cellElement, cellNumber) {
+    // Auto-Mark የበራ ከሆነ በእጅ መንካት አይሰራም
+    if (isAutoMark) return;
+
+    // ቁጥሩ በባክኤንድ የወደቀ ኳስ መሆኑን ቼክ ማድረግ
+    const isBallDrawn = recentBallsList.some(b => b.num === cellNumber);
+
+    if (isBallDrawn) {
+        let letterPrefix = cellNumber <= 15 ? 'B' : cellNumber <= 30 ? 'I' : cellNumber <= 45 ? 'N' : cellNumber <= 60 ? 'G' : 'O';
+        const ballColor = getBingoColor(letterPrefix);
+        
+        // ቁጥሩን ያበራዋል
+        cellElement.style.background = ballColor;
+        cellElement.style.color = "#fff";
+        cellElement.style.boxShadow = `0 0 10px ${ballColor}`;
+        cellElement.classList.add("marked-manual");
+    } else {
+        // ያልወደቀ ቁጥር ከነካ ለአፍታ ቀይ አድርጎ ያሳየዋል (ስህተት መሆኑን ለማሳወቅ)
+        const oldBg = cellElement.style.background;
+        cellElement.style.background = "#ff4757";
+        setTimeout(() => { cellElement.style.background = oldBg; }, 250);
+    }
+}
