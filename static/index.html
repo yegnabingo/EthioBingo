@@ -11,47 +11,47 @@
 
 <div class="container">
 
-    <div class="app-logo-neon-container" style="text-align: center; margin-top: 25px; margin-bottom: 20px;">
-    <h1 style="font-size: 32px; font-weight: 900; color: #ffffff; margin: 0; text-shadow: 0 0 10px #2ed573, 0 0 20px #2ed573; font-family: sans-serif; letter-spacing: 1px;">
-        የYegnaኛ
-    </h1>
-    <span style="font-size: 40px; font-weight: 900; color: #ffd700; text-transform: uppercase; display: inline-block; margin-top: -5px; text-shadow: 0 0 15px #ffcc00, 0 0 30px #ffa500; letter-spacing: 3px;">
-        BINGO
-    </span>
-    <div style="font-size: 11px; color: #a4b0be; text-transform: uppercase; letter-spacing: 4px; margin-top: 5px;">
-        • Mini App Game •
-    </div>
-</div>
+    <div id="pickScreen">
 
-    <div class="timer-container-circle">
-        <div class="circle-timer">
-            <span id="timerText">30</span>
-            <small>Seconds</small>
-        </div>
-    </div>
-
-    <div class="top-status-bar">
-        <div class="derash-badge">Derash 10 📋</div>
-    </div>
-
-    <div class="stats-grid">
-        <div class="stat-box">Game<strong>-</strong></div>
-        <div class="stat-box">Bet<strong>10 ETB</strong></div>
-        <div class="stat-box">Active Game<strong>-</strong></div>
-        <div class="stat-box">Wallet<strong>- ETB</strong></div>
-        <div class="stat-box">Gift<strong>0.00 Coin</strong></div>
-    </div>
-
-    <div class="card-grid-200" id="cardGrid">
+        <div class="app-logo-neon-container" style="text-align: center; margin-top: 25px; margin-bottom: 20px;">
+            <h1 style="font-size: 32px; font-weight: 900; color: #ffffff; margin: 0; text-shadow: 0 0 10px #2ed573, 0 0 20px #2ed573; font-family: sans-serif; letter-spacing: 1px;">
+                የYegnaኛ
+            </h1>
+            <span style="font-size: 40px; font-weight: 900; color: #ffd700; text-transform: uppercase; display: inline-block; margin-top: -5px; text-shadow: 0 0 15px #ffcc00, 0 0 30px #ffa500; letter-spacing: 3px;">
+                BINGO
+            </span>
+            <div style="font-size: 11px; color: #a4b0be; text-transform: uppercase; letter-spacing: 4px; margin-top: 5px;">
+                • Mini App Game •
+            </div>
         </div>
 
-    <div class="pick-actions">
-        <button class="btn-confirm" id="confirmBtn">CONFIRM PICKS</button>
-        <button class="btn-refresh-blue" onclick="window.location.reload()">Refresh</button>
-    </div>
-</div>
+        <div class="timer-container-circle">
+            <div class="circle-timer">
+                <span id="timerText">30</span>
+                <small>Seconds</small>
+            </div>
+        </div>
 
-    <div id="drawScreen" style="display: none;">
+        <div class="top-status-bar">
+            <div class="derash-badge">Derash 10 📋</div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-box">Game<strong>-</strong></div>
+            <div class="stat-box">Bet<strong>10 ETB</strong></div>
+            <div class="stat-box">Active Game<strong>-</strong></div>
+            <div class="stat-box">Wallet<strong>- ETB</strong></div>
+            <div class="stat-box">Gift<strong>0.00 Coin</strong></div>
+        </div>
+
+        <div class="card-grid-200" id="cardGrid"></div>
+
+        <div class="pick-actions">
+            <button class="btn-confirm" id="confirmBtn">CONFIRM PICKS</button>
+            <button class="btn-refresh-blue" onclick="window.location.reload()">Refresh</button>
+        </div>
+        
+    </div> <div id="drawScreen" style="display: none;">
         <div class="bingo-header">
             <div class="info-group">
                 <div class="info-badge purple">Call <span id="callCount">60</span></div>
