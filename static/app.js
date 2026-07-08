@@ -115,7 +115,8 @@ function connectWebSocket() {
             if (recentBallsList.length > 10) recentBallsList.pop();
             updateRecentBallsUI(); 
 
-            // AUTO MARKING
+        // ✅ የተስተካከለ፡ Auto-Mark የበራ ከሆነ ብቻ በራሱ ያበራል
+        if (isAutoMark) {
             const matchingCells = document.querySelectorAll(`.cell-${data.number}`);
             matchingCells.forEach(cell => {
                 cell.classList.add("marked-auto");
@@ -123,7 +124,8 @@ function connectWebSocket() {
                 cell.style.color = "#fff";
                 cell.style.boxShadow = `0 0 12px ${color}`;
             });
-            
+        }
+    
             if (document.getElementById("callCount")) {
                 document.getElementById("callCount").innerText = data.call_count;
             }
