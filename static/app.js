@@ -109,6 +109,13 @@ function connectWebSocket() {
                 ballElement.style.color = "#fff";
                 ballElement.style.boxShadow = `0 0 10px ${color}`;
             }
+            
+            // 🔊 አዲስ፡ የአማርኛ ድምፅ ማጫወቻ ሎጂክ
+            // soundEnabled የበራ ከሆነ ከ static/sounds/ ፎልደር ውስጥ የኳሱን ቁጥር .mp3 ያጫውታል
+            if (soundEnabled) {
+                const audio = new Audio(`/static/sounds/${data.number}.mp3`);
+                audio.play().catch(e => console.log("🔊 የድምፅ ፋይል አልተገኘም ወይም መጫወት አልተቻለም፦", e));
+            }
 
             // 🔴 ኳሱን ወደ ዝርዝር መጨመር
             recentBallsList.unshift({ label: data.label, letter: letter, num: data.number });
