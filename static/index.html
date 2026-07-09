@@ -115,35 +115,48 @@
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d; padding-bottom: 10px; margin-bottom: 15px;">
             <h3 id="modalTitle" style="margin: 0; color: #ffd700; font-size: 18px;">የገንዘብ ማስተናገጃ</h3>
             <button onclick="closeWalletModal()" style="background: none; border: none; color: #ff4757; font-size: 24px; cursor: pointer; font-weight: bold;">×</button>
+       </div> 
+        
+<div id="depositSection">
+    <p style="font-size: 12px; color: #a4b0be; line-height: 1.5; margin-bottom: 12px;">
+        💡 <b>ማሳሰቢያ፦</b> አካውንቶቹን ለመቅዳት <b>የቁጥሩን ጽሑፍ ይጫኑት (ኮፒ ይሆናል)</b>። ብር ካስገቡ በኋላ ዝርዝሩን ሞልተው የደረሰውን SMS ከታች ባለው ሳጥን ላይ ይለጥፉት።
+    </p>
+    
+    <div style="background: #2f3542; padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 15px; border-left: 4px solid #2ed573; display: flex; flex-direction: column; gap: 8px;">
+        <div style="cursor: pointer; padding: 4px;" onclick="navigator.clipboard.writeText('+251955515243'); alert('Telebirr ቁጥር ኮፒ ተደርጓል!');">
+            📱 Telebirr: <code style="color: #2ed573; background: #1e272e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">+251955515243</code> 📋
         </div>
+        <div style="cursor: pointer; padding: 4px;" onclick="navigator.clipboard.writeText('+251910032722'); alert('CBE Birr ቁጥር ኮፒ ተደርጓል!');">
+            🔸 CBE Birr: <code style="color: #2ed573; background: #1e272e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">+251910032722</code> 📋
+        </div>
+        <div style="cursor: pointer; padding: 4px;" onclick="navigator.clipboard.writeText('1000406099141'); alert('CBE አካውንት ቁጥር ኮፒ ተደርጓል!');">
+            🏛 CBE Bank: <code style="color: #ffd700; background: #1e272e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">1000406099141</code> 📋
+        </div>
+        <div style="cursor: pointer; padding: 4px;" onclick="navigator.clipboard.writeText('214157098'); alert('የአቢሲኒያ አካውንት ቁጥር ኮፒ ተደርጓል!');">
+            🦅 Abyssinia: <code style="color: #ffd700; background: #1e272e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">214157098</code> 📋
+        </div>
+        <div style="cursor: pointer; padding: 4px;" onclick="navigator.clipboard.writeText('013201588359000'); alert('የአዋሽ አካውንት ቁጥር ኮፒ ተደርጓል!');">
+            🏦 Awash Bank: <code style="color: #ffd700; background: #1e272e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">013201588359000</code> 📋
+        </div>
+    </div>
+    
+    <label style="font-size: 12px; color: #ffd700; display: block; margin-top: 10px;">የላኩት የገንዘብ መጠን (ETB)፦</label>
+    <input type="number" id="depositAmount" placeholder="ለምሳሌ፡ 50" style="width: 100%; padding: 10px; margin: 5px 0 12px 0; border-radius: 6px; border: 1px solid #4b6584; background: #2f3542; color: white; box-sizing: border-box;">
 
-        <div id="depositSection">
-            <p style="font-size: 12px; color: #a4b0be; line-height: 1.5; margin-bottom: 12px;">
-                💡 <b>ማሳሰቢያ፦</b> አካውንቶቹን ለመቅዳት <b>የቁጥሩን ጽሑፍ ይጫኑት (ኮፒ ይሆናል)</b>። ብር ካስገቡ በኋላ የደረሰውን SMS ከታች ባለው ሳጥን ላይ ይለጥፉት።
-            </p>
-            
-            <div style="background: #2f3542; padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 15px; border-left: 4px solid #2ed573; display: flex; flex-direction: column; gap: 8px;">
-                <div style="cursor: pointer; padding: 4px;" onclick="navigator.clipboard.writeText('+251955515243'); alert('Telebirr ቁጥር ኮፒ ተደርጓል!');">
-                    📱 Telebirr: <code style="color: #2ed573; background: #1e272e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">+251955515243</code> 📋
-                </div>
-                <div style="cursor: pointer; padding: 4px;" onclick="navigator.clipboard.writeText('+251910032722'); alert('CBE Birr ቁጥር ኮፒ ተደርጓል!');">
-                    🔸 CBE Birr: <code style="color: #2ed573; background: #1e272e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">+251910032722</code> 📋
-                </div>
-                <div style="cursor: pointer; padding: 4px;" onclick="navigator.clipboard.writeText('1000406099141'); alert('CBE አካውንት ቁጥር ኮፒ ተደርጓል!');">
-                    🏛 CBE Bank: <code style="color: #ffd700; background: #1e272e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">1000406099141</code> 📋
-                </div>
-                <div style="cursor: pointer; padding: 4px;" onclick="navigator.clipboard.writeText('214157098'); alert('የአቢሲኒያ አካውንት ቁጥር ኮፒ ተደርጓል!');">
-                    🦅 Abyssinia: <code style="color: #ffd700; background: #1e272e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">214157098</code> 📋
-                </div>
-                <div style="cursor: pointer; padding: 4px;" onclick="navigator.clipboard.writeText('013201588359000'); alert('የአዋሽ አካውንት ቁጥር ኮፒ ተደርጓል!');">
-                    🏦 Awash Bank: <code style="color: #ffd700; background: #1e272e; padding: 2px 6px; border-radius: 4px; font-weight: bold;">013201588359000</code> 📋
-                </div>
-            </div>
-            
-            <label style="font-size: 12px; color: #ffd700;">የባንክ ማረጋገጫ (SMS) እዚህ ይለጥፉ፦</label>
-            <textarea id="depositTxn" placeholder="የባንኩን SMS ሙሉ በሙሉ እዚህ ላይ Paste ያድርጉ..." style="width: 100%; height: 80px; padding: 10px; margin: 8px 0 15px 0; border-radius: 6px; border: 1px solid #4b6584; background: #2f3542; color: white; font-size: 13px; resize: none;"></textarea>
-            <button onclick="submitDeposit()" style="width: 100%; background: #2ed573; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 14px;">📤 የማስገቢያ ጥያቄ ላክ</button>
-        </div>
+    <label style="font-size: 12px; color: #ffd700; display: block;">ብር የላኩበት የባንክ አይነት፦</label>
+    <select id="depositBank" style="width: 100%; padding: 10px; margin: 5px 0 12px 0; border-radius: 6px; border: 1px solid #4b6584; background: #2f3542; color: white; box-sizing: border-box;">
+        <option value="Telebirr">Telebirr</option>
+        <option value="CBE Birr">CBE Birr</option>
+        <option value="CBE Bank">CBE Bank (የኢትዮጵያ ንግድ ባንክ)</option>
+        <option value="Abyssinia">አቢሲኒያ ባንክ</option>
+        <option value="Awash">አዋሽ ባንክ</option>
+    </select>
+
+    <label style="font-size: 12px; color: #ffd700;">የባንክ ማረጋገጫ (SMS) እዚህ ይለጥፉ፦</label>
+    <textarea id="depositTxn" placeholder="የባንኩን SMS ሙሉ በሙሉ እዚህ ላይ Paste ያድርጉ..." style="width: 100%; height: 80px; padding: 10px; margin: 8px 0 15px 0; border-radius: 6px; border: 1px solid #4b6584; background: #2f3542; color: white; font-size: 13px; resize: none; box-sizing: border-box;"></textarea>
+    
+    <button onclick="submitDeposit()" style="width: 100%; background: #2ed573; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 14px;">📥 የማስገቢያ ጥያቄ ላክ</button>
+</div>
 
         <div id="withdrawSection" style="display: none;">
             <label style="font-size: 12px; color: #ffd700;">የምታወጡት የገንዘብ መጠን (ETB)፦</label>
