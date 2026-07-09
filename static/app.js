@@ -51,7 +51,7 @@ function connectWebSocket() {
             update200CardsColors(data.taken_cards);
         }
 
-        // 1️⃣ PICK PHASE
+        // 1️⃣ PICK PHASE (የሰከንድ እና የደራሽ ስሌት ማሳያ)
         if ((data.type === "countdown" || data.type === "time_update") && data.phase === "PICK") {
             document.getElementById("pickScreen").style.display = "block";
             if(document.getElementById("drawScreen")) document.getElementById("drawScreen").style.display = "none";
@@ -61,10 +61,18 @@ function connectWebSocket() {
                 timerText.innerText = (data.seconds !== undefined) ? data.seconds : data.time;
             }
             
+            // 📊 በፒክ ስክሪን ላይ ያሉትን ጠቋሚዎች በእውነተኛ መረጃ ማደስ
             const statsBoxes = document.querySelectorAll(".stats-grid .stat-box strong");
             if (statsBoxes.length >= 3) {
                 if (data.game_no) statsBoxes[0].innerText = data.game_no;
-                if (data.total_players !== undefined) statsBoxes[2].innerText = data.total_players;
+                // የማታለያ ተጫዋች የለም! እውነተኛ ተጫዋቾችን ብቻ ያሳያል
+                if (data.player_count !== undefined) statsBoxes[2].innerText = data.player_count;
+            }
+
+            // 💰 በዋናው ስክሪን ላይ የደራሽ ባጅ ካለ በእውነተኛው ስሌት ማደስ (ሰው ከሌለ 0 ያደርገዋል)
+            const liveDerashBadge = document.querySelector(".derash-badge, #liveDerashBadge");
+            if (liveDerashBadge && data.derash !== undefined) {
+                liveDerashBadge.innerText = "Derash " + data.derash;
             }
             
             const oldPopup = document.getElementById("winner-popup");
@@ -81,18 +89,19 @@ function connectWebSocket() {
             const gameMetaSpan = document.querySelector(".game-meta span");
             if (gameMetaSpan) gameMetaSpan.innerText = "Game " + data.game_no;
             
-            const totalPlayers = data.total_players || 1;
+            // 👥 የማታለያ (Fake Players) ኮድ ሙሉ በሙሉ ተጠርጓል - እውነተኛ መረጃ ብቻ ከባክኤንድ
+            const actualDerash = data.derash !== undefined ? data.derash : 0;
+            
             if(document.getElementById("stakeAmt")) document.getElementById("stakeAmt").innerText = currentBetAmount;
-            if(document.getElementById("derashAmt")) document.getElementById("derashAmt").innerText = (totalPlayers * currentBetAmount * 0.8).toFixed(0);
-            if(document.getElementById("playerCount")) document.getElementById("playerCount").innerText = totalPlayers;
-
+            if(document.getElementById("derashAmt")) document.getElementById("derashAmt").innerText = actualDerash;
+            
             clear75Board();
             currentCardIndex = 0; 
             renderMyBoughtCards();
             updateRecentBallsUI(); 
         }
 
-        // 3️⃣ BALL PHASE (ኳስ ሲወድቅ - ቅንፎቹ የተስተካከሉበት ክፍል)
+        // 3️⃣ BALL PHASE (ኳስ ሲወድቅ)
         if (data.type === "ball") {
             document.getElementById("pickScreen").style.display = "none";
             document.getElementById("drawScreen").style.display = "block";
@@ -106,6 +115,11 @@ function connectWebSocket() {
                 ballElement.style.background = color;
                 ballElement.style.color = "#fff";
                 ballElement.style.boxShadow = `0 0 10px ${color}`;
+            }
+
+            // 💰 በኳስ መጣያ ጊዜም የደራሽ መጠን ከተላከ በሪል-ታይም ያድሳል
+            if (document.getElementById("derashAmt") && data.derash !== undefined) {
+                document.getElementById("derashAmt").innerText = data.derash;
             }
             
             // 🔊 የአማርኛ ድምፅ ማጫወቻ ሎጂክ
@@ -133,7 +147,7 @@ function connectWebSocket() {
             if (document.getElementById("callCount")) {
                 document.getElementById("callCount").innerText = data.call_count;
             }
-        } // 👈 እዚህ ጋር የ BALL PHASE ቅንፍ በትክክል ተዘግቷል!
+        }
 
         // 4️⃣ GAME OVER
         if (data.type === "game_over") {
@@ -458,22 +472,20 @@ function handleManualCellClick(cellElement, cellNumber) {
 }
 
 // ==========================================================================
-// 💳 አዲስ የተጨመረ፦ የኪስ ቦርሳ ፍሰት መቆጣጠሪያ (Wallet Flow - Deposit & Withdraw)
+// 💳 የኪስ ቦርሳ ፍሰት መቆጣጠሪያ (Wallet Flow - Deposit & Withdraw)
 // ==========================================================================
 
-// 1. የቴሌግራም ተጫዋች መረጃን ከ WebApp ማምጫ
-let tgUser = { id: "12345678", first_name: "የይለፍ ተጫዋች" }; // ለሙከራ ብራውዘር ላይ ከተከፈተ
+let tgUser = { id: "12345678", first_name: "የይለፍ ተጫዋች" }; 
 
 if (window.Telegram && window.Telegram.WebApp) {
     const tg = window.Telegram.WebApp;
     tg.ready();
-    tg.expand(); // ሚኒ አፑን ሙሉ ስክሪን ማድረግ
+    tg.expand(); 
     if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
         tgUser = tg.initDataUnsafe.user;
     }
 }
 
-// 2. የገንዘብ ማስተናገጃ ፖፕአፕን መክፈቻ (Modal Opener)
 function openWalletModal(type) {
     const modal = document.getElementById('walletModal');
     const title = document.getElementById('modalTitle');
@@ -493,12 +505,10 @@ function openWalletModal(type) {
     }
 }
 
-// 3. ፖፕአፕን መዝጊያ (Modal Closer)
 function closeWalletModal() {
     document.getElementById('walletModal').style.display = 'none';
 }
 
-// 4. የዲፖዚት (SMS፣ መጠን እና ባንክ) ጥያቄን ወደ ባክኤንድ መላኪያ
 async function submitDeposit() {
     const amount = parseFloat(document.getElementById('depositAmount').value);
     const bankName = document.getElementById('depositBank').value;
@@ -513,7 +523,6 @@ async function submitDeposit() {
         return;
     }
     
-    // የላክነውን መጠን እና ባንክ በፓይሎዱ ውስጥ አካተነዋል
     const payload = {
         telegram_id: String(tgUser.id),
         telegram_name: tgUser.first_name || "Unknown Player",
@@ -533,8 +542,8 @@ async function submitDeposit() {
         
         if (result.success) {
             alert('✅ የገንዘብ ማስገቢያ ጥያቄዎ ለአስተዳዳሪው ተልኳል! አድሚኑ መረጃውን አይቶ ሲያጸድቅልዎት ባላንስዎ ላይ ይጨመራል።');
-            document.getElementById('depositAmount').value = ''; // ማጽዳት
-            document.getElementById('depositTxn').value = '';    // ማጽዳት
+            document.getElementById('depositAmount').value = ''; 
+            document.getElementById('depositTxn').value = '';    
             closeWalletModal();
         } else {
             alert('❌ ስህተት፦ ' + result.message);
@@ -545,7 +554,6 @@ async function submitDeposit() {
     }
 }
 
-// 5. የዊዝድሮው (ብር ማውጫ) ጥያቄን ወደ ባክኤንድ መላኪያ
 async function submitWithdraw() {
     const amount = parseFloat(document.getElementById('withdrawAmount').value);
     const bankName = document.getElementById('withdrawBank').value;
