@@ -31,7 +31,7 @@ def current_game(
         user = User(
             telegram_id=telegram_id,
             balance=0.0,
-            gift_coins=0.0,  # አድሚኑ ከሰጠው የሚታይ
+            gift_coin=0.0,  # 🛠 ፊክስ፦ ከቀድሞው ሞዴል 'gift_coin' ጋር ስሙ ተስተካክሏል
             is_admin=False
         )
         db.add(user)
@@ -60,8 +60,14 @@ def current_game(
 
     # 🔄 ጨዋታው ካለቀ አዲስ የነቃ ጨዋታ ማዘጋጀት (Auto-Loop)
     elif game.status == "finished":
+        # 🛠 ፊክስ፦ የቁጥር ግጭትን ለመከላከል ቁጥሩ ትክክለኛ ኢንቲጀር መሆኑን ማረጋገጥ
+        try:
+            next_game_no = str(int(game.game_no) + 1)
+        except ValueError:
+            next_game_no = str(random.randint(200000, 299999))
+
         game = Game(
-            game_no=str(int(game.game_no) + 1),  # የጨዋታውን ቁጥር በ1 መጨመር
+            game_no=next_game_no,  # የጨዋታውን ቁጥር በ1 መጨመር
             status="running",
             ticket_price=current_ticket_price,
             total_players=0,
@@ -71,26 +77,26 @@ def current_game(
         db.commit()
         db.refresh(game)
 
-    # 👥 3. [አዲሱ ሎጂክ] በዚሁ አክቲቭ ዙር ላይ የተገዙ ጠቅላላ የካርዶች ብዛት (Players)
+    # 👥 3. በዚሁ አክቲቭ ዙር ላይ የተገዙ ጠቅላላ የካርዶች ብዛት (Players)
     total_cards_bought = db.query(PlayerCard).filter(PlayerCard.game_id == game.id).count()
 
-    # 💰 4. [አዲሱ ሎጂክ] ጠቅላላ የተሰበሰበው ብር (Pool) እና አሸናፊው የሚደርሰው የብር መጠን (Derash 80%)
+    # 💰 4. ጠቅላላ የተሰበሰበው ብር (Pool) እና አሸናፊው የሚደርሰው የብር መጠን (Derash 80%)
     total_pool_money = total_cards_bought * game.ticket_price
     derash_money = total_pool_money * 0.80  # 80% ህግ
 
-    # 🎯 5. ለተጫዋቹ የፊት ገጽ (Frontend) መረጃውን ልክ በፎቶው ስያሜ መሰረት መመለስ
+    # 🎯 5. ለተጫዋቹ የፊት ገጽ (Frontend) መረጃውን መመለስ
     return {
         "success": True,
         "game_id": game.id,                      # የዳታቤዝ መታወቂያ
         "game_no": game.game_no,                  # Game (ለምሳሌ፡ 100481)
         "status": game.status,
         
-        # 📊 ለአኒሜሽን ገጾች የሚያስፈልጉት ሰባቱ ቁልፍ መረጃዎች፡-
+        # 📊 ለአኒሜሽን ገጾች የሚያስፈልጉት ሰባቱ ቁልፍ መረጃዎች፦
         "bet": game.ticket_price,                 # Bet (10, 20, 50...)
         "active_game": 1 if game.status == "running" else 0, # Active Game
         "wallet": user.balance,                   # Wallet - Real User Balance
-        "gift": user.gift_coins,                  # Gift Coin (Admin የሰጠው)
+        "gift": user.gift_coin,                   # Gift Coin (የተስተካከለ)
         "players": total_cards_bought,            # Players (የተያዘ የካርድ ብዛት)
-        "derash": derash_money,                   # Derash (ካሸነፈ የሚደርሰው የ 80% ብር)
+        "derash": round(derash_money, 2),         # Derash (ካሸነፈ የሚደርሰው የ 80% ብር)
         "total_pool": total_pool_money
     }
