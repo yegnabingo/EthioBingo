@@ -539,3 +539,72 @@ button {
     background: #ffd700;
     color: #000;
 }
+
+/* ==========================================================================
+   💳 የWALLET እና የፖፕአፕ (MODAL) ስታይሎች
+   ========================================================================== */
+
+/* የዲፖዚት እና ዊዝድሮው ቁልፎች መያዣ */
+.wallet-action-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 15px 0;
+    padding: 0 10px;
+}
+
+/* የቁልፎቹ Hover እና መነካካት ኢፌክት */
+.wallet-action-row button {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wallet-action-row button:active {
+    transform: scale(0.95);
+}
+
+/* የኮፒ አካውንት ሳጥኖች ስታይል */
+#depositSection div div {
+    transition: background 0.2s ease;
+    border-radius: 6px;
+}
+
+#depositSection div div:hover {
+    background: #3e4452 !important;
+}
+
+/* በፖፕአፕ ውስጥ ያሉ የጽሑፍ ሳጥኖች እና ድሮፕዳውን (Select) ስታይል */
+#walletModal input, 
+#walletModal select, 
+#walletModal textarea {
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#walletModal input:focus, 
+#walletModal select:focus, 
+#walletModal textarea:focus {
+    outline: none;
+    border-color: #ffd700 !important;
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
+}
+
+/* የሞዳል መውጫ (X) ቁልፍ ውጤት */
+#walletModal h3 + button:hover {
+    color: #ff6b81 !important;
+    transform: scale(1.1);
+}
+
+/* ለሞባይል ስክሪን የተመጣጠነ (Responsive) እንዲሆን */
+@media (max-width: 400px) {
+    .wallet-action-row {
+        flex-direction: row; /* ጎን ለጎን እንዲሆኑ */
+        font-size: 12px;
+    }
+    .wallet-action-row button {
+        padding: 10px 12px !important;
+        font-size: 12px !important;
+    }
+}
