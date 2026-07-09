@@ -498,18 +498,27 @@ function closeWalletModal() {
     document.getElementById('walletModal').style.display = 'none';
 }
 
-// 4. የዲፖዚት (SMS) ጥያቄን ወደ ባክኤንድ መላኪያ
+// 4. የዲፖዚት (SMS፣ መጠን እና ባንክ) ጥያቄን ወደ ባክኤንድ መላኪያ
 async function submitDeposit() {
+    const amount = parseFloat(document.getElementById('depositAmount').value);
+    const bankName = document.getElementById('depositBank').value;
     const smsText = document.getElementById('depositTxn').value.trim();
     
+    if (!amount || amount <= 0) {
+        alert('እባክዎ መጀመሪያ ትክክለኛ የላኩትን የብር መጠን ያስገቡ!');
+        return;
+    }
     if (!smsText) {
-        alert('እባክዎ መጀመሪያ የባንኩን SMS እዚህ ሳጥን ላይ ይለጥፉ!');
+        alert('እባክዎ የባንኩን SMS እዚህ ሳጥን ላይ ይለጥፉ!');
         return;
     }
     
+    // የላክነውን መጠን እና ባንክ በፓይሎዱ ውስጥ አካተነዋል
     const payload = {
         telegram_id: String(tgUser.id),
         telegram_name: tgUser.first_name || "Unknown Player",
+        amount: amount,
+        bank_name: bankName,
         sms_data: smsText
     };
     
@@ -523,8 +532,9 @@ async function submitDeposit() {
         const result = await response.json();
         
         if (result.success) {
-            alert('✅ የገንዘብ ማስገቢያ ጥያቄዎ ለአስተዳዳሪው ተልኳል! አድሚኑ SMSን አይቶ ሲያጸድቅልዎት ባላንስዎ ላይ ይጨመራል።');
-            document.getElementById('depositTxn').value = ''; // ሳጥኑን ማጽዳት
+            alert('✅ የገንዘብ ማስገቢያ ጥያቄዎ ለአስተዳዳሪው ተልኳል! አድሚኑ መረጃውን አይቶ ሲያጸድቅልዎት ባላንስዎ ላይ ይጨመራል።');
+            document.getElementById('depositAmount').value = ''; // ማጽዳት
+            document.getElementById('depositTxn').value = '';    // ማጽዳት
             closeWalletModal();
         } else {
             alert('❌ ስህተት፦ ' + result.message);
