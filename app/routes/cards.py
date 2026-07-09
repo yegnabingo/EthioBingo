@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from app.database import SessionLocal
 from app.models import User, Game, Card, PlayerCard
+from app.websocket_manager import manager # 📡 የካርድ መገዛትን ለሁሉም ላይቭ ለማሳየት
 
 router = APIRouter(prefix="/api/cards", tags=["Cards"])
 
@@ -18,7 +19,7 @@ def get_cards_status():
     """በዚህ ዙር የተገዙ የካርድ ቁጥሮችን ዝርዝር ለሁሉም ያሳያል"""
     db = SessionLocal()
     try:
-        active_game = db.query(Game).filter(Game.status == "running").first()
+        active_game = db.query(Game).filter(Game.status == "running").order_by(Game.id.desc()).first()
         if not active_game:
             return []
         
@@ -31,13 +32,9 @@ def get_cards_status():
 
 
 @router.post("/pick")
-def pick_card(request: AdvancedPickCardRequest):
+async def pick_card(request: AdvancedPickCardRequest):
     """
-    🎯 100% የተስተካከለ የካርድ መግዣ ሎጂክ፦
-    1. የተጫዋች ባላንስ ይፈትሻል (10, 20, 50 ብር)
-    2. በአንድ ዙር ከ 5 ካርድ በላይ እንዳይገዛ ይከለክላል
-    3. የገባውን bet_amount ለይቶ PlayerCard ላይ ይመዘግባል
-    4. ብር ቀንሶ በዳታቤዝ ያሰፍናል
+    🎯 100% ከተስተካከለው የጌም ኢንጂን ጋር የተጣጣመ የካርድ መግዣ ሎጂክ
     """
     db = SessionLocal()
     try:
@@ -48,7 +45,6 @@ def pick_card(request: AdvancedPickCardRequest):
         # 2. ተጫዋቹን በቴሌግራም አይዲ መፈለግ
         user = db.query(User).filter(User.telegram_id == request.telegram_id).first()
         if not user:
-            # ተጫዋቹ ከሌለ በአዲስ እና ከተስተካከሉ ሰንጠረዦች ጋር መፍጠር
             user = User(
                 telegram_id=request.telegram_id,
                 telegram_name=f"User_{request.telegram_id[:5]}" if request.telegram_id else "Guest",
@@ -60,7 +56,7 @@ def pick_card(request: AdvancedPickCardRequest):
             db.commit()
             db.refresh(user)
 
-        # 3. ንቁ ጨዋታ መኖሩን ማረጋገጥ (ከመቆለፍ ነፃ በሆነ መንገድ መፈለግ)
+        # 3. ንቁ ጨዋታ mኖሩን ማረጋገጥ
         game = db.query(Game).filter(Game.status == "running").order_by(Game.id.desc()).first()
         if not game:
             return {"success": False, "message": "በአሁኑ ሰዓት ምንም የነቃ ጨዋታ የለም። እባክህ አዲስ ዙር ጠብቅ።"}
@@ -74,7 +70,7 @@ def pick_card(request: AdvancedPickCardRequest):
         if already_bought_count >= 5:
             return {"success": False, "message": "በአንድ ጨዋታ መግዛት የሚችሉት ከፍተኛው የካርድ መጠን 5 ብቻ ነው!"}
 
-        # 5. የካርዱ ቁጥር አስቀድሞ በሌላ ሰው መያዙን ማረጋገጥ
+        # 5. የካርዱ ቁጥር አስቀድሞ መያዙን ማረጋገጥ
         card_taken = db.query(PlayerCard).filter(
             PlayerCard.game_id == game.id,
             PlayerCard.card_number == request.card_number
@@ -86,7 +82,7 @@ def pick_card(request: AdvancedPickCardRequest):
         if user.balance < request.bet_amount:
             return {"success": False, "message": f"በቂ ባላንስ የሎትም! የእርሶ ባላንስ {user.balance} ETB ነው።"}
 
-        # 7. ክፍያውን ከባላንስ ላይ መቁረጥ (Deduct Balance)
+        # 7. ክፍያውን ከባላንስ ላይ መቁረጥ
         user.balance -= request.bet_amount
         
         # 8. ካርዱን ለተጫዋቹ መመዝገብ
@@ -98,14 +94,25 @@ def pick_card(request: AdvancedPickCardRequest):
         )
         db.add(new_player_card)
 
-        # 🛠 ፊክስ፦ የጌሙን Pool ማሳደግ ከጌም ሞተሩ ጋር እንዳይጋጭ ደህንነቱን በ try/except መጠበቅ
-        try:
-            game.total_players += 1
-            game.total_pool += request.bet_amount
-        except Exception as e:
-            print(f"⚠️ Game pool update skipped to prevent lock: {e}")
+        # የካርዱን ሁኔታ በዋናው የካርድ ሰንጠረዥ ላይ 'is_taken = True' ማድረግ (ከኮንታውንቱ ጋር እንዲቀናጅ)
+        main_card = db.query(Card).filter(Card.card_number == request.card_number).first()
+        if main_card:
+            main_card.is_taken = True
+            main_card.reserved_by = user.id
+            main_card.current_game_id = game.id
         
         db.commit()
+
+        # 📡 [ሪል-ታይም ማሳወቂያ] ካርዱ መገዛቱን ወዲያውኑ ለሁሉም ተጫዋቾች በዌብሶኬት መላክ
+        try:
+            all_taken = db.query(PlayerCard).filter(PlayerCard.game_id == game.id).all()
+            taken_list = [c.card_number for c in all_taken]
+            await manager.broadcast({
+                "type": "taken_cards_update",
+                "taken_cards": taken_list
+            })
+        except Exception as e:
+            print(f"⚠️ Live broadcast failed after pick: {e}")
 
         print(f"💰 ተጫዋች {user.telegram_id} ካርድ #{request.card_number} በ {request.bet_amount} ብር ገዝቷል። ቀሪ ባላንስ: {user.balance}")
         return {
@@ -138,12 +145,12 @@ def get_matrix(card_number: int = Query(...)):
             except Exception:
                 pass
                 
-        # 🎯 [ፎልባክ] በዳታቤዝ ውስጥ ካርዱ በዘርፍ ካልተገኘ እውነተኛ የቢንጎ ማትሪክስ ሰርቶ ይሰጠዋል
+        # 🎯 [ፎልባክ] በዳታቤዝ ውስጥ ካርዱ ካልተገኘ እውነተኛ የቢንጎ ማትሪክስ ሰርቶ ይሰጠዋል
         b = random.sample(range(1, 16), 5)
-        i = random.sample(range(16, 30), 5)
-        n = random.sample(range(31, 45), 5)
-        g = random.sample(range(46, 60), 5)
-        o = random.sample(range(61, 75), 5)
+        i = random.sample(range(16, 31), 5)
+        n = random.sample(range(31, 46), 5)
+        g = random.sample(range(46, 61), 5)
+        o = random.sample(range(61, 76), 5)
         
         generated_matrix = []
         for r_idx in range(5):
