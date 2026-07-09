@@ -456,3 +456,126 @@ function handleManualCellClick(cellElement, cellNumber) {
         setTimeout(() => { cellElement.style.background = oldBg; }, 250);
     }
 }
+
+// ==========================================================================
+// 💳 አዲስ የተጨመረ፦ የኪስ ቦርሳ ፍሰት መቆጣጠሪያ (Wallet Flow - Deposit & Withdraw)
+// ==========================================================================
+
+// 1. የቴሌግራም ተጫዋች መረጃን ከ WebApp ማምጫ
+let tgUser = { id: "12345678", first_name: "የይለፍ ተጫዋች" }; // ለሙከራ ብራውዘር ላይ ከተከፈተ
+
+if (window.Telegram && window.Telegram.WebApp) {
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand(); // ሚኒ አፑን ሙሉ ስክሪን ማድረግ
+    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        tgUser = tg.initDataUnsafe.user;
+    }
+}
+
+// 2. የገንዘብ ማስተናገጃ ፖፕአፕን መክፈቻ (Modal Opener)
+function openWalletModal(type) {
+    const modal = document.getElementById('walletModal');
+    const title = document.getElementById('modalTitle');
+    const depositSec = document.getElementById('depositSection');
+    const withdrawSec = document.getElementById('withdrawSection');
+    
+    modal.style.display = 'flex';
+    
+    if (type === 'deposit') {
+        title.innerText = '💳 ገንዘብ ማስገቢያ (Deposit)';
+        depositSec.style.display = 'block';
+        withdrawSec.style.display = 'none';
+    } else if (type === 'withdraw') {
+        title.innerText = '📤 ገንዘብ ማውጫ (Withdraw)';
+        depositSec.style.display = 'none';
+        withdrawSec.style.display = 'block';
+    }
+}
+
+// 3. ፖፕአፕን መዝጊያ (Modal Closer)
+function closeWalletModal() {
+    document.getElementById('walletModal').style.display = 'none';
+}
+
+// 4. የዲፖዚት (SMS) ጥያቄን ወደ ባክኤንድ መላኪያ
+async function submitDeposit() {
+    const smsText = document.getElementById('depositTxn').value.trim();
+    
+    if (!smsText) {
+        alert('እባክዎ መጀመሪያ የባንኩን SMS እዚህ ሳጥን ላይ ይለጥፉ!');
+        return;
+    }
+    
+    const payload = {
+        telegram_id: String(tgUser.id),
+        telegram_name: tgUser.first_name || "Unknown Player",
+        sms_data: smsText
+    };
+    
+    try {
+        const response = await fetch('/api/wallet/deposit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ የገንዘብ ማስገቢያ ጥያቄዎ ለአስተዳዳሪው ተልኳል! አድሚኑ SMSን አይቶ ሲያጸድቅልዎት ባላንስዎ ላይ ይጨመራል።');
+            document.getElementById('depositTxn').value = ''; // ሳጥኑን ማጽዳት
+            closeWalletModal();
+        } else {
+            alert('❌ ስህተት፦ ' + result.message);
+        }
+    } catch (error) {
+        console.error('Deposit Error:', error);
+        alert('⚠️ ከሰርቨር ጋር መገናኘት አልተቻለም። እባክዎ ትንሽ ቆይተው ይሞክሩ!');
+    }
+}
+
+// 5. የዊዝድሮው (ብር ማውጫ) ጥያቄን ወደ ባክኤንድ መላኪያ
+async function submitWithdraw() {
+    const amount = parseFloat(document.getElementById('withdrawAmount').value);
+    const bankName = document.getElementById('withdrawBank').value;
+    const accNumber = document.getElementById('withdrawAcc').value.trim();
+    
+    if (!amount || amount <= 0) {
+        alert('እባክዎ ትክክለኛ የብር መጠን ያስገቡ!');
+        return;
+    }
+    if (!accNumber) {
+        alert('እባክዎ ብሩ የሚገባበትን አካውንት ወይም ስልክ ቁጥር ያስገቡ!');
+        return;
+    }
+    
+    const payload = {
+        telegram_id: String(tgUser.id),
+        amount: amount,
+        bank_name: bankName,
+        account_number: accNumber
+    };
+    
+    try {
+        const response = await fetch('/api/wallet/withdraw', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ የማውጫ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል። አድሚኑ ብሩን በባንክ ልኮ ሲያጸድቀው መልዕክት ይደርስዎታል!');
+            document.getElementById('withdrawAmount').value = '';
+            document.getElementById('withdrawAcc').value = '';
+            closeWalletModal();
+        } else {
+            alert('❌ ስህተት፦ ' + result.message);
+        }
+    } catch (error) {
+        console.error('Withdraw Error:', error);
+        alert('⚠️ ከሰርቨር ጋር መገናኘት አልተቻለም።');
+    }
+}
