@@ -1,10 +1,11 @@
+import os  # 👈 ከ Railway ተለዋዋጮችን ለማንበብ ተጨምሯል
 from fastapi import APIRouter, Depends, Body
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import requests
 
 from app.database import SessionLocal
-from app.models import User, Deposit, Withdrawal  # 👈 በዳታቤዝህ መሠረት Withdrawal መባሉ ተጠብቋል
+from app.models import User, Deposit, Withdrawal
 
 router = APIRouter(
     prefix="/api",
@@ -19,10 +20,10 @@ def get_db():
         db.close()
 
 # --------------------------------------------------------------------------
-# ⚙️ የቴሌግራም ቦት ቅንብሮች (እባክህ የራስህን ትክክለኛ መረጃ እዚህ ተካ)
+# ⚙️ የቴሌግራም ቦት ቅንብሮች (ከ Railway Environment Variables ያነባል)
 # --------------------------------------------------------------------------
-BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
-ADMIN_CHAT_ID = "YOUR_PERSONAL_TELEGRAM_ID"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 
 # --------------------------------------------------------------------------
 # 📝 የፒዳንቲክ (Pydantic) የጥያቄ መቀበያ ሞዴሎች
@@ -53,13 +54,12 @@ def user_submit_deposit(payload: MiniAppDepositRequest, db: Session = Depends(ge
     if not user:
         return {"success": False, "message": "ተጠቃሚው አልተገኘም!"}
 
-    # በድሮው የዳታቤዝ አወቃቀርህ መሠረት Columns ሳይዛቡ መመዝገብ
     new_deposit = Deposit(
         user_id=user.id,
-        amount=0.0,  # አድሚኑ SMS አይቶ በትክክለኛው መጠን ያጸድቀዋል
+        amount=0.0,
         method="Auto-Detect",
         phone_or_acc="Mini-App",
-        sms_text=payload.sms_data, # የድሮው ኮለም ስም ተጠብቋል
+        sms_text=payload.sms_data,
         status="Pending"
     )
     db.add(new_deposit)
@@ -81,9 +81,11 @@ def user_submit_deposit(payload: MiniAppDepositRequest, db: Session = Depends(ge
             f"📝 <b>የተላከው የባንክ SMS፦</b>\n<code>{payload.sms_data}</code>\n\n"
             f"⚠️ <i>እባክዎ መረጃውን በባንክዎ አይተው ካረጋገጡ በኋላ ይፍቀዱ!</i>"
         )
-        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        response = requests.post(url, json={
             "chat_id": ADMIN_CHAT_ID, "text": notification_text, "parse_mode": "HTML", "reply_markup": inline_keyboard
         })
+        print(f"Telegram Log (Deposit Request): {response.text}")
     except Exception as e:
         print(f"የቴሌግራም ማሳወቂያ ስህተት፦ {str(e)}")
 
@@ -100,15 +102,13 @@ def user_submit_withdraw(payload: MiniAppWithdrawRequest, db: Session = Depends(
     if user.balance < payload.amount:
         return {"success": False, "message": "በቂ ቀሪ ሂሳብ (Balance) የለዎትም!"}
 
-    # 🔒 የደህንነት ህግ፡ ብሩን ወዲያውኑ ሆልድ (Hold) ማድረግ
     user.balance -= payload.amount
 
-    # በድሮው የዳታቤዝ አወቃቀርህ (Withdrawal) መሠረት መመዝገብ
     new_withdraw = Withdrawal(
         user_id=user.id,
         amount=payload.amount,
         method=payload.bank_name,
-        wallet=payload.account_number, # የድሮው ኮለም ስም ተጠብቋል
+        wallet=payload.account_number,
         status="Pending"
     )
     db.add(new_withdraw)
@@ -131,9 +131,11 @@ def user_submit_withdraw(payload: MiniAppWithdrawRequest, db: Session = Depends(
             f"💳 <b>የባንክ አካውንት/ስልክ ቁጥር፦</b> <code>{payload.account_number}</code>\n\n"
             f"⚠️ <i>ማሳሰቢያ፦ መጀመሪያ ብሩን ለተጫዋቹ መላክዎን ያረጋግጡና ከዚያ 'Approve' ይበሉ!</i>"
         )
-        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        response = requests.post(url, json={
             "chat_id": ADMIN_CHAT_ID, "text": notification_text, "parse_mode": "HTML", "reply_markup": inline_keyboard
         })
+        print(f"Telegram Log (Withdraw Request): {response.text}")
     except Exception as e:
         print(f"የቴሌግራም ማሳወቂያ ስህተት፦ {str(e)}")
 
@@ -157,6 +159,17 @@ def approve_deposit(payload: AdminActionPayload, db: Session = Depends(get_db)):
         deposit.status = "Rejected"
     
     db.commit()
+
+    try:
+        status_emoji = "🟢" if payload.action == "APPROVE" else "🔴"
+        status_text = "ጸድቋል" if payload.action == "APPROVE" else "ውድቅ ሆኗል"
+        msg = f"{status_emoji} <b>የዲፖዚት ጥያቄ #{deposit.id} {status_text}!</b>"
+        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
+            "chat_id": ADMIN_CHAT_ID, "text": msg, "parse_mode": "HTML"
+        })
+    except Exception:
+        pass
+
     return {"success": True, "message": f"Deposit {payload.action} successfully"}
 
 # 👮‍♂️ 4. አድሚኑ ቦት ላይ APPROVE/REJECT ሲጫን (Admin Withdraw Side)
@@ -173,7 +186,18 @@ def approve_withdraw(payload: AdminActionPayload, db: Session = Depends(get_db))
         withdraw.status = "Approved"
     else:
         withdraw.status = "Rejected"
-        if user: user.balance += withdraw.amount # ውድቅ ከተደረገ ብሩን መመለስ
+        if user: user.balance += withdraw.amount
 
     db.commit()
+
+    try:
+        status_emoji = "🟢" if payload.action == "APPROVE" else "🔴"
+        status_text = "ጸድቋል" if payload.action == "APPROVE" else "ውድቅ ሆኗል"
+        msg = f"{status_emoji} <b>የዊዝድሮው ጥያቄ #{withdraw.id} {status_text}!</b>"
+        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
+            "chat_id": ADMIN_CHAT_ID, "text": msg, "parse_mode": "HTML"
+        })
+    except Exception:
+        pass
+
     return {"success": True, "message": f"Withdrawal {payload.action} successfully"}
