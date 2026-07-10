@@ -151,15 +151,13 @@ def user_deposit_request(req: DepositRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="ተጠቃሚው አልተገኘም")
 
     try:
-        # 🛠 ከእርስዎ የ deposits ሞዴል ኮለሞች ጋር በትክክል ማጣጣም
+        # 🛠 ፊክስ፦ የሌሉትን ኮለሞች ትተን በነባሩ 'tx_hash' ላይ መረጃውን አቀናጅተን መያዝ
         new_deposit = Deposit(
             user_id=user.id,
             amount=req.amount,
-            method=req.bank_name,
-            phone_or_acc="Mini-App",
-            sms_text=req.sms_data, 
+            tx_hash=f"ባንክ፦ {req.bank_name} | SMS፦ {req.sms_data}", 
             status="Pending",
-            created_at=datetime.utcnow()  # 👈 የሰዓት ስህተትን ለመከላከል በእጅ የተሰጠ
+            created_at=datetime.utcnow()
         )
         db.add(new_deposit)
         db.commit()
@@ -189,7 +187,7 @@ def user_deposit_request(req: DepositRequest, db: Session = Depends(get_db)):
     )
     
     send_admin_notification(msg_text, reply_markup=inline_keyboard)
-    return {"success": True, "message": "የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል!"}
+    return {"success": True, "message": "የማስገቢያ ጥያቄዎ በተካካ ሁኔታ ለአድሚን ተልኳል!"}
 
 
 # 📤 4. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ (Withdraw Request)
@@ -206,12 +204,11 @@ def user_withdraw_request(req: WithdrawRequest, db: Session = Depends(get_db)):
         # 🔐 ብሩን ከአካውንቱ ላይ ጊዜያዊ ሆልድ ማድረግ
         user.balance -= req.amount
         
-        # የዊዝድሮው ጥያቄውን በ withdrawals ቴብል መመዝገብ
+        # 🛠 ፊክስ፦ የሌለውን 'method' ኮለም ትተን፣ ባንኩን እና አካውንቱን አንድ ላይ አቀናጅተን 'wallet' ውስጥ መያዝ
         new_withdraw = Withdrawal(
             user_id=user.id,
             amount=req.amount,
-            method=req.bank_name,
-            wallet=req.account_number,
+            wallet=f"ባንክ፦ {req.bank_name} | አካውንት፦ {req.account_number}",
             status="Pending",
             created_at=datetime.utcnow()
         )
@@ -239,7 +236,7 @@ def user_withdraw_request(req: WithdrawRequest, db: Session = Depends(get_db)):
         f"🏦 ባንክ፦ {req.bank_name}\n"
         f"💳 የባንክ አካውንት፦ <code>{req.account_number}</code>\n"
         f"💰 የገንዘብ መጠን፦ <b>{req.amount} ETB</b>\n\n"
-        f"ይህንን ብር በባንክ ልከው ሲያበቁ 'Paid' የሚለውን ይጫኑ።"
+        f"<i>ይህንን ብር በባንክ ልከው ሲያበቁ 'Paid' የሚለውን ይጫኑ።</i>"
     )
 
     send_admin_notification(msg_text, reply_markup=inline_keyboard)
