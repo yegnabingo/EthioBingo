@@ -3,10 +3,10 @@ import requests
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime
+from pydantic import BaseModel
 
 from app.database import SessionLocal
 from app.models import User, Game, Deposit, Withdrawal
-# 👈 ካንተ schemas.py የመጡትን ትክክለኛ ሞዴሎች አስገብተናል
 from app.schemas import DepositCreate, WithdrawCreate 
 
 router = APIRouter(
@@ -16,6 +16,13 @@ router = APIRouter(
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 ADMIN_TELEGRAM_ID = os.getenv("ADMIN_CHAT_ID", "YOUR_TELEGRAM_ID_HERE")
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 def send_admin_notification(text: str, reply_markup=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -27,22 +34,26 @@ def send_admin_notification(text: str, reply_markup=None):
     except Exception as e:
         print(f"⚠️ Telegram admin notify error: {e}")
 
-class AdminActionPayload(requests.structures.CaseInsensitiveDict): # ለፒዳንቲክ ማስተካከያ
-    pass
+# 🔔 አድሚኑ ቁልፍ ሲጫን የቴሌግራም መልዕክቱን በሪል-ታይም ለመቀየር (Frozen እንዳይሆን)
+def update_telegram_message(message_id: int, text: str):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
+    payload = {
+        "chat_id": ADMIN_TELEGRAM_ID,
+        "message_id": message_id,
+        "text": text,
+        "parse_mode": "HTML"
+    }
+    try:
+        requests.post(url, json=payload, timeout=10)
+    except Exception as e:
+        print(f"⚠️ Telegram message edit error: {e}")
 
-from pydantic import BaseModel
 class AdminAction(BaseModel):
     deposit_id: int = None
     withdraw_id: int = None
-    action: str
+    action: str  # "APPROVE" ወይም "REJECT"
     admin_telegram_id: str = None
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    message_id: int = None  # 👈 ከቴሌግራም ቦት የሚመጣውን የመልዕክት ID ለመቀበል የተጨመረ
 
 # 📥 1. አዲስ ተጫዋች ሲመዘገብ
 @router.post("/register")
@@ -51,32 +62,38 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
     if existing:
         return {
             "success": True, "message": "ተጠቃሚው አስቀድሞ ተመዝግቧል",
-            "user": {"telegram_id": existing.telegram_id, "balance": existing.balance, "gift_coin": getattr(existing, "gift_coin", 0.0)}
+            "user": {"telegram_id": existing.telegram_id, "balance": existing.balance, "wallet": existing.balance, "gift_coin": getattr(existing, "gift_coin", 0.0)}
         }
     new_user = User(telegram_id=telegram_id, telegram_name=telegram_name, first_name=first_name, balance=0.0, gift_coin=0.0, created_at=datetime.utcnow())
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return {"success": True, "message": "ምዝገባው በተሳካ ሁኔታ ተጠናቋል", "user": {"telegram_id": new_user.telegram_id, "balance": new_user.balance}}
+    return {"success": True, "message": "ምዝገባው በተሳካ ሁኔታ ተጠናቋል", "user": {"telegram_id": new_user.telegram_id, "balance": new_user.balance, "wallet": new_user.balance}}
 
-# 🔍 2. የተጫዋቹን የዋሌት መረጃ መፈተሻ API
+# 🔍 2. የተጫዋቹን የዋሌት መረጃ መፈተሻ API (ሁለቱንም 'balance' እና 'wallet' ቁልፎች ይልካል)
 @router.get("/{telegram_id}")
 def get_user(telegram_id: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
     if not user:
-        return {"success": False, "message": "User not found", "user": {"telegram_id": telegram_id, "balance": 0.0}}
-    return {"success": True, "user": {"telegram_id": user.telegram_id, "wallet": user.balance, "gift": getattr(user, "gift_coin", 0.0)}}
+        return {"success": False, "message": "User not found", "user": {"telegram_id": telegram_id, "balance": 0.0, "wallet": 0.0}}
+    return {
+        "success": True, 
+        "user": {
+            "telegram_id": user.telegram_id, 
+            "balance": user.balance, 
+            "wallet": user.balance,  # 👈 ለሚኒ አፑ 'Wallet' መተላለፊያ የተጨመረ
+            "gift": getattr(user, "gift_coin", 0.0)
+        }
+    }
 
 # 💰 3. ተጫዋች ከሚኒ አፕ ላይ ዲፖዚት ሲያደርግ (Deposit Request)
 @router.post("/deposit")
 def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
-    # 🎯 ፊክስ፦ መረጃው አሁን በቀጥታ ከ req (Body) ላይ ያለምንም እንከን ይነበባል
     user = db.query(User).filter(User.telegram_id == req.telegram_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="ተጠቃሚው በዳታቤዝ ላይ አልተገኘም!")
 
     try:
-        # ዳታቤዝ ላይ ያለውን 'tx_hash' ብቻ በመጠቀም መረጃውን ማከማቸት
         new_deposit = Deposit(
             user_id=user.id,
             amount=req.amount,
@@ -92,7 +109,6 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
         print(f"❌ Database Deposit Error: {str(e)}")
         raise HTTPException(status_code=500, detail="ዲፖዚቱን በዳታቤዝ ላይ መመዝገብ አልተቻለም።")
 
-    # 📲 ለአድሚኑ በቴሌግራም የሚላክ የውሳኔ ቁልፍ
     inline_keyboard = {
         "inline_keyboard": [[
             {"text": "✅ Approve (አጽድቅ)", "callback_data": f"app_dep_{new_deposit.id}"},
@@ -112,7 +128,6 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
     send_admin_notification(msg_text, reply_markup=inline_keyboard)
     return {"success": True, "message": "የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል!"}
 
-
 # 📤 4. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ (Withdraw Request)
 @router.post("/withdraw")
 def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
@@ -124,10 +139,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
         return {"success": False, "message": f"ይቅርታ፣ በቂ ባላንስ የሎትም! ያሎት ባላንስ {user.balance} ETB ነው።"}
 
     try:
-        # ብሩን በጊዜያዊነት ከይዞታው ላይ መቀነስ
         user.balance -= req.amount
-        
-        # በ 'wallet' ኮለም ላይ የባንክና አካውንት መረጃውን ማቀናጀት
         new_withdraw = Withdrawal(
             user_id=user.id,
             amount=req.amount,
@@ -163,8 +175,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     send_admin_notification(msg_text, reply_markup=inline_keyboard)
     return {"success": True, "message": "የማውጫ ጥያቄዎ ተመዝግቧል፣ አድሚኑ ልኮ ሲያበቃ ባላንስዎ ይስተካከላል!"}
 
-
-# 👮‍♂️ 5. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ
+# 👮‍♂️ 5. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Deposit)
 @router.post("/deposit/admin/approve")
 def admin_approve_deposit(payload: AdminAction, db: Session = Depends(get_db)):
     deposit = db.query(Deposit).filter(Deposit.id == payload.deposit_id).first()
@@ -179,13 +190,23 @@ def admin_approve_deposit(payload: AdminAction, db: Session = Depends(get_db)):
         deposit.approved_by = payload.admin_telegram_id
         user.balance += deposit.amount
         db.commit()
+        
+        # 🤖 ቴሌግራም ላይ መልዕክቱን በሪል-ታይም መቀየር (ቁልፎቹን ያጠፋቸዋል)
+        if payload.message_id:
+            update_telegram_message(payload.message_id, f"🟢 <b>የዲፖዚት ጥያቄ #{deposit.id} ጸድቋል!</b>\n💰 የተጨመረው መጠን፦ {deposit.amount} ETB\n👤 የተጫዋች ID: {user.telegram_id}")
+            
         return {"success": True, "message": "ዲፖዚቱ በተሳካ ሁኔታ ጸድቋል!"}
     
     deposit.status = "Rejected"
     deposit.approved_by = payload.admin_telegram_id
     db.commit()
+    
+    if payload.message_id:
+        update_telegram_message(payload.message_id, f"🔴 <b>የዲፖዚት ጥያቄ #{deposit.id} በባለሙያው ውድቅ ተደርጓል!</b>")
+        
     return {"success": True, "message": "ጥያቄው ውድቅ ተደርጓል!"}
 
+# 👮‍♂️ 6. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Withdraw)
 @router.post("/withdraw/admin/approve")
 def admin_approve_withdraw(payload: AdminAction, db: Session = Depends(get_db)):
     withdraw = db.query(Withdrawal).filter(Withdrawal.id == payload.withdraw_id).first()
@@ -198,11 +219,19 @@ def admin_approve_withdraw(payload: AdminAction, db: Session = Depends(get_db)):
     if payload.action == "REJECT":
         withdraw.status = "Rejected"
         withdraw.approved_by = payload.admin_telegram_id
-        user.balance += withdraw.amount
+        user.balance += withdraw.amount  # ብሩን ይመልስለታል
         db.commit()
+        
+        if payload.message_id:
+            update_telegram_message(payload.message_id, f"🔴 <b>የማውጫ ጥያቄ #{withdraw.id} ተሰርዟል!</b>\n💰 {withdraw.amount} ETB ወደ ተጫዋቹ ሂሳብ ተመልሷል።")
+            
         return {"success": True, "message": "የማውጫ ጥያቄው ውድቅ ተደርጎ ብሩ ተመልሷል!"}
     
     withdraw.status = "Approved"
     withdraw.approved_by = payload.admin_telegram_id
     db.commit()
+    
+    if payload.message_id:
+        update_telegram_message(payload.message_id, f"🟢 <b>የማውጫ ክፍያ #{withdraw.id} መፈጸሙ ተረጋግጧል!</b>\n💰 የተላከው መጠን፦ {withdraw.amount} ETB")
+        
     return {"success": True, "message": "ክፍያው መፈጸሙ ተረጋግጧል!"}
