@@ -122,11 +122,18 @@ function connectWebSocket() {
                 document.getElementById("derashAmt").innerText = data.derash;
             }
             
-            // 🔊 የአማርኛ ድምፅ ማጫወቻ ሎጂክ
             if (soundEnabled) {
-                const audio = new Audio(`/static/sounds/${data.number}.mp3`);
-                audio.play().catch(e => console.log("🔊 የድምፅ ፋይል አልተገኘም፦", e));
+                // 1. መጀመሪያ በ GitHub ላይ ያለውን .mp3.mp3 ለመጫን ይሞክራል
+                let audio = new Audio(`/static/sounds/${data.number}.mp3.mp3`);
+    
+                audio.play().catch(e => {
+                    console.log(".mp3.mp3 አልተገኘም፣ ወደ መደበኛው .mp3 እንቀይራለን...");
+                    // 2. እሱ ካልሰራ መደበኛውን .mp3 ይሞክራል
+                    let backupAudio = new Audio(`/static/sounds/${data.number}.mp3`);
+                    backupAudio.play().catch(err => console.log("🔊 ሁለቱም የድምፅ ፋይሎች አልተገኙም፦", err));
+                });
             }
+
 
             // 🔴 ኳሱን ወደ ዝርዝር መጨመር
             recentBallsList.unshift({ label: data.label, letter: letter, num: data.number });
