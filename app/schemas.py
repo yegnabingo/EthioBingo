@@ -39,22 +39,22 @@ class PickCardResponse(BaseModel):
 
 
 # -------------------------
-# 💵 Deposit Schemas (ለበእጅ ማረጋገጫ የዘመነ)
+# 💵 Deposit Schemas (ከ app.js payload ጋር ፍጹም የተጣጣመ 🛠)
 # -------------------------
 class DepositCreate(BaseModel):
+    telegram_id: str      # 👈 ከጃቫስክሪፕቱ payload በቀጥታ ለማንበብ የተጨመረ
+    telegram_name: Optional[str] = "ተጫዋች"
     amount: float
-    method: str # Telebirr, CBE, ወዘተ
-    phone_or_acc: Optional[str] = None # የላከበት ስልክ ቁጥር ወይም አካውንት
-    sms_text: Optional[str] = None # ተጠቃሚው የለጠፈው የግብይት ማረጋገጫ SMS
-    tx_hash: Optional[str] = None
+    bank_name: str        # 👈 'method' የነበረው በጃቫስክሪፕቱ 'bank_name' ተተክቷል
+    sms_data: str         # 👈 'sms_text' የነበረው በጃቫስክሪፕቱ 'sms_data' ተተክቷል
 
 
 class DepositResponse(BaseModel):
     id: int
     user_id: int
     amount: float
-    method: Optional[str]
-    status: str # Pending, Approved, Rejected
+    tx_hash: Optional[str]  # 👈 በዳታቤዝህ ላይ ካለው እውነተኛ ኮለም ጋር እንዲገጥም ተስተካከለ
+    status: str             # Pending, Approved, Rejected
     created_at: datetime
 
     class Config:
@@ -62,21 +62,21 @@ class DepositResponse(BaseModel):
 
 
 # -------------------------
-# 💸 Withdraw Schemas (ለባንክ እና ቴሌብር መውጫ የዘመነ)
+# 💸 Withdraw Schemas (ከ app.js payload ጋር ፍጹም የተጣጣመ 🛠)
 # -------------------------
 class WithdrawCreate(BaseModel):
+    telegram_id: str      # 👈 ከጃቫስክሪፕቱ payload በቀጥታ ለማንበብ የተጨመረ
     amount: float
-    method: str # Telebirr, CBE, ወዘተ
-    wallet: str # ብሩ የሚላክበት የባንክ አካውንት ወይም ስልክ ቁጥር
+    bank_name: str        # 👈 'method' የነበረው በጃቫስክሪፕቱ 'bank_name' ተተክቷል
+    account_number: str   # 👈 'wallet' የነበረው በጃቫስክሪፕቱ 'account_number' ተተክቷል
 
 
 class WithdrawResponse(BaseModel):
     id: int
     user_id: int
     amount: float
-    method: Optional[str]
-    wallet: str
-    status: str # Pending, Approved, Rejected
+    wallet: str           # 👈 በዳታቤዝህ ላይ ካለው እውነተኛ ኮለም ጋር እንዲገጥም ተስተካከለ
+    status: str           # Pending, Approved, Rejected
     created_at: datetime
 
     class Config:
