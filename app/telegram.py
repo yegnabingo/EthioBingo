@@ -3,87 +3,61 @@ import requests
 from telebot import TeleBot, types
 
 # --------------------------------------------------------------------------
-# ⚙️ የቅንብር ክፍሎች (Configuration)
+# ⚙️ የቅንብር ክፍሎች (Configuration ከ Railway Env ይነበባሉ)
 # --------------------------------------------------------------------------
-BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"  # ከ BotFather ያገኘኸውን ቶክን እዚህ ተካ
-ADMIN_TELEGRAM_ID = "YOUR_PERSONAL_TELEGRAM_ID"  # የአንተን የቴሌግራም ID ቁጥር እዚህ ተካ
-BACKEND_URL = "http://127.0.0.1:8000"  # የFastAPI ባክአንድ ዩአርኤል (ወይም የRailway ሊንክ)
-MINI_APP_URL = "https://your-bingo-frontend-link.web.app" # የሚኒ አፑ የፊት ገጽ ሊንክ
+# 💡 ፎልባክ ላይ ያንተን እውነተኛ መረጃዎች ማስገባት ትችላለህ
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+ADMIN_TELEGRAM_ID = os.getenv("ADMIN_CHAT_ID", "YOUR_TELEGRAM_ID_HERE")
+
+# 🔗 የባክኤንድ እና የሚኒ አፕ ሊንኮች
+BACKEND_URL = "https://web-production-fd82a.up.railway.app" 
+MINI_APP_URL = "https://web-production-fd82a.up.railway.app" 
 
 bot = TeleBot(BOT_TOKEN)
-user_states = {} # የተጠቃሚዎችን የብር መጠን ግብዓት ጊዜያዊ ሁኔታ መቆጣጠሪያ
 
 print("🎰 የYegnaኛ Bingo ቦት በሰላም ስራ ጀምሯል...")
 
-# --------------------------------------------------------------------------
-# 🚀 1. /start ሲጫኑ ዋናውን ሜኑ (Keyboard) ማሳያ ሎጂክ
-# --------------------------------------------------------------------------
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     chat_id = message.chat.id
     user_name = message.from_user.first_name
 
-    # የቦቱ ዋና የውስጥ ቁልፎች (Inline Keyboard)
     markup = types.InlineKeyboardMarkup(row_width=2)
-    
     btn_play = types.InlineKeyboardButton(text="🎮 Play Now", web_app=types.WebAppInfo(url=MINI_APP_URL))
-    btn_register = types.InlineKeyboardButton(text="📝 Register", callback_data="register_user")
     btn_balance = types.InlineKeyboardButton(text="💰 Check Balance", callback_data="check_balance")
     btn_deposit = types.InlineKeyboardButton(text="🏦 Make a Deposit", callback_data="start_deposit")
     btn_support = types.InlineKeyboardButton(text="Support 📞", url="https://t.me/cartelabingo_support")
-    btn_instructions = types.InlineKeyboardButton(text="📕 Instructions", callback_data="show_instructions")
 
-    markup.add(btn_play, btn_register)
+    markup.add(btn_play)
     markup.add(btn_balance, btn_deposit)
-    markup.add(btn_support, btn_instructions)
+    markup.add(btn_support)
 
     welcome_text = (
-        f"👋 Welcome to Cartela Bingo, {user_name}!\n\n"
-        "🎰 Every Square Counts – Grab Your Cartela, Join the Game, and Let the Fun Begin!"
+        f"👋 Welcome to Yegna Bingo, {user_name}!\n\n"
+        "🎰 Grab Your Cartela, Join the Game, and Let the Fun Begin!"
     )
-    
     bot.send_message(chat_id, welcome_text, reply_markup=markup)
 
 
-# 🎮 ተጠቃሚው /play ሲል ወይም ሜኑ ላይ ሲነካ ቀጥታ ጌሙን እንዲከፍትለት
-@bot.message_handler(commands=['play'])
-def menu_play_game(message):
-    markup = types.InlineKeyboardMarkup()
-    btn_play = types.InlineKeyboardButton(text="🎰 ቢንጎን ክፈት (Open Bingo)", web_app=types.WebAppInfo(url=MINI_APP_URL))
-    markup.add(btn_play)
-    bot.send_message(message.chat.id, "ጨዋታውን ለመጀመር ከታች ያለውን ቁልፍ ይጫኑ፡", reply_markup=markup)
-
-
-# 💰 ተጠቃሚው /balance ሲል ከባክአንድ ሰርቨር ላይ ባላንሱን ጠይቆ እንዲያሳይ
-@bot.message_handler(commands=['balance'])
-def menu_check_balance(message):
-    telegram_id = str(message.from_user.id)
+@bot.callback_query_handler(func=lambda call: call.data == "check_balance")
+def inline_check_balance(call):
+    telegram_id = str(call.from_user.id)
     try:
         response = requests.get(f"{BACKEND_URL}/api/users/{telegram_id}")
         if response.status_code == 200:
             user_data = response.json()
-            balance = user_data.get("balance", 0.0)
-            bot.send_message(message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {balance} ETB")
+            balance = user_data.get("wallet", 0.0) # 🛠 ከጌም ራውተር ጋር ተመጣጣኝ
+            bot.send_message(call.message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {balance} ETB")
         else:
-            bot.send_message(message.chat.id, "❌ ተጠቃሚዎ አልተመዘገበም፣ እባክዎ መጀመሪያ በጌሙ ውስጥ ይመዝገቡ!")
+            bot.send_message(call.message.chat.id, "❌ ተጠቃሚዎ አልተመዘገበም፣ እባክዎ መጀመሪያ ሚኒ አፑን ይክፈቱ!")
     except Exception:
-        bot.send_message(message.chat.id, "⚠️ የባላንስ መረጃን ለማምጣት አልተቻለም።")
+        bot.send_message(call.message.chat.id, "⚠️ የባላንስ መረጃን ለማምጣት አልተቻለም።")
 
-
-# --------------------------------------------------------------------------
-# 📥 2. /deposit ወይም "Make a Deposit" ሲጫኑ የሚመጣ ፍሰት
-# --------------------------------------------------------------------------
-@bot.message_handler(commands=['deposit'])
-def command_deposit(message):
-    chat_id = message.chat.id
-    bot.send_message(chat_id, "ℹ️ Here are the min you can deposit\nMin Amount: 50 ETB")
-    msg = bot.send_message(chat_id, "Please enter the amount:")
-    bot.register_next_step_handler(msg, process_deposit_amount)
 
 @bot.callback_query_handler(func=lambda call: call.data == "start_deposit")
 def callback_deposit(call):
-    bot.send_message(call.message.chat.id, "ℹ️ Here are the min you can deposit\nMin Amount: 50 ETB")
-    msg = bot.send_message(call.message.chat.id, "Please enter the amount:")
+    bot.send_message(call.message.chat.id, "ℹ️ ዝቅተኛው የማስገቢያ መጠን 50 ETB ነው።")
+    msg = bot.send_message(call.message.chat.id, "እባክዎ ማስገባት የሚፈልጉትን የብር መጠን በቁጥር ብቻ ያስገቡ፦")
     bot.register_next_step_handler(msg, process_deposit_amount)
 
 def process_deposit_amount(message):
@@ -91,7 +65,7 @@ def process_deposit_amount(message):
     amount_text = message.text
 
     if not amount_text.isdigit() or int(amount_text) < 50:
-        msg = bot.send_message(chat_id, "❌ Invalid amount. Please enter a number greater than or equal to 50:")
+        msg = bot.send_message(chat_id, "❌ የተሳሳተ የብር መጠን! እባክዎ ከ50 የሚበልጥ ቁጥር ያስገቡ፦")
         bot.register_next_step_handler(msg, process_deposit_amount)
         return
 
@@ -100,26 +74,10 @@ def process_deposit_amount(message):
     btn_pay = types.InlineKeyboardButton(text="Manual-Payment 📲", web_app=types.WebAppInfo(url=payment_url))
     markup.add(btn_pay)
 
-    bot.send_message(chat_id, "Choose Deposit Method", reply_markup=markup)
+    bot.send_message(chat_id, f"💰 የ {amount_text} ETB ማስተላለፊያ ፎርም ለመክፈት ከታች ያለውን ቁልፍ ይጫኑ፦", reply_markup=markup)
 
 
-# --------------------------------------------------------------------------
-# 📤 3. /withdraw ሲጫኑ የሚመጣ ፍሰት
-# --------------------------------------------------------------------------
-@bot.message_handler(commands=['withdraw'])
-def command_withdraw(message):
-    chat_id = message.chat.id
-    markup = types.InlineKeyboardMarkup()
-    withdraw_url = f"{MINI_APP_URL}?page=withdraw"
-    btn_withdraw = types.InlineKeyboardButton(text="Open Withdraw Form 📤", web_app=types.WebAppInfo(url=withdraw_url))
-    markup.add(btn_withdraw)
-    
-    bot.send_message(chat_id, "የማውጫ ፎርሙን ለመክፈት ከታች ያለውን ቁልፍ ይጫኑ፡", reply_markup=markup)
-
-
-# --------------------------------------------------------------------------
-# 🛠️ 4. አድሚኑ ቁልፎቹን ሲጫን (Approve/Reject) የሚፈጽመው ዋና ሎጂክ
-# --------------------------------------------------------------------------
+# 🛠️ አድሚኑ (አንተ) የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
     if str(call.from_user.id) != str(ADMIN_TELEGRAM_ID):
@@ -129,25 +87,14 @@ def handle_admin_actions(call):
     action_data = call.data.split('_')
     action = action_data[0]    # 'app' ወይም 'rej'
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
-    target_id = int(action_data[2])  # ID ቁጥር
+    target_id = int(action_data[2])
 
-    # ከአዲሱ AdminActionPayload ሞዴል ጋር በሚስማማ መልኩ Payload ማዘጋጀት
     if tx_type == "dep":
-        url = f"{BACKEND_URL}/api/deposit/admin/approve"
-        payload = {
-            "deposit_id": target_id,
-            "withdraw_id": None,
-            "action": "APPROVE" if action == "app" else "REJECT",
-            "admin_telegram_id": str(ADMIN_TELEGRAM_ID)
-        }
+        url = f"{BACKEND_URL}/api/users/deposit/admin/approve"
+        payload = {"deposit_id": target_id, "action": "APPROVE" if action == "app" else "REJECT"}
     else:
-        url = f"{BACKEND_URL}/api/withdraw/admin/approve"
-        payload = {
-            "deposit_id": None,
-            "withdraw_id": target_id,
-            "action": "APPROVE" if action == "app" else "REJECT",
-            "admin_telegram_id": str(ADMIN_TELEGRAM_ID)
-        }
+        url = f"{BACKEND_URL}/api/users/withdraw/admin/approve"
+        payload = {"withdraw_id": target_id, "action": "APPROVE" if action == "app" else "REJECT"}
 
     try:
         response = requests.post(url, json=payload)
@@ -161,15 +108,11 @@ def handle_admin_actions(call):
                 text=f"{call.message.text}\n\n<b>🔄 የውሳኔ ሁኔታ፦ {status_text}!</b>",
                 parse_mode="HTML"
             )
-            bot.answer_callback_query(call.id, "✅ በተሳካ ሁኔታ ተፈጽሟል!")
+            bot.answer_callback_query(call.id, "✅ ውሳኔው በተሳካ ሁኔታ ተመዝግቧል!")
         else:
-            bot.answer_callback_query(call.id, f"❌ ስህተት፡ {res_data.get('message', 'ያልታወቀ ስህተት')}")
-    except Exception as e:
+            bot.answer_callback_query(call.id, f"❌ ስህተት፦ {res_data.get('message', 'ስህተት ተከስቷል')}")
+    except Exception:
         bot.answer_callback_query(call.id, "❌ ከባክአንድ ሰርቨር ጋር መገናኘት አልተቻለም!")
 
-
-# --------------------------------------------------------------------------
-# 🔄 ቦቱ በቋሚነት እንዲሰራ ማድረጊያ
-# --------------------------------------------------------------------------
 if __name__ == "__main__":
     bot.infinity_polling()
