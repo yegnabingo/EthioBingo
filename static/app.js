@@ -149,7 +149,7 @@ function connectWebSocket() {
             }
         }
 
-         // 4️⃣ GAME OVER - አሸናፊውን በዝርዝር ማሳያ እና ቦርዱን ማጽጃ ሎጂክ
+        // 4️⃣ GAME OVER - አሸናፊውን ከነ ሙሉ 5x5 ካርዱ ጋር ማሳያ
         if (data.type === "game_over") {
             if (typeof playWinSound === "function") playWinSound();
 
@@ -157,39 +157,71 @@ function connectWebSocket() {
             const cardNum = data.card_number || "N/A";
             const reason = data.winning_reason || "ቢንጎ";
             const prize = data.prize || 0;
-            const winningNums = data.winning_numbers || [];
+            
+            // ከባክኤንድ የመጡት የካርድ ቁጥሮች
+            const cardMatrixNumbers = data.card_numbers || []; 
+            const winningNumbers = data.winning_numbers || []; 
 
+            // 🎨 የ 5x5 ማትሪክስ ቪዥዋል ዲዛይን መሥሪያ
+            let gridHtml = "";
+            if (cardMatrixNumbers.length === 25) {
+                gridHtml = `<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 15px auto; max-width: 250px; background: #111; padding: 10px; border-radius: 10px;">`;
+                
+                cardMatrixNumbers.forEach((num) => {
+                    const isWinningNum = winningNumbers.includes(num);
+                    const isFreeSpace = num === 0 || num === "★" || num === "FREE";
+                    const displayNum = isFreeSpace ? "★" : num;
+
+                    let cellStyle = `
+                        aspect-ratio: 1;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        font-weight: bold;
+                        font-size: 14px;
+                        border-radius: 6px;
+                        transition: all 0.3s;
+                    `;
+
+                    if (isWinningNum || isFreeSpace) {
+                        // ያሸነፈው መስመር ደምቆ እንዲበራ ✨
+                        cellStyle += `background: #ffbc00; color: black; box-shadow: 0 0 12px #ffbc00; border: 1px solid #fff; scale: 1.05;`;
+                    } else {
+                        // ያልበሩት ቁጥሮች ፈዘዝ ብለው እንዲታዩ
+                        cellStyle += `background: #252634; color: #666; border: 1px solid #333;`;
+                    }
+
+                    gridHtml += `<div style="${cellStyle}">${displayNum}</div>`;
+                });
+                
+                gridHtml += `</div>`;
+            }
+
+            // 📲 ሙሉው የፖፕ-አፕ ስክሪን HTML
             const modalHtml = `
-                <div id="winnerModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:9999; color:white; font-family:sans-serif;">
-                    <div style="background:#1e1e2e; padding:30px; border-radius:15px; text-align:center; max-width:90%; width:400px; border:3px solid #ffbc00; box-shadow: 0 0 20px #ffbc00;">
-                        <h2 style="color:#ffbc00; margin-top:0; font-size:28px; letter-spacing:2px;">🎉 BINGO! 🎉</h2>
-                        <hr style="border-color:#333; margin:15px 0;">
+                <div id="winnerModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center; z-index:9999; color:white; font-family:sans-serif;">
+                    <div style="background:#1e1e2e; padding:25px; border-radius:20px; text-align:center; max-width:90%; width:360px; border:2px solid #ffbc00; box-shadow: 0 0 30px rgba(255,188,0,0.3);">
                         
-                        <p style="font-size:18px; margin:15px 0;">
-                            👤 <b>አሸናፊ፦</b> <span style="color:#00ffcc; font-size:20px; font-weight:bold;">${winnerName}</span>
-                        </p>
+                        <h2 style="color:#ffbc00; margin:0 0 5px 0; font-size:26px; font-weight:900; letter-spacing:1px;">🎉 BINGO! 🎉</h2>
+                        <span style="color:#aaa; font-size:13px; display:block;">የአሸናፊው ካርድ ሪፖርት</span>
                         
-                        <p style="font-size:18px; margin:15px 0;">
-                            🎫 <b>የካርድ ቁጥር፦</b> <span style="color:#ffbc00; font-size:20px; font-weight:bold;">#${cardNum}</span>
-                        </p>
+                        <hr style="border-color:#2a2b3d; margin:15px 0;">
                         
-                        <div style="background:#2a2b3d; padding:15px; border-radius:10px; margin:20px 0;">
-                            <span style="color:#aaa; font-size:14px; display:block; margin-bottom:8px;">🏆 ያዘጋቸው 5 ማሸነፊያ ቁጥሮች (${reason})</span>
-                            <div style="display:flex; justify-content:center; gap:8px; margin-top:5px;">
-                                ${winningNums.length > 0 ? winningNums.map(num => `
-                                    <span style="background:#ffbc00; color:black; width:42px; height:42px; display:flex; justify-content:center; align-items:center; border-radius:50%; font-weight:bold; font-size:16px; box-shadow:0 0 8px #ffbc00;">
-                                        ${num}
-                                    </span>
-                                `).join('') : '<span style="color:#ffbc00;">-</span>'}
-                            </div>
+                        <div style="margin:10px 0; font-size:16px; text-align:left; background:#161622; padding:12px; border-radius:10px;">
+                            <p style="margin:4px 0;">👤 <b>ስም፦</b> <span style="color:#00ffcc; float:right; font-weight:bold;">${winnerName}</span></p>
+                            <p style="margin:4px 0;">🎫 <b>ካርድ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cardNum}</span></p>
+                            <p style="margin:4px 0;">🏆 <b>የአሸናፊነት ህግ፦</b> <span style="color:#fff; float:right; font-size:13px;">${reason}</span></p>
                         </div>
 
-                        <p style="font-size:24px; color:#00ff00; font-weight:bold; margin:20px 0;">
-                            💰 ሽልማት፦ +${prize} ETB
-                        </p>
+                        ${gridHtml}
 
-                        <button onclick="document.getElementById('winnerModal').remove();" style="background:#ffbc00; color:black; border:none; padding:12px 25px; font-size:16px; font-weight:bold; border-radius:8px; cursor:pointer; width:100%; transition:0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
-                            እሺ (OK)
+                        <div style="background: rgba(0,255,0,0.1); border: 1px dashed #00ff00; padding: 10px; border-radius: 10px; margin: 15px 0;">
+                            <span style="color:#aaa; font-size:13px; display:block;">የተገኘ የገንዘብ መጠን</span>
+                            <span style="font-size:26px; color:#00ff00; font-weight:bold;">+${prize} ETB</span>
+                        </div>
+
+                        <button onclick="document.getElementById('winnerModal').remove();" style="background:#ffbc00; color:black; border:none; padding:14px; font-size:16px; font-weight:bold; border-radius:10px; cursor:pointer; width:100%; transition:0.2s; box-shadow: 0 4px 10px rgba(255,188,0,0.2);">
+                            እሺ (ቀጥል)
                         </button>
                     </div>
                 </div>
@@ -197,21 +229,19 @@ function connectWebSocket() {
 
             document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-            // ያንተ የነበረውን የድሮ ካርድ ምርጫዎች ማጽዳት
+            // ምርጫዎችን ማጽዳት
             selectedCards = []; 
             temporarilySelectedCards = [];
-            
             document.querySelectorAll(".card-btn").forEach(btn => {
                 btn.style.backgroundColor = "#ffffff";
                 btn.style.color = "#000000";
                 btn.classList.remove("bought", "selected-temp");
             });
         }
-    }; // የ socket.onmessage መዝጊያ ቅንፍ
+    };
 
-    // 📡 ኔትወርክ ቢቋረጥ በራሱ እንዲቀጥል የሚያደርገው ወሳኝ መስመር እዚህ ትቀጥላለች፡
     ws.onclose = () => setTimeout(connectWebSocket, 2000);
-}       
+}
 
 // 🎴 1-200 የካርድ ቁልፎች መፍጠሪያ
 function generate200Cards() {
