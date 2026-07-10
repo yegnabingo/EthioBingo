@@ -9,6 +9,13 @@ from app.websocket_manager import manager
 from app.database import SessionLocal
 from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
+# 🇪🇹 ለቤቱ/አድሚን ካርዶች የሚሆኑ የኢትዮጵያዊያን የራንደም ስሞች ዝርዝር
+BOT_NAMES = [
+    "አቤል_99", "ዮናስ_ቢንጎ", "ሰላም_K", "ሄለን_ፈጣኑ", "ዳዊት_ዘ_ኪንግ", 
+    "ማሂ_ባቲ", "ቲጂ_አዲስ", "በርናባስ", "ፋሲካ_ወሎ", "ናቲ_ማን", 
+    "ኤልሳ_አልማዝ", "ኬነዲ_ጂ", "ሮቤል_ቶፕ", "ሳሚ_ዲ", "ሊዲያ_የስ"
+]
+
 
 class GameEngine:
 
@@ -271,20 +278,10 @@ class GameEngine:
                     all_200_cards
                 )
 
-
-        import random
-
-# 🇪🇹 ለቤቱ/አድሚን ካርዶች የሚሆኑ የኢትዮጵያዊያን የራንደም ስሞች ዝርዝር
-BOT_NAMES = [
-    "አቤል_99", "ዮናስ_ቢንጎ", "ሰላም_K", "ሄለን_ፈጣኑ", "ዳዊት_ዘ_ኪንግ", 
-    "ማሂ_ባቲ", "ቲጂ_አዲስ", "በርናባስ", "ፋሲካ_ወሎ", "ናቲ_ማን", 
-    "ኤልሳ_አልማዝ", "ኬነዲ_ጂ", "ሮቤል_ቶፕ", "ሳሚ_ዲ", "ሊዲያ_የስ"
-]
-
                 if result["status"] in ["WINNER_FOUND", "HOUSE_WIN"]:
                     prize_display = derash_amount
 
-                    if result["status"] == "WINNER_FOUND":
+                    if result["status"] == "WINNER_FOUND" and result["winner_id"] != 0:
                         try:
                             user_record = db.query(User).filter(User.id == result["winner_id"]).first()
                             winner_name = user_record.telegram_name if user_record and user_record.telegram_name else f"ተጫዋች {result['winner_id']}"
@@ -298,7 +295,7 @@ BOT_NAMES = [
 
                     await self.safe_broadcast({
                         "type": "game_over",
-                        "status": result["status"],
+                        "status": "WINNER_FOUND",  # ሁልጊዜ WINNER_FOUND ሆኖ ለዩዘር ይላካል
                         "result": "BINGO",
                         "winner_name": winner_name,
                         "winning_card": result["card_number"],
@@ -326,7 +323,7 @@ BOT_NAMES = [
 
                 await self.safe_broadcast({
                     "type": "game_over",
-                    "status": result["status"],
+                    "status": "WINNER_FOUND",
                     "result": "BINGO",
                     "winner_name": winner_name,
                     "winning_card": result["card_number"],
@@ -338,7 +335,6 @@ BOT_NAMES = [
                     "card_numbers": result.get("card_numbers", []),       # ሙሉው የካርዱ 25 ቁጥሮች ዝርዝር
                     "winning_reason": result.get("winning_pattern", "ቢንጎ") # ያሸነፈበት ህግ
                 })
-
 
         except Exception as e:
             print(f"❌ Error in draw_numbers: {e}")
@@ -401,9 +397,9 @@ BOT_NAMES = [
                     except Exception as e:
                         print(f"❌ Error distributing house prize: {e}")
                     return {           
-                        "status": "WINNER_FOUND",
+                        "status": "HOUSE_WIN", # በውስጥ ሎጅክ መለየት እንዲቻል HOUSE_WIN ሆኖ ይቆይና draw_numbers ላይ ወደ WINNER_FOUND ይቀየራል
                         "message": f"🎉 ካርድ #{card_num} አሸንፏል!",
-                        "winner_id": user_id,
+                        "winner_id": 0,
                         "card_number": card_num
                     }
 
@@ -425,10 +421,10 @@ BOT_NAMES = [
         self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=None, winning_card=winning_card_num)
 
         return {     
-            "status": "WINNER_FOUND",
-            "message": f"🎉 ካርድ #{card_num} አሸንፏል!",
-            "winner_id": user_id,
-            "card_number": card_num
+            "status": "HOUSE_WIN",
+            "message": f"🎉 ካርድ #{winning_card_num} አሸንፏል!",
+            "winner_id": 0,
+            "card_number": winning_card_num
         }
 
     def distribute_game_prize(self, db, game_id, total_pool_money, winner_user_id=None, winning_card=None):
