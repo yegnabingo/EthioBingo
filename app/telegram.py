@@ -3,10 +3,9 @@ import requests
 from telebot import TeleBot, types
 
 # --------------------------------------------------------------------------
-# ⚙️ የቅንብር ክፍሎች (Configuration ከ Railway Env ይነበባሉ)
+# ⚙️ የቅንብር ክፍሎች (Configuration ከ Railway Env በትክክል እንዲያነቡ ተስተካክለዋል)
 # --------------------------------------------------------------------------
-# 💡 ፎልባክ ላይ ያንተን እውነተኛ መረጃዎች ማስገባት ትችላለህ
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 ADMIN_TELEGRAM_ID = os.getenv("ADMIN_CHAT_ID", "YOUR_TELEGRAM_ID_HERE")
 
 # 🔗 የባክኤንድ እና የሚኒ አፕ ሊንኮች
@@ -46,7 +45,7 @@ def inline_check_balance(call):
         response = requests.get(f"{BACKEND_URL}/api/users/{telegram_id}")
         if response.status_code == 200:
             user_data = response.json()
-            balance = user_data.get("wallet", 0.0) # 🛠 ከጌም ራውተር ጋር ተመጣጣኝ
+            balance = user_data.get("wallet", 0.0) 
             bot.send_message(call.message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {balance} ETB")
         else:
             bot.send_message(call.message.chat.id, "❌ ተጠቃሚዎ አልተመዘገበም፣ እባክዎ መጀመሪያ ሚኒ አፑን ይክፈቱ!")
@@ -80,7 +79,8 @@ def process_deposit_amount(message):
 # 🛠️ አድሚኑ (አንተ) የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
-    if str(call.from_user.id) != str(ADMIN_TELEGRAM_ID):
+    admin_id_str = str(call.from_user.id)
+    if admin_id_str != str(ADMIN_TELEGRAM_ID):
         bot.answer_callback_query(call.id, "❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመፈጸም ፈቃድ የለዎትም!")
         return
 
@@ -89,12 +89,21 @@ def handle_admin_actions(call):
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
     target_id = int(action_data[2])
 
+    # 🔗 የኤፒአይ ሊንኮች ከዋሌት ኮድህ ጋር አንድ አይነት እንዲሆኑ 'users/' የሚለው ወጥቷል
     if tx_type == "dep":
-        url = f"{BACKEND_URL}/api/users/deposit/admin/approve"
-        payload = {"deposit_id": target_id, "action": "APPROVE" if action == "app" else "REJECT"}
+        url = f"{BACKEND_URL}/api/deposit/admin/approve"
+        payload = {
+            "deposit_id": target_id, 
+            "action": "APPROVE" if action == "app" else "REJECT",
+            "admin_telegram_id": admin_id_str
+        }
     else:
-        url = f"{BACKEND_URL}/api/users/withdraw/admin/approve"
-        payload = {"withdraw_id": target_id, "action": "APPROVE" if action == "app" else "REJECT"}
+        url = f"{BACKEND_URL}/api/withdraw/admin/approve"
+        payload = {
+            "withdraw_id": target_id, 
+            "action": "APPROVE" if action == "app" else "REJECT",
+            "admin_telegram_id": admin_id_str
+        }
 
     try:
         response = requests.post(url, json=payload)
