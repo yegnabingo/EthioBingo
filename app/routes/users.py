@@ -68,19 +68,19 @@ def get_user(telegram_id: str, db: Session = Depends(get_db)):
     return {"success": True, "user": {"telegram_id": user.telegram_id, "wallet": user.balance, "gift": getattr(user, "gift_coin", 0.0)}}
 
 # 💰 3. ተጫዋች ከሚኒ አፕ ላይ ዲፖዚት ሲያደርግ (Deposit Request)
-# 💡 እዚህ ጋር የጥያቄ መቀበያውን ወደ 'telegram_id' Query parameter እና 'DepositCreate' Body ቀይረነዋል
 @router.post("/deposit")
-def user_deposit_request(telegram_id: str, req: DepositCreate, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.telegram_id == telegram_id).first()
+def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
+    # 🎯 ፊክስ፦ መረጃው አሁን በቀጥታ ከ req (Body) ላይ ያለምንም እንከን ይነበባል
+    user = db.query(User).filter(User.telegram_id == req.telegram_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="ተጠቃሚው አልተገኘም")
+        raise HTTPException(status_code=404, detail="ተጠቃሚው በዳታቤዝ ላይ አልተገኘም!")
 
     try:
-        # 🛠 የዳታቤዝ ኤረሩን ለመቅበር፡ የሌሉትን ኮለሞች ትተን በ 'tx_hash' ላይ ብቻ መረጃውን እንጠቀልላለን
+        # ዳታቤዝ ላይ ያለውን 'tx_hash' ብቻ በመጠቀም መረጃውን ማከማቸት
         new_deposit = Deposit(
             user_id=user.id,
             amount=req.amount,
-            tx_hash=f"ባንክ፦ {req.method} | ስልክ፦ {req.phone_or_acc} | SMS፦ {req.sms_text}", 
+            tx_hash=f"ባንክ፦ {req.bank_name} | SMS፦ {req.sms_data}", 
             status="Pending",
             created_at=datetime.utcnow()
         )
@@ -90,8 +90,9 @@ def user_deposit_request(telegram_id: str, req: DepositCreate, db: Session = Dep
     except Exception as e:
         db.rollback()
         print(f"❌ Database Deposit Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="ዲፖዚቱን ማዳን አልተቻለም።")
+        raise HTTPException(status_code=500, detail="ዲፖዚቱን በዳታቤዝ ላይ መመዝገብ አልተቻለም።")
 
+    # 📲 ለአድሚኑ በቴሌግራም የሚላክ የውሳኔ ቁልፍ
     inline_keyboard = {
         "inline_keyboard": [[
             {"text": "✅ Approve (አጽድቅ)", "callback_data": f"app_dep_{new_deposit.id}"},
@@ -102,33 +103,35 @@ def user_deposit_request(telegram_id: str, req: DepositCreate, db: Session = Dep
     msg_text = (
         f"🔔 <b>አዲስ የገንዘብ ማስገቢያ ጥያቄ!</b>\n\n"
         f"🆔 <b>የጥያቄ ቁጥር፦</b> #{new_deposit.id}\n"
-        f"👤 ተጫዋች፦ {user.telegram_name or 'ተጫዋች'} (ID: {telegram_id})\n"
-        f"🏦 ባንክ፦ {req.method}\n"
+        f"👤 ተጫዋች፦ {req.telegram_name} (ID: {req.telegram_id})\n"
+        f"🏦 ባንክ፦ {req.bank_name}\n"
         f"💰 የገንዘብ መጠን፦ <b>{req.amount} ETB</b>\n\n"
-        f"📝 <b>የባንክ SMS መረጃ፦</b>\n<code>{req.sms_text}</code>"
+        f"📝 <b>የባንክ SMS መረጃ፦</b>\n<code>{req.sms_data}</code>"
     )
     
     send_admin_notification(msg_text, reply_markup=inline_keyboard)
     return {"success": True, "message": "የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል!"}
 
+
 # 📤 4. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ (Withdraw Request)
 @router.post("/withdraw")
-def user_withdraw_request(telegram_id: str, req: WithdrawCreate, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.telegram_id == telegram_id).first()
+def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.telegram_id == req.telegram_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="ተጠቃሚው አልተገኘም")
+        raise HTTPException(status_code=404, detail="ተጠቃሚው በዳታቤዝ ላይ አልተገኘም!")
 
     if user.balance < req.amount:
         return {"success": False, "message": f"ይቅርታ፣ በቂ ባላንስ የሎትም! ያሎት ባላንስ {user.balance} ETB ነው።"}
 
     try:
+        # ብሩን በጊዜያዊነት ከይዞታው ላይ መቀነስ
         user.balance -= req.amount
         
-        # 🛠 የሌለውን 'method' ኮለም ትተን 'wallet' ላይ ብቻ መረጃውን እንይዛለን
+        # በ 'wallet' ኮለም ላይ የባንክና አካውንት መረጃውን ማቀናጀት
         new_withdraw = Withdrawal(
             user_id=user.id,
             amount=req.amount,
-            wallet=f"ባንክ፦ {req.method} | አካውንት፦ {req.wallet}",
+            wallet=f"ባንክ፦ {req.bank_name} | አካውንት፦ {req.account_number}",
             status="Pending",
             created_at=datetime.utcnow()
         )
@@ -150,15 +153,16 @@ def user_withdraw_request(telegram_id: str, req: WithdrawCreate, db: Session = D
     msg_text = (
         f"⚠️ <b>አዲስ የገንዘብ ማውጫ ጥያቄ!</b>\n\n"
         f"🆔 <b>የጥያቄ ቁጥር፦</b> #{new_withdraw.id}\n"
-        f"👤 ተጫዋች ID፦ {telegram_id}\n"
-        f"🏦 ባንክ፦ {req.method}\n"
-        f"💳 የባንክ አካውንት፦ <code>{req.wallet}</code>\n"
+        f"👤 ተጫዋች ID፦ {req.telegram_id}\n"
+        f"🏦 ባንክ፦ {req.bank_name}\n"
+        f"💳 የባንክ አካውንት፦ <code>{req.account_number}</code>\n"
         f"💰 የገንዘብ መጠን፦ <b>{req.amount} ETB</b>\n\n"
         f"<i>ይህንን ብር በባንክ ልከው ሲያበቁ 'Paid' የሚለውን ይጫኑ።</i>"
     )
 
     send_admin_notification(msg_text, reply_markup=inline_keyboard)
     return {"success": True, "message": "የማውጫ ጥያቄዎ ተመዝግቧል፣ አድሚኑ ልኮ ሲያበቃ ባላንስዎ ይስተካከላል!"}
+
 
 # 👮‍♂️ 5. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ
 @router.post("/deposit/admin/approve")
