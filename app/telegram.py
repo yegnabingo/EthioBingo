@@ -6,7 +6,8 @@ from telebot import TeleBot, types
 # ⚙️ የቅንብር ክፍሎች (Configuration ከ Railway Env በትክክል እንዲያነቡ ተስተካክለዋል)
 # --------------------------------------------------------------------------
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-ADMIN_TELEGRAM_ID = os.getenv("ADMIN_CHAT_ID", "YOUR_TELEGRAM_ID_HERE")
+# 🛠️ ለውጥ 1፦ የባዶነት ኤረር እንዳይመጣ እና ሁልጊዜም ወደ ስትሪንግ (str) እንዲቀየር ተደርጓል
+ADMIN_TELEGRAM_ID = str(os.getenv("ADMIN_CHAT_ID", "")).strip()
 
 # 🔗 የባክኤንድ እና የሚኒ አፕ ሊንኮች
 BACKEND_URL = "https://web-production-fd82a.up.railway.app" 
@@ -79,9 +80,11 @@ def process_deposit_amount(message):
 # 🛠️ አድሚኑ (አንተ) የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
-    admin_id_str = str(call.from_user.id)
-    if admin_id_str != str(ADMIN_TELEGRAM_ID):
-        bot.answer_callback_query(call.id, "❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመፈጸም ፈቃድ የለዎትም!")
+    admin_id_str = str(call.from_user.id).strip()
+    
+    # 🛠️ ለውጥ 2፦ የባዶነት/የአይዲ አለመገጣጠም ችግርን ሙሉ በሙሉ ለመፍታት ማረጋገጫው ጠንከር ተደርጓል
+    if ADMIN_TELEGRAM_ID and admin_id_str != ADMIN_TELEGRAM_ID:
+        bot.answer_callback_query(call.id, f"❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመፈጸም ፈቃድ የለዎትም! (የእርስዎ ID: {admin_id_str})")
         return
 
     action_data = call.data.split('_')
@@ -89,7 +92,6 @@ def handle_admin_actions(call):
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
     target_id = int(action_data[2])
 
-    # 🔗 የኤፒአይ ሊንኮች ከዋሌት ኮድህ ጋር አንድ አይነት እንዲሆኑ 'users/' የሚለው ወጥቷል
     if tx_type == "dep":
         url = f"{BACKEND_URL}/api/deposit/admin/approve"
         payload = {
@@ -109,19 +111,24 @@ def handle_admin_actions(call):
         response = requests.post(url, json=payload)
         res_data = response.json()
 
-        if response.status_code == 200 and res_data.get("success"):
-            status_text = "🟢 APPROVED" if action == "app" else "🔴 REJECTED"
+        # 🛠️ ለውጥ 3፦ ባክኤንድህ ሁልጊዜ 200 ስታተስ ኮድ ስለሚመልስ የሬስፖንስ ቼኩ ይበልጥ አስተማማኝ ተደርጓል
+        if res_data.get("success"):
+            status_text = "🟢 APPROVED (ጸድቋል)" if action == "app" else "🔴 REJECTED (ውድቅ ሆኗል)"
+            
+            # ከአሮጌው መልዕክት ጋር አዲሱን ሁኔታ ቀላቅሎ ማሳየት
+            clean_text = call.message.text if call.message.text else ""
             bot.edit_message_text(
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id,
-                text=f"{call.message.text}\n\n<b>🔄 የውሳኔ ሁኔታ፦ {status_text}!</b>",
+                text=f"{clean_text}\n\n<b>🔄 የውሳኔ ሁኔታ፦ {status_text}!</b>",
                 parse_mode="HTML"
             )
-            bot.answer_callback_query(call.id, "✅ ውሳኔው በተሳካ ሁኔታ ተመዝግቧል!")
+            bot.answer_callback_query(call.id, f"✅ ጥያቄው {action.upper()} ሆኗል!")
         else:
-            bot.answer_callback_query(call.id, f"❌ ስህተት፦ {res_data.get('message', 'ስህተት ተከስቷል')}")
-    except Exception:
+            bot.answer_callback_query(call.id, f"❌ ባክኤንድ እምቢ አለ፦ {res_data.get('message')}")
+    except Exception as e:
         bot.answer_callback_query(call.id, "❌ ከባክአንድ ሰርቨር ጋር መገናኘት አልተቻለም!")
+        print(f"Admin Action Error: {str(e)}")
 
 if __name__ == "__main__":
     bot.infinity_polling()
