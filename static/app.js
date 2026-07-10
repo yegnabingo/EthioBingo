@@ -149,9 +149,55 @@ function connectWebSocket() {
             }
         }
 
-        // 4️⃣ GAME OVER
+         // 4️⃣ GAME OVER - አሸናፊውን በዝርዝር ማሳያ እና ቦርዱን ማጽጃ ሎጂክ
         if (data.type === "game_over") {
-            showWinnerPopup(data.message || "ዙሩ ተጠናቋል።");
+            if (typeof playWinSound === "function") playWinSound();
+
+            const winnerName = data.winner_name || "ተጫዋች";
+            const cardNum = data.card_number || "N/A";
+            const reason = data.winning_reason || "ቢንጎ";
+            const prize = data.prize || 0;
+            const winningNums = data.winning_numbers || [];
+
+            const modalHtml = `
+                <div id="winnerModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:9999; color:white; font-family:sans-serif;">
+                    <div style="background:#1e1e2e; padding:30px; border-radius:15px; text-align:center; max-width:90%; width:400px; border:3px solid #ffbc00; box-shadow: 0 0 20px #ffbc00;">
+                        <h2 style="color:#ffbc00; margin-top:0; font-size:28px; letter-spacing:2px;">🎉 BINGO! 🎉</h2>
+                        <hr style="border-color:#333; margin:15px 0;">
+                        
+                        <p style="font-size:18px; margin:15px 0;">
+                            👤 <b>አሸናፊ፦</b> <span style="color:#00ffcc; font-size:20px; font-weight:bold;">${winnerName}</span>
+                        </p>
+                        
+                        <p style="font-size:18px; margin:15px 0;">
+                            🎫 <b>የካርድ ቁጥር፦</b> <span style="color:#ffbc00; font-size:20px; font-weight:bold;">#${cardNum}</span>
+                        </p>
+                        
+                        <div style="background:#2a2b3d; padding:15px; border-radius:10px; margin:20px 0;">
+                            <span style="color:#aaa; font-size:14px; display:block; margin-bottom:8px;">🏆 ያዘጋቸው 5 ማሸነፊያ ቁጥሮች (${reason})</span>
+                            <div style="display:flex; justify-content:center; gap:8px; margin-top:5px;">
+                                ${winningNums.length > 0 ? winningNums.map(num => `
+                                    <span style="background:#ffbc00; color:black; width:42px; height:42px; display:flex; justify-content:center; align-items:center; border-radius:50%; font-weight:bold; font-size:16px; box-shadow:0 0 8px #ffbc00;">
+                                        ${num}
+                                    </span>
+                                `).join('') : '<span style="color:#ffbc00;">-</span>'}
+                            </div>
+                        </div>
+
+                        <p style="font-size:24px; color:#00ff00; font-weight:bold; margin:20px 0;">
+                            💰 ሽልማት፦ +${prize} ETB
+                        </p>
+
+                        <button onclick="document.getElementById('winnerModal').remove();" style="background:#ffbc00; color:black; border:none; padding:12px 25px; font-size:16px; font-weight:bold; border-radius:8px; cursor:pointer; width:100%; transition:0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                            እሺ (OK)
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            // ያንተ የነበረውን የድሮ ካርድ ምርጫዎች ማጽዳት
             selectedCards = []; 
             temporarilySelectedCards = [];
             
@@ -161,10 +207,11 @@ function connectWebSocket() {
                 btn.classList.remove("bought", "selected-temp");
             });
         }
-    };
+    }; // የ socket.onmessage መዝጊያ ቅንፍ
 
+    // 📡 ኔትወርክ ቢቋረጥ በራሱ እንዲቀጥል የሚያደርገው ወሳኝ መስመር እዚህ ትቀጥላለች፡
     ws.onclose = () => setTimeout(connectWebSocket, 2000);
-}
+}       
 
 // 🎴 1-200 የካርድ ቁልፎች መፍጠሪያ
 function generate200Cards() {
@@ -524,15 +571,16 @@ async function submitDeposit() {
     }
     
     const payload = {
-        telegram_id: String(tgUser.id),
-        telegram_name: tgUser.first_name || "Unknown Player",
+        telegram_id: String(myTelegramId), // 👈 ከጨዋታው ግሎባል አይዲ
+        telegram_name: String(myTelegramName),
         amount: amount,
         bank_name: bankName,
         sms_data: smsText
     };
     
     try {
-        const response = await fetch('/api/wallet/deposit', {
+        // 🛠 ፊክስ፦ ወደ አዲሱ የ users endpoint መቀየር
+        const response = await fetch('/api/users/deposit', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -569,14 +617,15 @@ async function submitWithdraw() {
     }
     
     const payload = {
-        telegram_id: String(tgUser.id),
+        telegram_id: String(myTelegramId),
         amount: amount,
         bank_name: bankName,
         account_number: accNumber
     };
     
     try {
-        const response = await fetch('/api/wallet/withdraw', {
+        // 🛠 ፊክስ፦ ወደ አዲሱ የ users endpoint መቀየር
+        const response = await fetch('/api/users/withdraw', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
