@@ -271,18 +271,29 @@ class GameEngine:
                     all_200_cards
                 )
 
+
+        import random
+
+# 🇪🇹 ለቤቱ/አድሚን ካርዶች የሚሆኑ የኢትዮጵያዊያን የራንደም ስሞች ዝርዝር
+BOT_NAMES = [
+    "አቤል_99", "ዮናስ_ቢንጎ", "ሰላም_K", "ሄለን_ፈጣኑ", "ዳዊት_ዘ_ኪንግ", 
+    "ማሂ_ባቲ", "ቲጂ_አዲስ", "በርናባስ", "ፋሲካ_ወሎ", "ናቲ_ማን", 
+    "ኤልሳ_አልማዝ", "ኬነዲ_ጂ", "ሮቤል_ቶፕ", "ሳሚ_ዲ", "ሊዲያ_የስ"
+]
+
                 if result["status"] in ["WINNER_FOUND", "HOUSE_WIN"]:
-                    winner_name = "የቤቱ ካርድ (Admin)"
                     prize_display = derash_amount
 
                     if result["status"] == "WINNER_FOUND":
                         try:
                             user_record = db.query(User).filter(User.id == result["winner_id"]).first()
-                            winner_name = user_record.telegram_name if user_record else f"ተጫዋች {result['winner_id']}"
+                            winner_name = user_record.telegram_name if user_record and user_record.telegram_name else f"ተጫዋች {result['winner_id']}"
                         except Exception:
                             winner_name = "እውነተኛ ተጫዋች"
                         prize_display = derash_amount  # ተጫዋች 80% ያገኛል
                     else:
+                        # 🤖 ቤቱ (Admin) ካሸነፈ የራንደም ስም እንሰጠዋለን
+                        winner_name = random.choice(BOT_NAMES)
                         prize_display = total_pool_money  # አድሚን 100% (ሙሉውን ከነ20%) ያገኛል
 
                     await self.safe_broadcast({
@@ -294,8 +305,12 @@ class GameEngine:
                         "prize": round(prize_display, 2),
                         "message": result["message"],
                         "card_number": result["card_number"],
-                        "winner_id": result["winner_id"]
+                        "winner_id": result["winner_id"],
+                        "winning_numbers": result.get("winning_numbers", []), # ያሸነፉት 5 ቁጥሮች ዝርዝር
+                        "card_numbers": result.get("card_numbers", []),       # ሙሉው የካርዱ 25 ቁጥሮች ዝርዝር
+                        "winning_reason": result.get("winning_pattern", "ቢንጎ") # ያሸነፈበት ህግ
                     })
+
                     winner_detected = True
                     break
 
@@ -304,17 +319,26 @@ class GameEngine:
             # 60 ኳስ ወጥቶ ማንም ካላሸነፈ በግዴታ የቤቱ ካርድ እንዲያሸንፍ ማድረግ
             if not winner_detected and self.running:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, total_pool_money, bought_cards, all_200_cards)
+                
+                # 🎯 እዚህም ጋር ቤቱ በግዴታ ሲያሸንፍ የራንደም ስም እና ሙሉውን ገንዘብ እንዲይዝ እናደርጋለን
+                winner_name = random.choice(BOT_NAMES)
+                prize_display = total_pool_money
+
                 await self.safe_broadcast({
                     "type": "game_over",
-                    "status": "HOUSE_WIN",
+                    "status": result["status"],
                     "result": "BINGO",
-                    "winner_name": "የቤቱ ካርድ (Admin)",
+                    "winner_name": winner_name,
                     "winning_card": result["card_number"],
-                    "prize": round(total_pool_money, 2), # 100% ሙሉ ብር ለአድሚን
+                    "prize": round(prize_display, 2),
                     "message": result["message"],
                     "card_number": result["card_number"],
-                    "winner_id": 0
+                    "winner_id": result["winner_id"],
+                    "winning_numbers": result.get("winning_numbers", []), # ያሸነፉት 5 ቁጥሮች ዝርዝር
+                    "card_numbers": result.get("card_numbers", []),       # ሙሉው የካርዱ 25 ቁጥሮች ዝርዝር
+                    "winning_reason": result.get("winning_pattern", "ቢንጎ") # ያሸነፈበት ህግ
                 })
+
 
         except Exception as e:
             print(f"❌ Error in draw_numbers: {e}")
@@ -376,10 +400,10 @@ class GameEngine:
                         self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=None, winning_card=card_num)
                     except Exception as e:
                         print(f"❌ Error distributing house prize: {e}")
-                    return {
-                        "status": "HOUSE_WIN",
-                        "message": f"🏛 የቤቱ ካርድ #{card_num} አሸንፏል! ሙሉው ገንዘብ ወደ አድሚን ገቢ ሆኗል።",
-                        "winner_id": 0,
+                    return {           
+                        "status": "WINNER_FOUND",
+                        "message": f"🎉 ካርድ #{card_num} አሸንፏል!",
+                        "winner_id": user_id,
                         "card_number": card_num
                     }
 
@@ -400,11 +424,11 @@ class GameEngine:
 
         self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=None, winning_card=winning_card_num)
 
-        return {
-            "status": "HOUSE_WIN",
-            "message": f"🏛 በ60ኛ ኳስ የቤቱ ካርድ #{winning_card_num} አሸንፏል!",
-            "winner_id": 0,
-            "card_number": winning_card_num
+        return {     
+            "status": "WINNER_FOUND",
+            "message": f"🎉 ካርድ #{card_num} አሸንፏል!",
+            "winner_id": user_id,
+            "card_number": card_num
         }
 
     def distribute_game_prize(self, db, game_id, total_pool_money, winner_user_id=None, winning_card=None):
