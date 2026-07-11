@@ -6,7 +6,6 @@ from telebot import TeleBot, types
 # ⚙️ የቅንብር ክፍሎች (Configuration ከ Railway Env በትክክል እንዲያነቡ ተስተካክለዋል)
 # --------------------------------------------------------------------------
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-# 🛠️ ለውጥ 1፦ የባዶነት ኤረር እንዳይመጣ እና ሁልጊዜም ወደ ስትሪንግ (str) እንዲቀየር ተደርጓል
 ADMIN_TELEGRAM_ID = str(os.getenv("ADMIN_CHAT_ID", "")).strip()
 
 # 🔗 የባክኤንድ እና የሚኒ አፕ ሊንኮች
@@ -42,11 +41,21 @@ def send_welcome(message):
 @bot.callback_query_handler(func=lambda call: call.data == "check_balance")
 def inline_check_balance(call):
     telegram_id = str(call.from_user.id)
+    url = f"{BACKEND_URL}/api/users/{telegram_id}"
     try:
-        response = requests.get(f"{BACKEND_URL}/api/users/{telegram_id}")
-        if response.status_code == 200:
-            user_data = response.json()
-            balance = user_data.get("wallet", 0.0) 
+        # 🛠️ ለውጥ 2፦ የ GET ጥያቄ በ 15 ሰከንድ ታይምአውት ተስተካክሏል
+        response = requests.get(url, timeout=15)
+        
+        # 🛠️ ለውጥ 7፦ የ JSON ሪስፖንስ አያያዝ በ try-except እንዲጠበቅ ተደርጓል
+        try:
+            res_data = response.json()
+        except:
+            res_data = {"success": False, "message": response.text}
+
+        if response.status_code == 200 and res_data.get("success"):
+            # 🛠️ ለውጥ 1፦ APIው አንድ መልክ ብቻ እንዲኖረው ({"user": {"wallet": ...}}) ተደርጓል
+            user_obj = res_data.get("user", {})
+            balance = user_obj.get("wallet", 0.0) 
             bot.send_message(call.message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {balance} ETB")
         else:
             bot.send_message(call.message.chat.id, "❌ ተጠቃሚዎ አልተመዘገበም፣ እባክዎ መጀመሪያ ሚኒ አፑን ይክፈቱ!")
@@ -82,7 +91,6 @@ def process_deposit_amount(message):
 def handle_admin_actions(call):
     admin_id_str = str(call.from_user.id).strip()
     
-    # 🛠️ ለውጥ 2፦ የባዶነት/የአይዲ አለመገጣጠም ችግርን ሙሉ በሙሉ ለመፍታት ማረጋገጫው ጠንከር ተደርጓል
     if ADMIN_TELEGRAM_ID and admin_id_str != ADMIN_TELEGRAM_ID:
         bot.answer_callback_query(call.id, f"❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመፈጸም ፈቃድ የለዎትም! (የእርስዎ ID: {admin_id_str})")
         return
@@ -92,59 +100,51 @@ def handle_admin_actions(call):
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
     target_id = int(action_data[2])
 
+    # 🛠️ ለውጥ 4፦ ሁለቱም ዴፖዚት እና ዊዝድሮው ላይ message_id በትክክል እንዲካተት ተደርጓል
     if tx_type == "dep":
         url = f"{BACKEND_URL}/api/deposit/admin/approve"
         payload = {
             "deposit_id": target_id, 
             "action": "APPROVE" if action == "app" else "REJECT",
-            "admin_telegram_id": admin_id_str
+            "admin_telegram_id": admin_id_str,
+            "message_id": call.message.message_id
         }
     else:
         url = f"{BACKEND_URL}/api/withdraw/admin/approve"
         payload = {
             "withdraw_id": target_id, 
             "action": "APPROVE" if action == "app" else "REJECT",
-            "admin_telegram_id": admin_id_str
+            "admin_telegram_id": admin_id_str,
+            "message_id": call.message.message_id
         }
 
     try:
-    response = requests.post(
-        url,
-        json=payload,
-        timeout=15
-    )
-
-    print("Status:", response.status_code)
-    print("Response:", response.text)
-
-    res_data = response.json()
-
-    if response.status_code == 200 and res_data.get("success"):
-
-        bot.answer_callback_query(
-            call.id,
-            "✅ Done"
+        # 🛠️ ለውጥ 3፦ የ POST ጥያቄ በተጠየቀው የረድፍ ፎርማት እና በ 15 ሰከንድ ታይምአውት ተስተካክሏል
+        response = requests.post(
+            url,
+            json=payload,
+            timeout=15
         )
 
+        # 🛠️ ለውጥ 7፦ እዚህም ላይ የ JSON ስህተት መከላከያ ተጨምሯል
         try:
-            bot.edit_message_reply_markup(
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
-                reply_markup=None
-            )
-        except Exception:
-            pass
+            res_data = response.json()
+        except:
+            res_data = {"success": False, "message": response.text}
 
-    else:
-        bot.answer_callback_query(
-            call.id,
-            f"❌ {res_data.get('message', 'Unknown Error')}"
-        )
+        if response.status_code == 200 and res_data.get("success"):
+            bot.answer_callback_query(call.id, "✅ በተሳካ ሁኔታ ተከናውኗል!")
+        else:
+            bot.answer_callback_query(call.id, f"❌ {res_data.get('message', 'Unknown Error')}")
 
-except Exception as e:
-    print("Admin Action Error:", e)
+    except Exception as e:
+        print("Admin Action Error:", e)
+        bot.answer_callback_query(call.id, "❌ Server Error")
 
-    bot.answer_callback_query(
-        call.id,
-        "❌ Server Error"
+
+# 🛠️ ለውጥ 5፦ ቦቱ ሲነሳ የቆዩ ጥያቄዎችን እንዲዘል (skip_pending) እና በየ 60 ሰከንዱ ታይምአውት እንዲያደርግ ተደርጓል
+if __name__ == "__main__":
+    bot.infinity_polling(
+        skip_pending=True,
+        timeout=60
     )
