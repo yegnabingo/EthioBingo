@@ -111,9 +111,7 @@ function connectWebSocket() {
             if (typeof statsBoxes !== 'undefined' && statsBoxes[2] && data.player_count !== undefined) {
                 statsBoxes[2].innerText = data.player_count;
             }
-        } // 👈 የ phase_change መዝጊያ ቅንፍ እዚህ በትክክል ተዘግቷል
-
-            
+         
             const gameMetaSpan = document.querySelector(".game-meta span");
             if (gameMetaSpan) gameMetaSpan.innerText = "Game " + data.game_no;
             
