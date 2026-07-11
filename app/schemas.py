@@ -17,6 +17,7 @@ class UserResponse(BaseModel):
     telegram_name: str
     first_name: str
     balance: float
+    wallet: float    # 🛠️ ፊክስ፦ ቦቱ እና ሚኒ አፑ የዋሌት መጠንን ለማንበብ የሚፈልጉት ቁልፍ (Key)
     gift_coin: float # 🆕 በUI ላይ Wallet እና Gift Coin ለማሳየት የተጨመረ
 
     class Config:
