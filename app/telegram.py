@@ -22,7 +22,7 @@ def send_welcome(message):
     user_name = message.from_user.first_name
 
     markup = types.InlineKeyboardMarkup(row_width=2)
-    btn_play = types.InlineKeyboardButton(text="���� Play Now", web_app=types.WebAppInfo(url=MINI_APP_URL))
+    btn_play = types.InlineKeyboardButton(text="🎰 Play Now", web_app=types.WebAppInfo(url=MINI_APP_URL))
     btn_balance = types.InlineKeyboardButton(text="💰 Check Balance", callback_data="check_balance")
     btn_deposit = types.InlineKeyboardButton(text="🏦 Make a Deposit", callback_data="start_deposit")
     btn_support = types.InlineKeyboardButton(text="Support 📞", url="https://t.me/cartelabingo_support")
@@ -41,7 +41,7 @@ def send_welcome(message):
 @bot.callback_query_handler(func=lambda call: call.data == "check_balance")
 def inline_check_balance(call):
     telegram_id = str(call.from_user.id)
-    url = f"{BACKEND_URL}/api/users/{telegram_id}"
+    url = f"{BACKEND_URL}/users/{telegram_id}" # 🛠️ ፊክስ፦ /api የተባለው ራውተር ላይ ስለጠፋ እዚህም ተወግዷል
     try:
         response = requests.get(url, timeout=15)
         
@@ -83,19 +83,17 @@ def process_deposit_amount(message):
     bot.send_message(chat_id, f"💰 የ {amount_text} ETB ማስተላለፊያ ፎርም ለመክፈት ከታች ያለውን ቁልፍ ይጫኑ፦", reply_markup=markup)
 
 
-# 🛠️ ፊክስ 1፦ አድሚኑ (አንተ) የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
+# 🛠️ ፊክስ 1፦ አድሚኑ የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
     
     # 🛠️ ፊክስ 1a - CRITICAL: ወዲያውኑ Telegram API ን ይህን callback ን አጠናቅቅ ለማድረግ ንገር
-    # ይህ ሳይሆን ከሆነ Telegram ለ 30 ሴ/ደ "Loading..." spinner ይታይ ይቀራል
     try:
-        bot.answer_callback_query(call.id, "⏳ በመካሄድ ላይ ነው...")
+        bot.answer_callback_query(call.id)
         print("✅ Callback query answered immediately to prevent spinner freeze")
     except Exception as e:
         print(f"⚠️ Failed to answer callback query: {e}")
     
-    # 🔍 መመርመሪያ መስመሮች 1 (Callback መረጃዎችን ለማየት)
     print("========== CALLBACK ==========")
     print("CALLBACK DATA:", call.data)
     print("ADMIN ID:", call.from_user.id)
@@ -116,8 +114,9 @@ def handle_admin_actions(call):
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
     target_id = int(action_data[2])
 
+    # 🛠️ ፊክስ 1b፦ /api የሚሉት የURL አድራሻዎች ከባክኤንዱ ራውተር ጋር እንዲገጥሙ ተስተካክለዋል
     if tx_type == "dep":
-        url = f"{BACKEND_URL}/api/deposit/admin/approve"
+        url = f"{BACKEND_URL}/deposit/admin/approve"
         payload = {
             "deposit_id": target_id, 
             "action": "APPROVE" if action == "app" else "REJECT",
@@ -125,7 +124,7 @@ def handle_admin_actions(call):
             "message_id": call.message.message_id
         }
     else:
-        url = f"{BACKEND_URL}/api/withdraw/admin/approve"
+        url = f"{BACKEND_URL}/withdraw/admin/approve"
         payload = {
             "withdraw_id": target_id, 
             "action": "APPROVE" if action == "app" else "REJECT",
@@ -133,7 +132,6 @@ def handle_admin_actions(call):
             "message_id": call.message.message_id
         }
 
-    # 🔍 መመርመሪያ መስመሮች 2 (ከመላኩ በፊት ዩአርኤል እና ፔይሎድ ለማየት)
     print("POST URL:", url)
     print("PAYLOAD:", payload)
 
@@ -144,7 +142,6 @@ def handle_admin_actions(call):
             timeout=15
         )
 
-        # 🔍 መመርመሪያ መስመሮች 3 (ከተላከ በኋላ ሰርቨሩ የመለሰውን ለማየት)
         print("STATUS:", response.status_code)
         print("BODY:", response.text)
 
