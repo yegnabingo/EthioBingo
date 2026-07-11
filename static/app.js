@@ -107,9 +107,10 @@ function connectWebSocket() {
             document.getElementById("pickScreen").style.display = "none";
             document.getElementById("drawScreen").style.display = "block";
 
-            // 👥 'Active Game' ሳጥኑ ላይ ያለው ቁጥር ወደ DRAW ገጽ ሲሻገርም እንዳይጠፋ ያድሰዋል
-            if (typeof statsBoxes !== 'undefined' && statsBoxes[2] && data.player_count !== undefined) {
-                statsBoxes[2].innerText = data.player_count;
+            // 👥 ፊክስ፦ 'Active Game' ሳጥኑን ፈልጎ በትክክል ቁጥሩን ያድሰዋል
+            const currentStatsBoxes = document.querySelectorAll(".stats-grid .stat-box strong");
+            if (currentStatsBoxes.length >= 3 && data.player_count !== undefined) {
+                currentStatsBoxes[2].innerText = data.player_count;
             }
          
             const gameMetaSpan = document.querySelector(".game-meta span");
