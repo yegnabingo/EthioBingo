@@ -451,13 +451,15 @@ button {
     color: white;
     border: 1px solid #555;
     border-radius: 8px;
-    padding: 6px 10px;
+    padding: 5px 10px;
     margin-left: 10px;
     cursor: pointer;
-    font-size: 18px;
+    font-size: 13px; /* 👈 ትንሽ እንዲሆን መጠን ማስተካከያ */
     transition: 0.3s;
 }
-#soundBtn:hover { background: #444; }
+#soundBtn:hover { 
+    background: #444; 
+}
 
 /* ==========================================================================
    🌟 ለየኛኛ ቢንጎ ሎጎ እና ለሁነታ መቀያየሪያ የተጨመሩ አዳዲስ ስታይሎች
