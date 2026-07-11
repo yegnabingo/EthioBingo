@@ -31,7 +31,7 @@ def get_db():
         db.close()
 
 def send_admin_notification(text: str, reply_markup=None):
-    """ወደ አድሚን ቴሌግራም ሙልቁ መረጃ ይላክ"""
+    """ወደ አድሚን ቴሌግራም ���ልቁ መረጃ ይላክ"""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": ADMIN_TELEGRAM_ID, "text": text, "parse_mode": "HTML"}
     if reply_markup:
@@ -87,9 +87,27 @@ class AdminAction(BaseModel):
     admin_telegram_id: str
     message_id: Optional[int] = None
 
+def is_valid_telegram_id(telegram_id: str) -> bool:
+    """
+    🛠️ ፊክስ 3a - Validate if telegram_id is a real numeric Telegram ID or temporary guest ID
+    Returns True if it's a valid numeric ID string (digits only)
+    Returns False if it's a temporary ID like "TG-GUEST", "guest-*", etc.
+    """
+    if not telegram_id:
+        return False
+    # Must be all digits (valid Telegram User ID)
+    return telegram_id.strip().isdigit()
+
 # 📥 1. አዲስ ተጫዋች ሲመዘገብ
 @router.post("/users/register")
 def register_user(telegram_id: str, telegram_name: str = None, first_name: str = None, db: Session = Depends(get_db)):
+    # 🛠️ ፊክስ 3b - Validate telegram_id before processing
+    if not is_valid_telegram_id(telegram_id):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid Telegram ID format: '{telegram_id}'. Must be a numeric Telegram User ID."
+        )
+    
     existing = db.query(User).filter(User.telegram_id == telegram_id).first()
     if existing:
         return {
@@ -151,6 +169,13 @@ def get_user(telegram_id: str, db: Session = Depends(get_db)):
 # 💰 3. ተጫዋች ከሚኒ አፕ ላይ ዲፖዚት ሲያደርግ
 @router.post("/users/deposit")
 def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
+    # 🛠️ ፊክስ 3c - Validate telegram_id before database query
+    if not is_valid_telegram_id(req.telegram_id):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid Telegram ID: '{req.telegram_id}'. Please use the official Telegram Mini App with a valid account."
+        )
+    
     user = db.query(User).filter(User.telegram_id == req.telegram_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="ተጠቃሚው በዳታቤዝ ላይ አልተገኘም!")
@@ -193,6 +218,13 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
 # 📤 4. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ
 @router.post("/users/withdraw")
 def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
+    # 🛠️ ፊክስ 3d - Validate telegram_id before database query
+    if not is_valid_telegram_id(req.telegram_id):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid Telegram ID: '{req.telegram_id}'. Please use the official Telegram Mini App with a valid account."
+        )
+    
     user = db.query(User).filter(User.telegram_id == req.telegram_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="ተጠቃሚው በዳታቤዝ ላይ አልተገኘም!")
@@ -240,6 +272,13 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
 # 👮‍♂️ 5. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Deposit)
 @router.post("/deposit/admin/approve")
 def admin_approve_deposit(payload: AdminAction, db: Session = Depends(get_db)):
+    # 🛠️ ፊክስ 3e - Validate that admin_telegram_id is valid (prevent TG-GUEST from being admin)
+    if not is_valid_telegram_id(payload.admin_telegram_id):
+        return {
+            "success": False, 
+            "message": f"❌ Invalid admin ID: '{payload.admin_telegram_id}'. Only official Telegram accounts can approve transactions."
+        }
+    
     deposit = db.query(Deposit).filter(Deposit.id == payload.deposit_id).first()
     if not deposit: 
         return {"success": False, "message": "የዲፖዚት ጥያቄው አልተገኘም"}
@@ -263,7 +302,7 @@ def admin_approve_deposit(payload: AdminAction, db: Session = Depends(get_db)):
                 f"🟢 <b>የዲፖዚት ጥያቄ #{deposit.id} ጸድቋል!</b>\n💰 የተጨመረው መጠን፦ {deposit.amount} ETB\n👤 User ID: {user.telegram_id}"
             )
             
-        return {"success": True, "message": "ዲፖዚቱ በተሳካ ሁኔ�� ጸድቋል!"}
+        return {"success": True, "message": "ዲፖዚቱ በተሳካ ሁኔታ ጸድቋል!"}
     
     else:
         deposit.status = "Rejected"
@@ -282,6 +321,13 @@ def admin_approve_deposit(payload: AdminAction, db: Session = Depends(get_db)):
 # 👮‍♂️ 6. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Withdraw)
 @router.post("/withdraw/admin/approve")
 def admin_approve_withdraw(payload: AdminAction, db: Session = Depends(get_db)):
+    # 🛠️ ፊክስ 3f - Validate that admin_telegram_id is valid (prevent TG-GUEST from being admin)
+    if not is_valid_telegram_id(payload.admin_telegram_id):
+        return {
+            "success": False, 
+            "message": f"❌ Invalid admin ID: '{payload.admin_telegram_id}'. Only official Telegram accounts can approve transactions."
+        }
+    
     withdraw = db.query(Withdrawal).filter(Withdrawal.id == payload.withdraw_id).first()
     if not withdraw: 
         return {"success": False, "message": "የማውጫ ጥያቄው አልተገኘም"}
@@ -316,7 +362,7 @@ def admin_approve_withdraw(payload: AdminAction, db: Session = Depends(get_db)):
         if payload.message_id:
             update_telegram_message(
                 payload.message_id, 
-                f"🟢 <b>���ማውጫ ክፍያ #{withdraw.id} መፈጸሙ ተረጋግጧል!</b>\n💰 የተላከው መጠን፦ {withdraw.amount} ETB"
+                f"🟢 <b>የማውጫ ክፍያ #{withdraw.id} መፈጸሙ ተረጋግጧል!</b>\n💰 የተላከው መጠን፦ {withdraw.amount} ETB"
             )
         
         return {"success": True, "message": "ክፍያው መፈጸሙ ተረጋግጧል!"}
