@@ -4,22 +4,7 @@ from app.database import Base
 
 class User(Base):
     __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    telegram_id = Column(String, unique=True, index=True)
-    telegram_name = Column(String)
-    first_name = Column(String)
-
-    balance = Column(Float, default=0.0) # የዋናው Wallet ባላንስ
-    gift_coin = Column(Float, default=0.0) # አዲሱ የGift Coin መከታተያ ማከማቻ
-
-    is_admin = Column(Boolean, default=False)
-    is_banned = Column(Boolean, default=False)
-
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-class User(Base):
-    __tablename__ = "users"
+    __table_args__ = {'extend_existing': True} # 👈 ድጋሚ መፈጠር እንዳይጋጭ ይከላከላል
 
     id = Column(Integer, primary_key=True, index=True)
     telegram_id = Column(String, unique=True, index=True)
@@ -43,8 +28,10 @@ class User(Base):
     def wallet(self, value):
         self.balance = value
 
+
 class Deposit(Base):
     __tablename__ = "deposits"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
@@ -63,6 +50,7 @@ class Deposit(Base):
 
 class Withdrawal(Base):
     __tablename__ = "withdrawals"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
@@ -79,6 +67,7 @@ class Withdrawal(Base):
 
 class Card(Base):
     __tablename__ = "cards"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     card_number = Column(Integer, unique=True, index=True) # 1-200 ቁጥር
@@ -90,6 +79,7 @@ class Card(Base):
 
 class PlayerCard(Base):
     __tablename__ = "player_cards"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     game_id = Column(Integer, index=True)
@@ -102,6 +92,7 @@ class PlayerCard(Base):
 
 class Game(Base):
     __tablename__ = "games"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     status = Column(String, default="waiting") # waiting, picking, drawing, finished
@@ -122,6 +113,7 @@ class Game(Base):
 
 class Transaction(Base):
     __tablename__ = "transactions"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, index=True)
@@ -132,9 +124,9 @@ class Transaction(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-
 class Setting(Base):
     __tablename__ = "settings"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     # 💡 የጨዋታው ኮሚሽን ፐርሰንት (ባንተ ህግ መሰረት 20% ተደርጓል)
@@ -150,6 +142,7 @@ class Setting(Base):
 
 class Admin(Base):
     __tablename__ = "admins"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     telegram_id = Column(String, unique=True)
@@ -161,6 +154,7 @@ class Admin(Base):
 
 class Ticket(Base):
     __tablename__ = "tickets"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
@@ -174,6 +168,7 @@ class Ticket(Base):
 
 class BingoCard(Base):
     __tablename__ = "bingo_cards"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
@@ -184,6 +179,7 @@ class BingoCard(Base):
 
 class AdminStats(Base):
     __tablename__ = "admin_stats"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True, index=True)
     house_balance = Column(Float, default=0.0) # ማንም ያልገዛው ካርድ ሲያሸንፍ ብሩ እዚህ ይከማቻል
