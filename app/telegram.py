@@ -3,7 +3,7 @@ import requests
 from telebot import TeleBot, types
 
 # --------------------------------------------------------------------------
-# ⚙️ የቅንብር ክፍሎች (Configuration ከ Railway Env በትክክል እንዲያነቡ ተስተካክለዋል)
+# ⚙️ የቅንብር ክፍሎች
 # --------------------------------------------------------------------------
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 ADMIN_TELEGRAM_ID = str(os.getenv("ADMIN_CHAT_ID", "")).strip()
@@ -41,7 +41,8 @@ def send_welcome(message):
 @bot.callback_query_handler(func=lambda call: call.data == "check_balance")
 def inline_check_balance(call):
     telegram_id = str(call.from_user.id)
-    url = f"{BACKEND_URL}/users/{telegram_id}" # 🛠️ ፊክስ፦ /api የተባለው ራውተር ላይ ስለጠፋ እዚህም ተወግዷል
+    # 🛠️ ፊክስ፦ የባክኤንድ ራውተር /api ስላለው እዚህ ጋር በትክክል ተጨምሯል
+    url = f"{BACKEND_URL}/api/users/{telegram_id}" 
     try:
         response = requests.get(url, timeout=15)
         
@@ -52,7 +53,8 @@ def inline_check_balance(call):
 
         if response.status_code == 200 and res_data.get("success"):
             user_obj = res_data.get("user", {})
-            balance = user_obj.get("wallet", 0.0) 
+            # 🛠️ ፊክስ፦ ከዳታቤዙ አምድ ስም ጋር አንድ አይነት እንዲሆን balance ተመራጭ ነው
+            balance = user_obj.get("balance", 0.0) 
             bot.send_message(call.message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {balance} ETB")
         else:
             bot.send_message(call.message.chat.id, "❌ ተጠቃሚዎ አልተመዘገበም፣ እባክዎ መጀመሪያ ሚኒ አፑን ይክፈቱ!")
@@ -83,26 +85,21 @@ def process_deposit_amount(message):
     bot.send_message(chat_id, f"💰 የ {amount_text} ETB ማስተላለፊያ ፎርም ለመክፈት ከታች ያለውን ቁልፍ ይጫኑ፦", reply_markup=markup)
 
 
-# 🛠️ ፊክስ 1፦ አድሚኑ የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
+# 🛠️ ፊክስ፦ አድሚኑ የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
     
-    # 🛠️ ፊክስ 1a - CRITICAL: ወዲያውኑ Telegram API ን ይህን callback ን አጠናቅቅ ለማድረግ ንገር
     try:
         bot.answer_callback_query(call.id)
-        print("✅ Callback query answered immediately to prevent spinner freeze")
+        print("✅ Callback query answered immediately")
     except Exception as e:
         print(f"⚠️ Failed to answer callback query: {e}")
     
     print("========== CALLBACK ==========")
-    print("CALLBACK DATA:", call.data)
-    print("ADMIN ID:", call.from_user.id)
-    print("ENV ADMIN:", ADMIN_TELEGRAM_ID)
-
     admin_id_str = str(call.from_user.id).strip()
     
     if ADMIN_TELEGRAM_ID and admin_id_str != ADMIN_TELEGRAM_ID:
-        error_msg = f"❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመፈጸም ፈቃድ የለዎትም! (የእርስዎ ID: {admin_id_str})"
+        error_msg = f"❌ ይቅርታ偏 ይህንን ትዕዛዝ ለመፈጸም ፈቃድ የለዎትም!"
         try:
             bot.send_message(call.message.chat.id, error_msg)
         except Exception as e:
@@ -114,9 +111,9 @@ def handle_admin_actions(call):
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
     target_id = int(action_data[2])
 
-    # 🛠️ ፊክስ 1b፦ /api የሚሉት የURL አድራሻዎች ከባክኤንዱ ራውተር ጋር እንዲገጥሙ ተስተካክለዋል
+    # 🛠️ ፊክስ፦ /api የሚለው ቅድመ-አድራሻ (Prefix) እዚህ ጋር በትክክል ተጨምሯል
     if tx_type == "dep":
-        url = f"{BACKEND_URL}/deposit/admin/approve"
+        url = f"{BACKEND_URL}/api/deposit/admin/approve"
         payload = {
             "deposit_id": target_id, 
             "action": "APPROVE" if action == "app" else "REJECT",
@@ -124,7 +121,7 @@ def handle_admin_actions(call):
             "message_id": call.message.message_id
         }
     else:
-        url = f"{BACKEND_URL}/withdraw/admin/approve"
+        url = f"{BACKEND_URL}/api/withdraw/admin/approve"
         payload = {
             "withdraw_id": target_id, 
             "action": "APPROVE" if action == "app" else "REJECT",
@@ -159,7 +156,7 @@ def handle_admin_actions(call):
 
     except Exception as e:
         print("Admin Action Error:", e)
-        bot.send_message(call.message.chat.id, "❌ ከባክኤንድ ሰርቨር ጋር መገናኘት አልተቻለም (Server Error)")
+        bot.send_message(call.message.chat.id, "❌ ከባክኤንድ ሰርቨር ጋር መገናኘት አልተቻለም")
 
 
 if __name__ == "__main__":
