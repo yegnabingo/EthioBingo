@@ -622,10 +622,6 @@ function openWalletModal(type) {
     }
 }
 
-function closeWalletModal() {
-    document.getElementById('walletModal').style.display = 'none';
-}
-
 async function submitDeposit() {
     const amount = parseFloat(document.getElementById('depositAmount').value);
     const bankName = document.getElementById('depositBank').value;
@@ -640,21 +636,28 @@ async function submitDeposit() {
         return;
     }
     
+    // 🛠️ ማስተካከያ፦ ቁልፎቹ በትክክል ከ FastAPI Pydantic ሼማ (schemas.py) ጋር አንድ አይነት መሆን አለባቸው
     const payload = {
-        telegram_id: String(myTelegramId), // 👈 ከጨዋታው ግሎባል አይዲ
+        telegram_id: String(myTelegramId), 
         telegram_name: String(myTelegramName),
         amount: amount,
         bank_name: bankName,
-        sms_data: smsText
+        sms_data: smsText // 👈 በ schemas.py ላይ "sms_data" መሆኑን ያረጋግጡ
     };
     
     try {
-        // 🛠 ፊክስ፦ ወደ አዲሱ የ users endpoint መቀየር
         const response = await fetch('/api/users/deposit', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        
+        // 🛠️ የደህንነት ማስተካከያ፦ ሰርቨሩ 422 ወይም 500 ኤረር ከመለሰ ለማወቅ
+        if (!response.ok) {
+            const errorData = await response.json();
+            alert('❌ የሰርቨር ስህተት፦ ' + (errorData.detail || 'ፎርማቱ አልተስተካከለም'));
+            return;
+        }
         
         const result = await response.json();
         
@@ -690,16 +693,21 @@ async function submitWithdraw() {
         telegram_id: String(myTelegramId),
         amount: amount,
         bank_name: bankName,
-        account_number: accNumber
+        account_number: accNumber // 👈 በ schemas.py ላይ "account_number" መሆኑን ያረጋግጡ
     };
     
     try {
-        // 🛠 ፊክስ፦ ወደ አዲሱ የ users endpoint መቀየር
         const response = await fetch('/api/users/withdraw', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            alert('❌ የሰርቨር ስህተት፦ ' + (errorData.detail || 'ትክክለኛ መረጃ አላስገቡም'));
+            return;
+        }
         
         const result = await response.json();
         
