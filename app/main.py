@@ -64,7 +64,6 @@ async def websocket_endpoint(websocket: WebSocket):
 # --------------------------------------------------------------------------
 from app.routes.cards import router as cards_router
 from app.routes.users import router as users_router
-from app.routes.admin import router as admin_router  # 👈 አዲሱ የተቀናጀ ራውተር
 from app.routes.games import router as games_router
 
 # ❌ የድሮዎቹ የዲፖዚት እና ዊዝድሮው መጥሪያዎች ሙሉ በሙሉ ተወግደዋል!
