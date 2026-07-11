@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime
 from pydantic import BaseModel
+from typing import Optional
 
 from app.database import SessionLocal
 from app.models import User, Game, Deposit, Withdrawal
@@ -15,7 +16,6 @@ router = APIRouter(
 )
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-# 🛠️ ማስተካከያ፦ ADMIN_CHAT_ID ን በትክክል አንብቦ ወደ ስትሪንግ ይቀይራል
 ADMIN_TELEGRAM_ID = str(os.getenv("ADMIN_CHAT_ID", "")).strip()
 
 def get_db():
@@ -25,52 +25,41 @@ def get_db():
     finally:
         db.close()
 
-# 🛠️ ማስተካከያ፦ Telegram Notification በ response መልክ ተይዞ ስታተሱ ፕሪንት ይደረጋል
 def send_admin_notification(text: str, reply_markup=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": ADMIN_TELEGRAM_ID, "text": text, "parse_mode": "HTML"}
     if reply_markup:
         payload["reply_markup"] = reply_markup
     try:
-        response = requests.post(
-            url,
-            json=payload,
-            timeout=15
-        )
-        print(response.status_code)
-        print(response.text)
+        response = requests.post(url, json=payload, timeout=15)
+        print("Notification Status:", response.status_code)
     except Exception as e:
         print(f"⚠️ Telegram admin notify error: {e}")
 
-# 🛠️ ማስተካከያ፦ Telegram Edit Payload እና Response ህትመት በተጠየቀው መሠረት ተስተካክሏል
+# 🛠️ ፊክስ፦ የ reply_markup አወቃቀር ስህተት እንዳይፈጥር ተስተካክሏል
 def update_telegram_message(message_id: int, text: str):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
     payload = {
         "chat_id": ADMIN_TELEGRAM_ID,
         "message_id": message_id,
         "text": text,
-        "parse_mode": "HTML",
-        "reply_markup": {
-            "inline_keyboard": []
-        }
+        "parse_mode": "HTML"
+        # 💡 ማስታወሻ፦ ቁልፎቹን ለማጥፋት reply_markup ን ጨርሶ አለመላክ ይመረጣል
     }
     try:
-        response = requests.post(
-            url,
-            json=payload,
-            timeout=15
-        )
-        print(response.status_code)
-        print(response.text)
+        response = requests.post(url, json=payload, timeout=15)
+        print("Telegram Edit Status:", response.status_code)
+        print("Telegram Edit Response:", response.text)
     except Exception as e:
         print("Telegram Edit Error:", e)
 
+# 🛠️ ፊክስ፦ የ Pydantic ሞዴል ከድሮው የፓይቶን ስሪት ጋር ተኳሃኝ እንዲሆን ተደርጓል
 class AdminAction(BaseModel):
-    deposit_id: int | None = None
-    withdraw_id: int | None = None
+    deposit_id: Optional[int] = None
+    withdraw_id: Optional[int] = None
     action: str
     admin_telegram_id: str
-    message_id: int | None = None
+    message_id: Optional[int] = None
 
 # 📥 1. አዲስ ተጫዋች ሲመዘገብ
 @router.post("/users/register")
@@ -87,7 +76,7 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
     db.refresh(new_user)
     return {"success": True, "message": "ምዝገባው በተካሄደ ሁኔታ ተጠናቋል", "user": {"telegram_id": new_user.telegram_id, "balance": new_user.balance, "wallet": new_user.balance}}
 
-# 🔍 2. የተጫዋቹን የዋሌት መረጃ መፈተሻ API (አንድ አይነት ወጥ ፎርማት እንዲኖረው ተደርጓል)
+# 🔍 2. የተጫዋቹን የዋሌት መረጃ መፈተሻ API
 @router.get("/users/{telegram_id}")
 def get_user(telegram_id: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
@@ -103,7 +92,7 @@ def get_user(telegram_id: str, db: Session = Depends(get_db)):
         }
     }
 
-# 💰 3. ተጫዋች ከሚኒ አፕ ላይ ዲፖዚት ሲያደርግ (Deposit Request)
+# 💰 3. ተጫዋች ከሚኒ አፕ ላይ ዲፖዚት ሲያደርግ
 @router.post("/users/deposit")
 def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.telegram_id == req.telegram_id).first()
@@ -145,7 +134,7 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
     send_admin_notification(msg_text, reply_markup=inline_keyboard)
     return {"success": True, "message": "የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል!"}
 
-# 📤 4. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ (Withdraw Request)
+# 📤 4. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ
 @router.post("/users/withdraw")
 def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.telegram_id == req.telegram_id).first()
@@ -186,7 +175,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
         f"🏦 ባንክ፦ {req.bank_name}\n"
         f"💳 የባንክ አካውንት፦ <code>{req.account_number}</code>\n"
         f"💰 የገንዘብ መጠን፦ <b>{req.amount} ETB</b>\n\n"
-        f"<i>ይህንን ብር በባንክ ልከው ሲያበቁ 'Paid' የሚለውን ይጫኑ።</i>"
+        f"<i>ይህንን ብር በባንክ ልከው ሲያበቁ 'Paid' የሚለውን ይጫኑ。</i>"
     )
 
     send_admin_notification(msg_text, reply_markup=inline_keyboard)
