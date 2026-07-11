@@ -449,7 +449,7 @@ button {
 #soundBtn {
     background: #222;
     color: white;
-    border: 1px solid #555;
+    border: 1px solid #222;
     border-radius: 8px;
     padding: 5px 10px;
     margin-left: 10px;
@@ -458,7 +458,7 @@ button {
     transition: 0.3s;
 }
 #soundBtn:hover { 
-    background: #333; 
+    background: #222; 
 }
 
 /* ==========================================================================
