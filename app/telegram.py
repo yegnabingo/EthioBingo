@@ -22,7 +22,7 @@ def send_welcome(message):
     user_name = message.from_user.first_name
 
     markup = types.InlineKeyboardMarkup(row_width=2)
-    btn_play = types.InlineKeyboardButton(text="🎮 Play Now", web_app=types.WebAppInfo(url=MINI_APP_URL))
+    btn_play = types.InlineKeyboardButton(text="���� Play Now", web_app=types.WebAppInfo(url=MINI_APP_URL))
     btn_balance = types.InlineKeyboardButton(text="💰 Check Balance", callback_data="check_balance")
     btn_deposit = types.InlineKeyboardButton(text="🏦 Make a Deposit", callback_data="start_deposit")
     btn_support = types.InlineKeyboardButton(text="Support 📞", url="https://t.me/cartelabingo_support")
@@ -83,9 +83,17 @@ def process_deposit_amount(message):
     bot.send_message(chat_id, f"💰 የ {amount_text} ETB ማስተላለፊያ ፎርም ለመክፈት ከታች ያለውን ቁልፍ ይጫኑ፦", reply_markup=markup)
 
 
-# 🛠️ አድሚኑ (አንተ) የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
+# 🛠️ ፊክስ 1፦ አድሚኑ (አንተ) የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
+    
+    # 🛠️ ፊክስ 1a - CRITICAL: ወዲያውኑ Telegram API ን ይህን callback ን አጠናቅቅ ለማድረግ ንገር
+    # ይህ ሳይሆን ከሆነ Telegram ለ 30 ሴ/ደ "Loading..." spinner ይታይ ይቀራል
+    try:
+        bot.answer_callback_query(call.id, "⏳ በመካሄድ ላይ ነው...")
+        print("✅ Callback query answered immediately to prevent spinner freeze")
+    except Exception as e:
+        print(f"⚠️ Failed to answer callback query: {e}")
     
     # 🔍 መመርመሪያ መስመሮች 1 (Callback መረጃዎችን ለማየት)
     print("========== CALLBACK ==========")
@@ -96,14 +104,12 @@ def handle_admin_actions(call):
     admin_id_str = str(call.from_user.id).strip()
     
     if ADMIN_TELEGRAM_ID and admin_id_str != ADMIN_TELEGRAM_ID:
-        bot.answer_callback_query(call.id, f"❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመፈጸም ፈቃድ የለዎትም! (የእርስዎ ID: {admin_id_str})")
+        error_msg = f"❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመፈጸም ፈቃድ የለዎትም! (የእርስዎ ID: {admin_id_str})"
+        try:
+            bot.send_message(call.message.chat.id, error_msg)
+        except Exception as e:
+            print(f"Failed to send unauthorized message: {e}")
         return
-
-    # 💡 Loading... የሚለውን ወዲያውኑ ለማጥፋት
-    try:
-        bot.answer_callback_query(call.id, "⏳ በመካሄድ ላይ ነው...")
-    except Exception:
-        pass
 
     action_data = call.data.split('_')
     action = action_data[0]    # 'app' ወይም 'rej'
@@ -150,7 +156,9 @@ def handle_admin_actions(call):
         if response.status_code == 200 and res_data.get("success"):
             print("✅ Admin Action successfully processed by backend.")
         else:
-            bot.send_message(call.message.chat.id, f"❌ ስህተት፦ {res_data.get('message', 'Unknown Error')}")
+            error_detail = res_data.get('message', 'Unknown Error')
+            print(f"❌ Backend returned error: {error_detail}")
+            bot.send_message(call.message.chat.id, f"❌ ስህተት፦ {error_detail}")
 
     except Exception as e:
         print("Admin Action Error:", e)
