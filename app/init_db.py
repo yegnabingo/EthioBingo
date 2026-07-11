@@ -1,5 +1,7 @@
 from sqlalchemy import text
 from app.database import Base, engine, SessionLocal
+# 💡 አዲሶቹን ቴብሎች በሙሉ SQLAlchemy እንዲያውቃቸው ሞዴሉን ሙሉ በሙሉ እዚህ ኢምፖርት እናደርጋለን
+import app.models as models 
 from app.models import Setting
 from app.seed_cards import seed_cards
 
@@ -10,8 +12,10 @@ DB_INIT_DONE = False
 def initialize_database():
     global DB_INIT_DONE
 
-    # 1. መጀመሪያ ያሉትን ቴብሎች መፍጠር
+    print("🔄 አዳዲስ የዳታቤዝ ቴብሎችን የመፍጠር/የማረጋገጥ ስራ እየተጀመረ ነው...")
+    # 1. መጀመሪያ ያሉትን እና አዲስ የተጨመሩትን ቴብሎች በሙሉ መፍጠር (ለምሳሌ admin_stats)
     Base.metadata.create_all(bind=engine)
+    print("✅ የቴብሎች መዋቅር ማረጋገጫ ተጠናቋል።")
 
     db = SessionLocal()
 
@@ -32,25 +36,28 @@ def initialize_database():
             db.rollback()
 
     # 2. መነሻ ሴቲንጎችን በዳታቤዝ ውስጥ መፍጠር (ቴብሉ ሙሉ በሙሉ ባዶ ከሆነ)
-    if db.query(Setting).count() == 0:
-        db.add(
-            Setting(
-                game_fee=10,
-                countdown_seconds=30,
-                draw_interval=2,
-                max_cards=5,
-                min_deposit=20,
-                min_withdraw=50,
-                jackpot_percent=10,
-                game_commission_percent=20.0,
-                is_registration_open=True
+    try:
+        if db.query(Setting).count() == 0:
+            db.add(
+                Setting(
+                    countdown_seconds=30,
+                    draw_interval=2.0,
+                    max_cards=5,
+                    min_deposit=20.0,
+                    min_withdraw=50.0,
+                    jackpot_percent=10.0,
+                    game_commission_percent=20.0,
+                    is_registration_open=True
+                )
             )
-        )
-        db.commit()
-    else:
-        # ቴብሉ ቀድሞውኑ ካለ ግን ዓምዱ ባዶ ከሆነ ዲፎልት 20% መሙላት
-        db.execute(text("UPDATE settings SET game_commission_percent = 20.0 WHERE game_commission_percent IS NULL;"))
-        db.commit()
+            db.commit()
+        else:
+            # ቴብሉ ቀድሞውኑ ካለ ግን ዓምዱ ባዶ ከሆነ ዲፎልት 20% መሙላት
+            db.execute(text("UPDATE settings SET game_commission_percent = 20.0 WHERE game_commission_percent IS NULL;"))
+            db.commit()
+    except Exception as e:
+        print(f"⚠️ Settings check skipped or handled: {e}")
+        db.rollback()
 
     # ---- Ensure schema compatibility for new columns ----
     # Ensure users.gift_coin exists
@@ -138,7 +145,10 @@ def initialize_database():
     db.close()
 
     # 3. ጨዋታው የሚነሳባቸውን 200 ካርዶች በዳታቤዝ ውስጥ መዝራት
-    seed_cards()
+    try:
+        seed_cards()
+    except Exception as e:
+        print(f"⚠️ Seeding cards notice: {e}")
 
     # mark DB init as done so other components (game engine) can proceed
     DB_INIT_DONE = True
