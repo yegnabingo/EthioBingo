@@ -106,6 +106,10 @@ function connectWebSocket() {
         if (data.type === "phase_change" && data.phase === "DRAW") {
             document.getElementById("pickScreen").style.display = "none";
             document.getElementById("drawScreen").style.display = "block";
+
+            if (document.getElementById("playerCount") && data.player_count !== undefined) {
+                document.getElementById("playerCount").innerText = data.player_count;
+        }
             
             const gameMetaSpan = document.querySelector(".game-meta span");
             if (gameMetaSpan) gameMetaSpan.innerText = "Game " + data.game_no;
@@ -127,6 +131,10 @@ function connectWebSocket() {
             document.getElementById("pickScreen").style.display = "none";
             document.getElementById("drawScreen").style.display = "block";
 
+            if (document.getElementById("playerCount") && data.player_count !== undefined) {
+                document.getElementById("playerCount").innerText = data.player_count;
+            }
+            
             const ballElement = document.getElementById(`ball-${data.number}`);
             const letter = data.label.charAt(0);
             const color = getBingoColor(letter);
