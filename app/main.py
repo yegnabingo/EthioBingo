@@ -70,7 +70,6 @@ from app.routes.games import router as games_router
 
 app.include_router(cards_router)
 app.include_router(users_router)
-app.include_router(admin_router)                  # 👈 አዲሱን የተቀናጀ ራውተር እዚህ አገናኘነው
 app.include_router(games_router)
 
 # የስታቲክ ፋይሎች ማገናኛ
