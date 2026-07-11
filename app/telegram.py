@@ -43,17 +43,14 @@ def inline_check_balance(call):
     telegram_id = str(call.from_user.id)
     url = f"{BACKEND_URL}/api/users/{telegram_id}"
     try:
-        # 🛠️ ለውጥ 2፦ የ GET ጥያቄ በ 15 ሰከንድ ታይምአውት ተስተካክሏል
         response = requests.get(url, timeout=15)
         
-        # 🛠️ ለውጥ 7፦ የ JSON ሪስፖንስ አያያዝ በ try-except እንዲጠበቅ ተደርጓል
         try:
             res_data = response.json()
         except:
             res_data = {"success": False, "message": response.text}
 
         if response.status_code == 200 and res_data.get("success"):
-            # 🛠️ ለውጥ 1፦ APIው አንድ መልክ ብቻ እንዲኖረው ({"user": {"wallet": ...}}) ተደርጓል
             user_obj = res_data.get("user", {})
             balance = user_obj.get("wallet", 0.0) 
             bot.send_message(call.message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {balance} ETB")
@@ -89,18 +86,30 @@ def process_deposit_amount(message):
 # 🛠️ አድሚኑ (አንተ) የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
+    
+    # 🔍 መመርመሪያ መስመሮች 1 (Callback መረጃዎችን ለማየት)
+    print("========== CALLBACK ==========")
+    print("CALLBACK DATA:", call.data)
+    print("ADMIN ID:", call.from_user.id)
+    print("ENV ADMIN:", ADMIN_TELEGRAM_ID)
+
     admin_id_str = str(call.from_user.id).strip()
     
     if ADMIN_TELEGRAM_ID and admin_id_str != ADMIN_TELEGRAM_ID:
         bot.answer_callback_query(call.id, f"❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመፈጸም ፈቃድ የለዎትም! (የእርስዎ ID: {admin_id_str})")
         return
 
+    # 💡 Loading... የሚለውን ወዲያውኑ ለማጥፋት
+    try:
+        bot.answer_callback_query(call.id, "⏳ በመካሄድ ላይ ነው...")
+    except Exception:
+        pass
+
     action_data = call.data.split('_')
     action = action_data[0]    # 'app' ወይም 'rej'
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
     target_id = int(action_data[2])
 
-    # 🛠️ ለውጥ 4፦ ሁለቱም ዴፖዚት እና ዊዝድሮው ላይ message_id በትክክል እንዲካተት ተደርጓል
     if tx_type == "dep":
         url = f"{BACKEND_URL}/api/deposit/admin/approve"
         payload = {
@@ -118,31 +127,36 @@ def handle_admin_actions(call):
             "message_id": call.message.message_id
         }
 
+    # 🔍 መመርመሪያ መስመሮች 2 (ከመላኩ በፊት ዩአርኤል እና ፔይሎድ ለማየት)
+    print("POST URL:", url)
+    print("PAYLOAD:", payload)
+
     try:
-        # 🛠️ ለውጥ 3፦ የ POST ጥያቄ በተጠየቀው የረድፍ ፎርማት እና በ 15 ሰከንድ ታይምአውት ተስተካክሏል
         response = requests.post(
             url,
             json=payload,
             timeout=15
         )
 
-        # 🛠️ ለውጥ 7፦ እዚህም ላይ የ JSON ስህተት መከላከያ ተጨምሯል
+        # 🔍 መመርመሪያ መስመሮች 3 (ከተላከ በኋላ ሰርቨሩ የመለሰውን ለማየት)
+        print("STATUS:", response.status_code)
+        print("BODY:", response.text)
+
         try:
             res_data = response.json()
         except:
             res_data = {"success": False, "message": response.text}
 
         if response.status_code == 200 and res_data.get("success"):
-            bot.answer_callback_query(call.id, "✅ በተሳካ ሁኔታ ተከናውኗል!")
+            print("✅ Admin Action successfully processed by backend.")
         else:
-            bot.answer_callback_query(call.id, f"❌ {res_data.get('message', 'Unknown Error')}")
+            bot.send_message(call.message.chat.id, f"❌ ስህተት፦ {res_data.get('message', 'Unknown Error')}")
 
     except Exception as e:
         print("Admin Action Error:", e)
-        bot.answer_callback_query(call.id, "❌ Server Error")
+        bot.send_message(call.message.chat.id, "❌ ከባክኤንድ ሰርቨር ጋር መገናኘት አልተቻለም (Server Error)")
 
 
-# 🛠️ ለውጥ 5፦ ቦቱ ሲነሳ የቆዩ ጥያቄዎችን እንዲዘል (skip_pending) እና በየ 60 ሰከንዱ ታይምአውት እንዲያደርግ ተደርጓል
 if __name__ == "__main__":
     bot.infinity_polling(
         skip_pending=True,
