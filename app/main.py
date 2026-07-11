@@ -60,14 +60,14 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 # --------------------------------------------------------------------------
-# 🔗 የራውተሮች ማገናኛ (የተስተካከለ)
+# 🔗 የራውተሮች ማገናኛ (ሊንኮች እንዳይሳሳቱ በግልጽ ቁጥጥር የተደረገባቸው)
 # --------------------------------------------------------------------------
 from app.routes.cards import router as cards_router
 from app.routes.users import router as users_router
 from app.routes.games import router as games_router
 
-# ❌ የድሮዎቹ የዲፖዚት እና ዊዝድሮው መጥሪያዎች ሙሉ በሙሉ ተወግደዋል!
-
+# 💡 ማስተካከያ፦ እያንዳንዱ ራውተር በራሱ በ users.py ላይ prefix=/api ስላለው 
+# እዚህ ጋር ያለምንም ተጨማሪ prefix በቀጥታ እናያይዛቸዋለን።
 app.include_router(cards_router)
 app.include_router(users_router)
 app.include_router(games_router)
