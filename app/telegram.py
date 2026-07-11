@@ -108,27 +108,43 @@ def handle_admin_actions(call):
         }
 
     try:
-        response = requests.post(url, json=payload)
-        res_data = response.json()
+    response = requests.post(
+        url,
+        json=payload,
+        timeout=15
+    )
 
-        # 🛠️ ለውጥ 3፦ ባክኤንድህ ሁልጊዜ 200 ስታተስ ኮድ ስለሚመልስ የሬስፖንስ ቼኩ ይበልጥ አስተማማኝ ተደርጓል
-        if res_data.get("success"):
-            status_text = "🟢 APPROVED (ጸድቋል)" if action == "app" else "🔴 REJECTED (ውድቅ ሆኗል)"
-            
-            # ከአሮጌው መልዕክት ጋር አዲሱን ሁኔታ ቀላቅሎ ማሳየት
-            clean_text = call.message.text if call.message.text else ""
-            bot.edit_message_text(
+    print("Status:", response.status_code)
+    print("Response:", response.text)
+
+    res_data = response.json()
+
+    if response.status_code == 200 and res_data.get("success"):
+
+        bot.answer_callback_query(
+            call.id,
+            "✅ Done"
+        )
+
+        try:
+            bot.edit_message_reply_markup(
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id,
-                text=f"{clean_text}\n\n<b>🔄 የውሳኔ ሁኔታ፦ {status_text}!</b>",
-                parse_mode="HTML"
+                reply_markup=None
             )
-            bot.answer_callback_query(call.id, f"✅ ጥያቄው {action.upper()} ሆኗል!")
-        else:
-            bot.answer_callback_query(call.id, f"❌ ባክኤንድ እምቢ አለ፦ {res_data.get('message')}")
-    except Exception as e:
-        bot.answer_callback_query(call.id, "❌ ከባክአንድ ሰርቨር ጋር መገናኘት አልተቻለም!")
-        print(f"Admin Action Error: {str(e)}")
+        except Exception:
+            pass
 
-if __name__ == "__main__":
-    bot.infinity_polling()
+    else:
+        bot.answer_callback_query(
+            call.id,
+            f"❌ {res_data.get('message', 'Unknown Error')}"
+        )
+
+except Exception as e:
+    print("Admin Action Error:", e)
+
+    bot.answer_callback_query(
+        call.id,
+        "❌ Server Error"
+    )
