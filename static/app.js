@@ -5,30 +5,34 @@ let selectedCards = [];
 let currentBetAmount = 10; 
 let myTelegramId = "TG-GUEST"; 
 let myTelegramName = "ተጫዋች";
+let tgUser = { id: "12345678", first_name: "የይለፍ ተጫዋች" }; 
 
 let currentCardIndex = 0; 
-let recentBallsList = []; // የቅርብ 10 ኳሶች
+let recentBallsList = []; 
 let soundEnabled = true;
 let isAutoMark = true;
 
-// 🔊 የድምፅ ማብሪያ/ማጥፊያ አዝራር ተቆጣጣሪ (ትንሽ አዝራር ሎጂክ)
+// 🔊 የድምፅ ማብሪያ/ማጥፊያ አዝራር ተቆጣጣሪ
 document.addEventListener("DOMContentLoaded", () => {
     const soundBtn = document.getElementById("soundBtn");
     if (soundBtn) {
         soundBtn.addEventListener("click", () => {
-            soundEnabled = !soundEnabled; // ማብራት/ማጥፋት
-
+            soundEnabled = !soundEnabled;
             if (soundEnabled) {
                 soundBtn.innerText = "🔊 ON";
-                soundBtn.style.borderColor = "#2ed573"; // የበራ መሆኑን ለማሳየት አረንጓዴ ቦርደር
+                soundBtn.style.borderColor = "#2ed573";
                 showToastMessage("🔊 የቢንጎ ድምፅ በርቷል", "success");
             } else {
                 soundBtn.innerText = "🔇 OFF";
-                soundBtn.style.borderColor = "#ff4757"; // የጠፋ መሆኑን ለማሳየት ቀይ መስመር
+                soundBtn.style.borderColor = "#ff4757";
                 showToastMessage("🔇 የቢንጎ ድምፅ ጠፍቷል", "error");
             }
         });
     }
+
+    // 🔄 ፊክስ፦ ገጹ ሲጫን ባላንስ እዚህ ጋር መጀመሪያ ይጠራል
+    refreshUserBalance();
+    setInterval(refreshUserBalance, 10000);
 });
 
 // 🌐 የቴሌግራም ሚኒ አፕ መረጃ መጫኛ
@@ -37,19 +41,20 @@ if (window.Telegram && window.Telegram.WebApp) {
     tg.ready();
     tg.expand();
     if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        tgUser = tg.initDataUnsafe.user;
         myTelegramId = String(tg.initDataUnsafe.user.id);
         myTelegramName = tg.initDataUnsafe.user.first_name || "ተጫዋች";
     }
 }
 
-// 🎨 የቢንጎ ፊደላት ቀለማትን በቋሚነት መለኪያ ፈንክሽን
+// 🎨 የቢንጎ ፊደላት ቀለማትን መለኪያ ፈንክሽን
 function getBingoColor(letter) {
     switch(letter) {
-        case 'B': return '#2ed573'; // አረንጓዴ
-        case 'I': return '#ff4757'; // ቀይ
-        case 'N': return '#ffa500'; // ወርቃማ / ብርቱካንማ
-        case 'G': return '#1e90ff'; // ሰማያዊ
-        case 'O': return '#9b59b6'; // ሀምራዊ
+        case 'B': return '#2ed573';
+        case 'I': return '#ff4757';
+        case 'N': return '#ffa500';
+        case 'G': return '#1e90ff';
+        case 'O': return '#9b59b6';
         default: return '#2f3542';
     }
 }
@@ -66,14 +71,13 @@ function connectWebSocket() {
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
-        // 🔄 ሪል-ታይም የካርዶች ሁኔታ ማሻሻያ (ማንኛውም ሰው ሲገዛ ለሁሉም እንዲታይ)
         if (data.type === "taken_cards_update") {
             update200CardsColors(data.taken_cards);
         }
 
-        // 1️⃣ PICK PHASE (የሰከንድ እና የደራሽ ስሌት ማሳያ)
+        // 1️⃣ PICK PHASE
         if ((data.type === "countdown" || data.type === "time_update") && data.phase === "PICK") {
-            soundEnabled = true; // 🔄 አዲስ ዙር ሲጀምር ድምፁን ለቀጣዩ ጨዋታ መልሰን እናነቃዋለን
+            soundEnabled = true; 
             document.getElementById("pickScreen").style.display = "block";
             if(document.getElementById("drawScreen")) document.getElementById("drawScreen").style.display = "none";
             
@@ -82,15 +86,12 @@ function connectWebSocket() {
                 timerText.innerText = (data.seconds !== undefined) ? data.seconds : data.time;
             }
             
-            // 📊 በፒክ ስክሪን ላይ ያሉትን ጠቋሚዎች በእውነተኛ መረጃ ማደስ
             const statsBoxes = document.querySelectorAll(".stats-grid .stat-box strong");
             if (statsBoxes.length >= 3) {
                 if (data.game_no) statsBoxes[0].innerText = data.game_no;
-                // የማታለያ ተጫዋች የለም! እውነተኛ ተጫዋቾችን ብቻ ያሳያል
                 if (data.player_count !== undefined) statsBoxes[2].innerText = data.player_count;
             }
 
-            // 💰 በዋናው ስክሪን ላይ የደራሽ ባጅ ካለ በእውነተኛው ስሌት ማደስ (ሰው ከሌለ 0 ያደርገዋል)
             const liveDerashBadge = document.querySelector(".derash-badge, #liveDerashBadge");
             if (liveDerashBadge && data.derash !== undefined) {
                 liveDerashBadge.innerText = "Derash " + data.derash;
@@ -98,16 +99,14 @@ function connectWebSocket() {
             
             const oldPopup = document.getElementById("winner-popup");
             if (oldPopup) oldPopup.remove();
-            
             recentBallsList = [];
         }
 
-        // 2️⃣ PHASE CHANGE ➔ ወደ DRAW PHASE መሸጋገሪያ
+        // 2️⃣ DRAW PHASE መሸጋገሪያ
         if (data.type === "phase_change" && data.phase === "DRAW") {
             document.getElementById("pickScreen").style.display = "none";
             document.getElementById("drawScreen").style.display = "block";
 
-            // 👥 ፊክስ፦ 'Active Game' ሳጥኑን ፈልጎ በትክክል ቁጥሩን ያድሰዋል
             const currentStatsBoxes = document.querySelectorAll(".stats-grid .stat-box strong");
             if (currentStatsBoxes.length >= 3 && data.player_count !== undefined) {
                 currentStatsBoxes[2].innerText = data.player_count;
@@ -116,9 +115,7 @@ function connectWebSocket() {
             const gameMetaSpan = document.querySelector(".game-meta span");
             if (gameMetaSpan) gameMetaSpan.innerText = "Game " + data.game_no;
             
-            // 👥 የማታለያ (Fake Players) ኮድ ሙሉ በሙሉ ተጠርጓል - እውነተኛ መረጃ ብቻ ከባክኤንድ
             const actualDerash = data.derash !== undefined ? data.derash : 0;
-            
             if(document.getElementById("stakeAmt")) document.getElementById("stakeAmt").innerText = currentBetAmount;
             if(document.getElementById("derashAmt")) document.getElementById("derashAmt").innerText = actualDerash;
             
@@ -148,30 +145,22 @@ function connectWebSocket() {
                 ballElement.style.boxShadow = `0 0 10px ${color}`;
             }
 
-            // 💰 በኳስ መጣያ ጊዜም የደራሽ መጠን ከተላከ በሪል-ታይም ያድሳል
             if (document.getElementById("derashAmt") && data.derash !== undefined) {
                 document.getElementById("derashAmt").innerText = data.derash;
             }
             
             if (soundEnabled) {
-                // 1. መጀመሪያ በ GitHub ላይ ያለውን .mp3.mp3 ለመጫን ይሞክራል
                 let audio = new Audio(`/static/sounds/${data.number}.mp3.mp3`);
-    
                 audio.play().catch(e => {
-                    console.log(".mp3.mp3 አልተገኘም፣ ወደ መደበኛው .mp3 እንቀይራለን...");
-                    // 2. እሱ ካልሰራ መደበኛውን .mp3 ይሞክራል
                     let backupAudio = new Audio(`/static/sounds/${data.number}.mp3`);
-                    backupAudio.play().catch(err => console.log("🔊 ሁለቱም የድምፅ ፋይሎች አልተገኙም፦", err));
+                    backupAudio.play().catch(err => console.log("🔊 ድምፅ አልተገኘም"));
                 });
             }
 
-
-            // 🔴 ኳሱን ወደ ዝርዝር መጨመር
             recentBallsList.unshift({ label: data.label, letter: letter, num: data.number });
             if (recentBallsList.length > 10) recentBallsList.pop();
             updateRecentBallsUI(); 
 
-            // ✅ Auto-Mark የበራ ከሆነ ብቻ በራሱ ያበራል
             if (isAutoMark) {
                 const matchingCells = document.querySelectorAll(`.cell-${data.number}`);
                 matchingCells.forEach(cell => {
@@ -187,10 +176,9 @@ function connectWebSocket() {
             }
         }
 
-        // 4️⃣ GAME OVER - አሸናፊውን ከነ ሙሉ 5x5 ካርዱ ጋር ማሳያ
+        // 4️⃣ GAME OVER
         if (data.type === "game_over") {
-            soundEnabled = false; // 🛑 ጨዋታው ሲያልቅ አዲስ የሚመጡ ድምፆች እንዳይጮሁ ወዲያውኑ እናግደው!
-            
+            soundEnabled = false; 
             if (typeof playWinSound === "function") playWinSound();
 
             const winnerName = data.winner_name || "ተጫዋች";
@@ -198,78 +186,47 @@ function connectWebSocket() {
             const reason = data.winning_reason || "ቢንጎ";
             const prize = data.prize || 0;
             
-            // ከባክኤንድ የመጡት የካርድ ቁጥሮች
             const cardMatrixNumbers = data.card_numbers || []; 
             const winningNumbers = data.winning_numbers || []; 
 
-            // 🎨 የ 5x5 ማትሪክስ ቪዥዋል ዲዛይን መሥሪያ
             let gridHtml = "";
             if (cardMatrixNumbers.length === 25) {
                 gridHtml = `<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 15px auto; max-width: 250px; background: #111; padding: 10px; border-radius: 10px;">`;
-                
                 cardMatrixNumbers.forEach((num) => {
                     const isWinningNum = winningNumbers.includes(num);
                     const isFreeSpace = num === 0 || num === "★" || num === "FREE";
                     const displayNum = isFreeSpace ? "★" : num;
 
-                    let cellStyle = `
-                        aspect-ratio: 1;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        font-weight: bold;
-                        font-size: 14px;
-                        border-radius: 6px;
-                        transition: all 0.3s;
-                    `;
-
+                    let cellStyle = `aspect-ratio: 1; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 14px; border-radius: 6px; transition: all 0.3s;`;
                     if (isWinningNum || isFreeSpace) {
-                        // ያሸነፈው መስመር ደምቆ እንዲበራ ✨
                         cellStyle += `background: #ffbc00; color: black; box-shadow: 0 0 12px #ffbc00; border: 1px solid #fff; scale: 1.05;`;
                     } else {
-                        // ያልበሩት ቁጥሮች ፈዘዝ ብለው እንዲታዩ
                         cellStyle += `background: #252634; color: #666; border: 1px solid #333;`;
                     }
-
                     gridHtml += `<div style="${cellStyle}">${displayNum}</div>`;
                 });
-                
                 gridHtml += `</div>`;
             }
 
-            // 📲 ሙሉው የፖፕ-አፕ ስክሪን HTML
             const modalHtml = `
                 <div id="winnerModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center; z-index:9999; color:white; font-family:sans-serif;">
                     <div style="background:#1e1e2e; padding:25px; border-radius:20px; text-align:center; max-width:90%; width:360px; border:2px solid #ffbc00; box-shadow: 0 0 30px rgba(255,188,0,0.3);">
-                        
-                        <h2 style="color:#ffbc00; margin:0 0 5px 0; font-size:26px; font-weight:900; letter-spacing:1px;">🎉 BINGO! 🎉</h2>
-                        <span style="color:#aaa; font-size:13px; display:block;">የአሸናፊው ካርድ ሪፖርት</span>
-                        
+                        <h2 style="color:#ffbc00; margin:0 0 5px 0; font-size:26px; font-weight:900;">🎉 BINGO! 🎉</h2>
                         <hr style="border-color:#2a2b3d; margin:15px 0;">
-                        
                         <div style="margin:10px 0; font-size:16px; text-align:left; background:#161622; padding:12px; border-radius:10px;">
                             <p style="margin:4px 0;">👤 <b>ስም፦</b> <span style="color:#00ffcc; float:right; font-weight:bold;">${winnerName}</span></p>
                             <p style="margin:4px 0;">🎫 <b>ካርድ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cardNum}</span></p>
-                            <p style="margin:4px 0;">🏆 <b>የአሸናፊነት ህግ፦</b> <span style="color:#fff; float:right; font-size:13px;">${reason}</span></p>
                         </div>
-
                         ${gridHtml}
-
                         <div style="background: rgba(0,255,0,0.1); border: 1px dashed #00ff00; padding: 10px; border-radius: 10px; margin: 15px 0;">
-                            <span style="color:#aaa; font-size:13px; display:block;">የተገኘ የገንዘብ መጠን</span>
                             <span style="font-size:26px; color:#00ff00; font-weight:bold;">+${prize} ETB</span>
                         </div>
-
-                        <button onclick="document.getElementById('winnerModal').remove();" style="background:#ffbc00; color:black; border:none; padding:14px; font-size:16px; font-weight:bold; border-radius:10px; cursor:pointer; width:100%; transition:0.2s; box-shadow: 0 4px 10px rgba(255,188,0,0.2);">
-                            እሺ (ቀጥል)
-                        </button>
+                        <button onclick="document.getElementById('winnerModal').remove();" style="background:#ffbc00; color:black; border:none; padding:14px; font-size:16px; font-weight:bold; border-radius:10px; width:100%;">እሺ (ቀጥል)</button>
                     </div>
                 </div>
             `;
-
             document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-            // ምርጫዎችን ማጽዳት
             selectedCards = []; 
             temporarilySelectedCards = [];
             document.querySelectorAll(".card-btn").forEach(btn => {
@@ -300,7 +257,6 @@ function generate200Cards() {
     }
 }
 
-// 🎨 የካርድ ቀለማት ማሻሻያ
 function update200CardsColors(takenCardsList) {
     for (let i = 1; i <= 200; i++) {
         const btn = document.getElementById(`pick-card-${i}`);
@@ -346,7 +302,6 @@ function selectCardTemporarily(cardNumber) {
     }
 }
 
-// 🎯 CONFIRM PICKS ሎጂክ
 async function confirmAllSelectedPicks() {
     if (temporarilySelectedCards.length === 0) {
         showToastMessage("⚠️ እባክህ መጀመሪያ የሚገዙትን የካርድ ቁጥሮች ይምረጡ!", "error");
@@ -416,14 +371,12 @@ function showToastMessage(message, type) {
         position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%);
         background: ${bgColor}; color: white; padding: 14px 24px; border-radius: 8px;
         font-size: 16px; font-weight: bold; z-index: 9999; text-align: center;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.3); transition: opacity 0.3s ease;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.3);
     `;
     toast.innerText = message;
     document.body.appendChild(toast);
 
-    setTimeout(() => {
-        if (toast) toast.remove();
-    }, 2000);
+    setTimeout(() => { if (toast) toast.remove(); }, 2000);
 }
 
 function clear75Board() {
@@ -496,7 +449,7 @@ async function renderMyBoughtCards() {
                     <div class="card-title-label" style="color: #ffd700; font-weight: bold; font-size: 13px;">
                         ካርድ #${activeCardNum} (${currentCardIndex + 1}/${selectedCards.length})
                     </div>
-                    <button id="toggleMarkBtn" onclick="toggleMarkingMode()" style="background: ${isAutoMark ? '#2ed573' : '#718093'}; color: white; border: none; padding: 4px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; cursor: pointer;">
+                    <button id="toggleMarkBtn" onclick="toggleMarkingMode()" style="background: ${isAutoMark ? '#2ed573' : '#718093'}; color: white; border: none; padding: 4px 8px; font-size: 11px; font-weight: bold; border-radius: 4px;">
                         ${isAutoMark ? "🤖 Auto: ON" : "🖐 Manual"}
                     </button>
                 </div>
@@ -516,7 +469,6 @@ async function renderMyBoughtCards() {
                     html += `<div class="bingo-cell free-star">★</div>`;
                 } else {
                     const isAlreadyDrawn = recentBallsList.some(b => b.num === cell);
-                    
                     if (isAlreadyDrawn && isAutoMark) {
                         let letterPrefix = cell <= 15 ? 'B' : cell <= 30 ? 'I' : cell <= 45 ? 'N' : cell <= 60 ? 'G' : 'O';
                         const savedColor = getBingoColor(letterPrefix);
@@ -541,45 +493,25 @@ function moveSlider(direction) {
     renderMyBoughtCards();
 }
 
-function showWinnerPopup(message) {
-    const popup = document.createElement("div");
-    popup.id = "winner-popup";
-    popup.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:9999; color:white;";
-    popup.innerHTML = `
-        <div style="background:#2f3542; border:3px solid #ffd700; border-radius:12px; padding:30px; text-align:center; max-width:85%;">
-            <h1 style="color:#ffd700; margin-top:0; font-size:28px;">🎉 ቢንጎ ተጠናቀቀ! 🎉</h1>
-            <p style="font-size:18px; line-height:1.6; margin:20px 0;">${message}</p>
-            <button onclick="this.parentElement.parentElement.remove()" style="background:#ffd700; color:black; border:none; padding:12px 30px; font-size:16px; font-weight:bold; border-radius:6px; cursor:pointer;">Close</button>
-        </div>
-    `;
-    document.body.appendChild(popup);
-}
-
 window.onload = () => {
     connectWebSocket();
     const confirmBtn = document.getElementById("confirmBtn");
     if (confirmBtn) confirmBtn.onclick = () => confirmAllSelectedPicks();
 };
 
-// 🔄 ሁነታውን መቀያየሪያ
 function toggleMarkingMode() {
     isAutoMark = !isAutoMark;
     renderMyBoughtCards(); 
 }
 
-// 🖐 በእጅ ቁጥር ሲነካ የሚሰራ ሎጂክ
 function handleManualCellClick(cellElement, cellNumber) {
     if (isAutoMark) return;
-
     const isBallDrawn = recentBallsList.some(b => b.num === cellNumber);
-
     if (isBallDrawn) {
         let letterPrefix = cellNumber <= 15 ? 'B' : cellNumber <= 30 ? 'I' : cellNumber <= 45 ? 'N' : cellNumber <= 60 ? 'G' : 'O';
         const ballColor = getBingoColor(letterPrefix);
-        
         cellElement.style.background = ballColor;
         cellElement.style.color = "#fff";
-        cellElement.style.boxShadow = `0 0 10px ${ballColor}`;
         cellElement.classList.add("marked-manual");
     } else {
         const oldBg = cellElement.style.background;
@@ -592,38 +524,20 @@ function handleManualCellClick(cellElement, cellNumber) {
 // 💳 የኪስ ቦርሳ ፍሰት መቆጣጠሪያ (Wallet Flow - Deposit & Withdraw)
 // ==========================================================================
 
-// 💡 ፊክስ፦ መጀመሪያ ግሎባል ተለዋዋጮችን ለይተን እናስቀምጣለን
-let tgUser = { id: "12345678", first_name: "የይለፍ ተጫዋች" }; 
-let myTelegramId = "12345678";
-let myTelegramName = "የይለፍ ተጫዋች";
-
-if (window.Telegram && window.Telegram.WebApp) {
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand(); 
-    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        tgUser = tg.initDataUnsafe.user;
-        myTelegramId = String(tgUser.id);
-        myTelegramName = tgUser.first_name || (tgUser.username ? tgUser.username : "ተጫዋች");
-    }
-}
-
-// 🔄 የተጫዋቹን ባላንስ ከባክኤንድ አምጥቶ ስክሪን ላይ የሚያድስ ፈንክሽን
+// 🔄 የተጫዋቹን ባላንስ ማደሻ ፈንክሽን
 async function refreshUserBalance() {
+    if (!myTelegramId || myTelegramId === "TG-GUEST") return; 
     try {
         const response = await fetch(`/api/users/${myTelegramId}`);
         if (response.ok) {
             const data = await response.json();
             if (data.success && data.user) {
-                // 🎯 HTML ላይ የሰጠነውን ID እዚህ ጋር በትክክል እናገኘዋለን
                 const walletElement = document.getElementById('walletBalance');
                 if (walletElement) {
                     walletElement.innerText = `${data.user.balance} ETB`;
                 }
-                
                 const giftElement = document.getElementById('giftBalance');
                 if (giftElement) {
-                    // gift_coin ከሌለ 0.00 ያሳያል
                     const coinAmount = data.user.gift_coin !== undefined ? data.user.gift_coin : 0.00;
                     giftElement.innerText = `${coinAmount} Coin`;
                 }
@@ -699,20 +613,18 @@ async function submitDeposit() {
         }
         
         const result = await response.json();
-        
         if (result.success) {
-            alert('✅ የገንዘብ ማስገቢያ ጥያቄዎ ለአስተዳዳሪው ተልኳል! አድሚኑ መረጃውን አይቶ ሲያጸድቅልዎት ባላንስዎ ላይ ይጨመራል።');
+            alert('✅ የገንዘብ ማስገቢያ ጥያቄዎ ለአስተዳዳሪው ተልኳል!');
             if (amountInput) amountInput.value = ''; 
             if (smsInput) smsInput.value = '';    
             closeWalletModal();
-            // 🔄 ባላንሱን ወዲያውኑ እንዲፈትሽ ጥሪ እናደርጋለን
             refreshUserBalance();
         } else {
             alert('❌ ስህተት፦ ' + result.message);
         }
     } catch (error) {
         console.error('Deposit Error:', error);
-        alert('⚠️ ከሰርቨር ጋር መገናኘት አልተቻለም። እባክዎ ትንሽ ቆይተው ይሞክሩ!');
+        alert('⚠️ ከሰርቨር ጋር መገናኘት አልተቻለም።');
     }
 }
 
@@ -755,13 +667,11 @@ async function submitWithdraw() {
         }
         
         const result = await response.json();
-        
         if (result.success) {
-            alert('✅ የማውጫ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል። አድሚኑ ብሩን በባንክ ልኮ ሲያጸድቀው መልዕክት ይደርስዎታል!');
+            alert('✅ የማውጫ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል።');
             if (amountInput) amountInput.value = '';
             if (accInput) accInput.value = '';
             closeWalletModal();
-            // 🔄 ባላንሱ በባክኤንድ ስለተቀነሰ ፍሮንትኤንዱ ላይም ወዲያውኑ እናሳያለን
             refreshUserBalance();
         } else {
             alert('❌ ስህተት፦ ' + result.message);
@@ -771,10 +681,3 @@ async function submitWithdraw() {
         alert('⚠️ ከሰርቨር ጋር መገናኘት አልተቻለም።');
     }
 }
-
-// 🚀 ገጹ ልክ እንደተከፈተ የተጫዋቹን ባላንስ በራስ-ሰር እንዲያመጣ ማድረግ
-document.addEventListener('DOMContentLoaded', () => {
-    refreshUserBalance();
-    // በየ 10 ሰከንዱ ባላንሱን በጀርባ እንዲያድስ ከፈለግክ ይህንን ማብራት ትችላለህ፦
-    setInterval(refreshUserBalance, 10000);
-});
