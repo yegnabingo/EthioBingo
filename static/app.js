@@ -11,6 +11,26 @@ let recentBallsList = []; // የቅርብ 10 ኳሶች
 let soundEnabled = true;
 let isAutoMark = true;
 
+// 🔊 የድምፅ ማብሪያ/ማጥፊያ አዝራር ተቆጣጣሪ (ትንሽ አዝራር ሎጂክ)
+document.addEventListener("DOMContentLoaded", () => {
+    const soundBtn = document.getElementById("soundBtn");
+    if (soundBtn) {
+        soundBtn.addEventListener("click", () => {
+            soundEnabled = !soundEnabled; // ማብራት/ማጥፋት
+
+            if (soundEnabled) {
+                soundBtn.innerText = "🔊 ON";
+                soundBtn.style.borderColor = "#2ed573"; // የበራ መሆኑን ለማሳየት አረንጓዴ ቦርደር
+                showToastMessage("🔊 የቢንጎ ድምፅ በርቷል", "success");
+            } else {
+                soundBtn.innerText = "🔇 OFF";
+                soundBtn.style.borderColor = "#ff4757"; // የጠፋ መሆኑን ለማሳየት ቀይ መስመር
+                showToastMessage("🔇 የቢንጎ ድምፅ ጠፍቷል", "error");
+            }
+        });
+    }
+});
+
 // 🌐 የቴሌግራም ሚኒ አፕ መረጃ መጫኛ
 if (window.Telegram && window.Telegram.WebApp) {
     const tg = window.Telegram.WebApp;
@@ -53,6 +73,7 @@ function connectWebSocket() {
 
         // 1️⃣ PICK PHASE (የሰከንድ እና የደራሽ ስሌት ማሳያ)
         if ((data.type === "countdown" || data.type === "time_update") && data.phase === "PICK") {
+            soundEnabled = true; // 🔄 አዲስ ዙር ሲጀምር ድምፁን ለቀጣዩ ጨዋታ መልሰን እናነቃዋለን
             document.getElementById("pickScreen").style.display = "block";
             if(document.getElementById("drawScreen")) document.getElementById("drawScreen").style.display = "none";
             
@@ -158,6 +179,8 @@ function connectWebSocket() {
 
         // 4️⃣ GAME OVER - አሸናፊውን ከነ ሙሉ 5x5 ካርዱ ጋር ማሳያ
         if (data.type === "game_over") {
+            soundEnabled = false; // 🛑 ጨዋታው ሲያልቅ አዲስ የሚመጡ ድምፆች እንዳይጮሁ ወዲያውኑ እናግደው!
+            
             if (typeof playWinSound === "function") playWinSound();
 
             const winnerName = data.winner_name || "ተጫዋች";
