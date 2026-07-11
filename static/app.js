@@ -592,7 +592,10 @@ function handleManualCellClick(cellElement, cellNumber) {
 // 💳 የኪስ ቦርሳ ፍሰት መቆጣጠሪያ (Wallet Flow - Deposit & Withdraw)
 // ==========================================================================
 
+// 💡 ፊክስ፦ መጀመሪያ ግሎባል ተለዋዋጮችን ለይተን እናስቀምጣለን
 let tgUser = { id: "12345678", first_name: "የይለፍ ተጫዋች" }; 
+let myTelegramId = "12345678";
+let myTelegramName = "የይለፍ ተጫዋች";
 
 if (window.Telegram && window.Telegram.WebApp) {
     const tg = window.Telegram.WebApp;
@@ -600,6 +603,35 @@ if (window.Telegram && window.Telegram.WebApp) {
     tg.expand(); 
     if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
         tgUser = tg.initDataUnsafe.user;
+        myTelegramId = String(tgUser.id);
+        myTelegramName = tgUser.first_name || (tgUser.username ? tgUser.username : "ተጫዋች");
+    }
+}
+
+// 🔄 የተጫዋቹን ባላንስ ከባክኤንድ አምጥቶ ስክሪን ላይ የሚያድስ ፈንክሽን
+async function refreshUserBalance() {
+    try {
+        const response = await fetch(`/api/users/${myTelegramId}`);
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.user) {
+                // 🎯 HTML ላይ የሰጠነውን ID እዚህ ጋር በትክክል እናገኘዋለን
+                const walletElement = document.getElementById('walletBalance');
+                if (walletElement) {
+                    walletElement.innerText = `${data.user.balance} ETB`;
+                }
+                
+                const giftElement = document.getElementById('giftBalance');
+                if (giftElement) {
+                    // gift_coin ከሌለ 0.00 ያሳያል
+                    const coinAmount = data.user.gift_coin !== undefined ? data.user.gift_coin : 0.00;
+                    giftElement.innerText = `${coinAmount} Coin`;
+                }
+                console.log("✅ ባላንስ በስክሪኑ ላይ ታድሷል፦", data.user.balance);
+            }
+        }
+    } catch (error) {
+        console.error("⚠️ ባላንስ ማደስ አልተቻለም፦", error);
     }
 }
 
@@ -609,23 +641,32 @@ function openWalletModal(type) {
     const depositSec = document.getElementById('depositSection');
     const withdrawSec = document.getElementById('withdrawSection');
     
-    modal.style.display = 'flex';
+    if (modal) modal.style.display = 'flex';
     
     if (type === 'deposit') {
-        title.innerText = '💳 ገንዘብ ማስገቢያ (Deposit)';
-        depositSec.style.display = 'block';
-        withdrawSec.style.display = 'none';
+        if (title) title.innerText = '💳 ገንዘብ ማስገቢያ (Deposit)';
+        if (depositSec) depositSec.style.display = 'block';
+        if (withdrawSec) withdrawSec.style.display = 'none';
     } else if (type === 'withdraw') {
-        title.innerText = '📤 ገንዘብ ማውጫ (Withdraw)';
-        depositSec.style.display = 'none';
-        withdrawSec.style.display = 'block';
+        if (title) title.innerText = '📤 ገንዘብ ማውጫ (Withdraw)';
+        if (depositSec) depositSec.style.display = 'none';
+        if (withdrawSec) withdrawSec.style.display = 'block';
     }
 }
 
+function closeWalletModal() {
+    const modal = document.getElementById('walletModal');
+    if (modal) modal.style.display = 'none';
+}
+
 async function submitDeposit() {
-    const amount = parseFloat(document.getElementById('depositAmount').value);
-    const bankName = document.getElementById('depositBank').value;
-    const smsText = document.getElementById('depositTxn').value.trim();
+    const amountInput = document.getElementById('depositAmount');
+    const bankInput = document.getElementById('depositBank');
+    const smsInput = document.getElementById('depositTxn');
+    
+    const amount = parseFloat(amountInput ? amountInput.value : 0);
+    const bankName = bankInput ? bankInput.value : "";
+    const smsText = smsInput ? smsInput.value.trim() : "";
     
     if (!amount || amount <= 0) {
         alert('እባክዎ መጀመሪያ ትክክለኛ የላኩትን የብር መጠን ያስገቡ!');
@@ -636,13 +677,12 @@ async function submitDeposit() {
         return;
     }
     
-    // 🛠️ ማስተካከያ፦ ቁልፎቹ በትክክል ከ FastAPI Pydantic ሼማ (schemas.py) ጋር አንድ አይነት መሆን አለባቸው
     const payload = {
         telegram_id: String(myTelegramId), 
         telegram_name: String(myTelegramName),
         amount: amount,
         bank_name: bankName,
-        sms_data: smsText // 👈 በ schemas.py ላይ "sms_data" መሆኑን ያረጋግጡ
+        sms_data: smsText
     };
     
     try {
@@ -652,7 +692,6 @@ async function submitDeposit() {
             body: JSON.stringify(payload)
         });
         
-        // 🛠️ የደህንነት ማስተካከያ፦ ሰርቨሩ 422 ወይም 500 ኤረር ከመለሰ ለማወቅ
         if (!response.ok) {
             const errorData = await response.json();
             alert('❌ የሰርቨር ስህተት፦ ' + (errorData.detail || 'ፎርማቱ አልተስተካከለም'));
@@ -663,9 +702,11 @@ async function submitDeposit() {
         
         if (result.success) {
             alert('✅ የገንዘብ ማስገቢያ ጥያቄዎ ለአስተዳዳሪው ተልኳል! አድሚኑ መረጃውን አይቶ ሲያጸድቅልዎት ባላንስዎ ላይ ይጨመራል።');
-            document.getElementById('depositAmount').value = ''; 
-            document.getElementById('depositTxn').value = '';    
+            if (amountInput) amountInput.value = ''; 
+            if (smsInput) smsInput.value = '';    
             closeWalletModal();
+            // 🔄 ባላንሱን ወዲያውኑ እንዲፈትሽ ጥሪ እናደርጋለን
+            refreshUserBalance();
         } else {
             alert('❌ ስህተት፦ ' + result.message);
         }
@@ -676,9 +717,13 @@ async function submitDeposit() {
 }
 
 async function submitWithdraw() {
-    const amount = parseFloat(document.getElementById('withdrawAmount').value);
-    const bankName = document.getElementById('withdrawBank').value;
-    const accNumber = document.getElementById('withdrawAcc').value.trim();
+    const amountInput = document.getElementById('withdrawAmount');
+    const bankInput = document.getElementById('withdrawBank');
+    const accInput = document.getElementById('withdrawAcc');
+
+    const amount = parseFloat(amountInput ? amountInput.value : 0);
+    const bankName = bankInput ? bankInput.value : "";
+    const accNumber = accInput ? accInput.value.trim() : "";
     
     if (!amount || amount <= 0) {
         alert('እባክዎ ትክክለኛ የብር መጠን ያስገቡ!');
@@ -693,7 +738,7 @@ async function submitWithdraw() {
         telegram_id: String(myTelegramId),
         amount: amount,
         bank_name: bankName,
-        account_number: accNumber // 👈 በ schemas.py ላይ "account_number" መሆኑን ያረጋግጡ
+        account_number: accNumber
     };
     
     try {
@@ -713,9 +758,11 @@ async function submitWithdraw() {
         
         if (result.success) {
             alert('✅ የማውጫ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል። አድሚኑ ብሩን በባንክ ልኮ ሲያጸድቀው መልዕክት ይደርስዎታል!');
-            document.getElementById('withdrawAmount').value = '';
-            document.getElementById('withdrawAcc').value = '';
+            if (amountInput) amountInput.value = '';
+            if (accInput) accInput.value = '';
             closeWalletModal();
+            // 🔄 ባላንሱ በባክኤንድ ስለተቀነሰ ፍሮንትኤንዱ ላይም ወዲያውኑ እናሳያለን
+            refreshUserBalance();
         } else {
             alert('❌ ስህተት፦ ' + result.message);
         }
@@ -724,3 +771,10 @@ async function submitWithdraw() {
         alert('⚠️ ከሰርቨር ጋር መገናኘት አልተቻለም።');
     }
 }
+
+// 🚀 ገጹ ልክ እንደተከፈተ የተጫዋቹን ባላንስ በራስ-ሰር እንዲያመጣ ማድረግ
+document.addEventListener('DOMContentLoaded', () => {
+    refreshUserBalance();
+    // በየ 10 ሰከንዱ ባላንሱን በጀርባ እንዲያድስ ከፈለግክ ይህንን ማብራት ትችላለህ፦
+    setInterval(refreshUserBalance, 10000);
+});
