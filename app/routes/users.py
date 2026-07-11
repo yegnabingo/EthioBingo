@@ -34,26 +34,35 @@ def send_admin_notification(text: str, reply_markup=None):
     except Exception as e:
         print(f"⚠️ Telegram admin notify error: {e}")
 
-# 🔔 አድሚኑ ቁልፍ ሲጫን የቴሌግራም መልዕክቱን በሪል-ታይም ለመቀየር (Frozen እንዳይሆን)
 def update_telegram_message(message_id: int, text: str):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
+
     payload = {
         "chat_id": ADMIN_TELEGRAM_ID,
         "message_id": message_id,
         "text": text,
-        "parse_mode": "HTML"
+        "parse_mode": "HTML",
+        "reply_markup": {"inline_keyboard": []}
     }
+
     try:
-        requests.post(url, json=payload, timeout=10)
+        response = requests.post(
+    url,
+    json=payload,
+    timeout=15
+)
+        print(response.status_code)
+        print(response.text)
+        print("Telegram Edit:", r.text)
     except Exception as e:
-        print(f"⚠️ Telegram message edit error: {e}")
+        print("Telegram Edit Error:", e)
 
 class AdminAction(BaseModel):
-    deposit_id: int = None
-    withdraw_id: int = None
-    action: str  # "APPROVE" ወይም "REJECT"
-    admin_telegram_id: str = None
-    message_id: int = None  # 👈 ከቴሌግራም ቦት የሚመጣውን የመልዕክት ID ለመቀበል የተጨመረ
+    deposit_id: int | None = None
+    withdraw_id: int | None = None
+    action: str
+    admin_telegram_id: str
+    message_id: int | None = None
 
 # 📥 1. አዲስ ተጫዋች ሲመዘገብ
 @router.post("/register")
@@ -185,11 +194,12 @@ def admin_approve_deposit(payload: AdminAction, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == deposit.user_id).first()
     if not user: return {"success": False, "message": "ተጫዋቹ አልተገኘም"}
 
-    if payload.action == "APPROVE":
-        deposit.status = "Approved"
-        deposit.approved_by = payload.admin_telegram_id
-        user.balance += deposit.amount
-        db.commit()
+    payload = {
+    "deposit_id": target_id,
+    "action": "APPROVE" if action == "app" else "REJECT",
+    "admin_telegram_id": admin_id_str,
+    "message_id": call.message.message_id
+}
         
         # 🤖 ቴሌግራም ላይ መልዕክቱን በሪል-ታይም መቀየር (ቁልፎቹን ያጠፋቸዋል)
         if payload.message_id:
@@ -216,12 +226,13 @@ def admin_approve_withdraw(payload: AdminAction, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == withdraw.user_id).first()
     if not user: return {"success": False, "message": "ተጫዋቹ አልተገኘም"}
 
-    if payload.action == "REJECT":
-        withdraw.status = "Rejected"
-        withdraw.approved_by = payload.admin_telegram_id
-        user.balance += withdraw.amount  # ብሩን ይመልስለታል
-        db.commit()
-        
+    payload = {
+    "withdraw_id": target_id,
+    "action": "APPROVE" if action == "app" else "REJECT",
+    "admin_telegram_id": admin_id_str,
+    "message_id": call.message.message_id
+}
+             
         if payload.message_id:
             update_telegram_message(payload.message_id, f"🔴 <b>የማውጫ ጥያቄ #{withdraw.id} ተሰርዟል!</b>\n💰 {withdraw.amount} ETB ወደ ተጫዋቹ ሂሳብ ተመልሷል።")
             
