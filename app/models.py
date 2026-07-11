@@ -18,6 +18,30 @@ class User(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    telegram_id = Column(String, unique=True, index=True)
+    telegram_name = Column(String)
+    first_name = Column(String)
+
+    balance = Column(Float, default=0.0) # የዋናው Wallet ባላንስ
+    gift_coin = Column(Float, default=0.0) # አዲሱ የGift Coin መከታተያ ማከማቻ
+
+    is_admin = Column(Boolean, default=False)
+    is_banned = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # 🛠️ ፊክስ፦ ኮፒሎት የሰራው ፍሮንትኤንድ/ባክኤንድ 'wallet' ሲል በቀጥታ 'balance'ን እንዲያገኝ ያደርገዋል
+    @property
+    def wallet(self):
+        return self.balance
+    
+    @wallet.setter
+    def wallet(self, value):
+        self.balance = value
 
 class Deposit(Base):
     __tablename__ = "deposits"
@@ -106,6 +130,7 @@ class Transaction(Base):
     status = Column(String, default="pending")
     telegram_message_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
 
 
 class Setting(Base):
