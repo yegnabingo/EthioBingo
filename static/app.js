@@ -524,24 +524,32 @@ function handleManualCellClick(cellElement, cellNumber) {
 // 💳 የኪስ ቦርሳ ፍሰት መቆጣጠሪያ (Wallet Flow - Deposit & Withdraw)
 // ==========================================================================
 
-// 🔄 የተጫዋቹን ባላንስ ማደሻ ፈንክሽን
+// 🔄 የተጫዋቹን ባላንስ ማደሻ ፈንክሽን (በትክክል ወደ ስክሪኑ የሚያስተላልፍ)
 async function refreshUserBalance() {
     if (!myTelegramId || myTelegramId === "TG-GUEST") return; 
     try {
+        console.log("🔄 የባላንስ መረጃ ከዳታቤዝ እየተጠየቀ ነው... ID:", myTelegramId);
         const response = await fetch(`/api/users/${myTelegramId}`);
         if (response.ok) {
             const data = await response.json();
             if (data.success && data.user) {
-                const walletElement = document.getElementById('walletBalance');
+                
+                # 💡 ማስተካከያ፦ HTMLህ ላይ id="wallet" ወይም id="walletBalance" ቢሆንም እንኳ ያገኘዋል
+                let walletElement = document.getElementById('wallet') || document.getElementById('walletBalance');
+                
                 if (walletElement) {
                     walletElement.innerText = `${data.user.balance} ETB`;
+                    console.log("✅ በሚኒ አፑ ስክሪን ላይ አዲሱ ባላንስ ተጭኗል፦", data.user.balance);
+                } else {
+                    console.error("⚠️ ስህተት፦ በስክሪኑ ላይ የWallet ሳጥን መለያ (ID) አልተገኘም!");
                 }
-                const giftElement = document.getElementById('giftBalance');
+                
+                # 🪙 የጊፍት ኮይን ማደሻ
+                const giftElement = document.getElementById('giftBalance') || document.getElementById('gift');
                 if (giftElement) {
                     const coinAmount = data.user.gift_coin !== undefined ? data.user.gift_coin : 0.00;
                     giftElement.innerText = `${coinAmount} Coin`;
                 }
-                console.log("✅ ባላንስ በስክሪኑ ላይ ታድሷል፦", data.user.balance);
             }
         }
     } catch (error) {
@@ -618,7 +626,8 @@ async function submitDeposit() {
             if (amountInput) amountInput.value = ''; 
             if (smsInput) smsInput.value = '';    
             closeWalletModal();
-            refreshUserBalance();
+            // 💡 ዳታቤዙ በደንብ ተረጋግቶ እንዲያነበው ጥቂት ሚሊሰከንድ ሰጥተነዋል
+            setTimeout(refreshUserBalance, 800);
         } else {
             alert('❌ ስህተት፦ ' + result.message);
         }
@@ -672,7 +681,8 @@ async function submitWithdraw() {
             if (amountInput) amountInput.value = '';
             if (accInput) accInput.value = '';
             closeWalletModal();
-            refreshUserBalance();
+            // 💡 ባላንሱ መቀነሱን በቅጽበት በሚኒ አፑ ላይ ለማሳየት
+            setTimeout(refreshUserBalance, 800);
         } else {
             alert('❌ ስህተት፦ ' + result.message);
         }
