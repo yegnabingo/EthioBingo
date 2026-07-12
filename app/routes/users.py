@@ -38,11 +38,11 @@ def send_admin_notification(text: str, reply_markup=None):
     except Exception as e:
         print(f"❌ Telegram admin notify error: {e}")
 
-def _telegram_edit_message_sync(message_id: int, text: str):
+def _telegram_edit_message_sync(chat_id: str, message_id: int, text: str):
     """የቴሌግራም መልዕክትን ከጀርባ የሚያስተካክል (Non-blocking)"""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
     payload = {
-        "chat_id": ADMIN_TELEGRAM_ID,
+        "chat_id": chat_id,
         "message_id": message_id,
         "text": text,
         "parse_mode": "HTML"
@@ -70,33 +70,38 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
     
     existing = db.query(User).filter(User.telegram_id == telegram_id).first()
     if existing:
+        # 💡 ፊክስ፦ በዳታቤዝ ላይ ያለው ኮለም 'wallet' ስለሆነ 'existing.wallet' ጥቅም ላይ ውሏል
+        user_wallet = getattr(existing, "wallet", 0.0) or 0.0
         return {
             "success": True, "message": "ተጠቃሚው አስቀድሞ ተመዝግቧል",
             "user": {
                 "telegram_id": existing.telegram_id, 
-                "balance": existing.balance, 
-                "wallet": existing.balance,
-                "gift_coin": getattr(existing, "gift_coin", 0.0)
+                "balance": user_wallet, 
+                "wallet": user_wallet,
+                "gift_coin": getattr(existing, "gift_coin", 0.0) or 0.0
             }
         }
+    
+    # 💡 ፊክስ፦ አዲስ ተጠቃሚ ሲመዘገብ 'wallet' ኮለም 0.0 ተብሎ ይጀመራል
     new_user = User(
         telegram_id=telegram_id, 
         telegram_name=telegram_name, 
         first_name=first_name, 
-        balance=0.0, 
+        wallet=0.0, 
         gift_coin=0.0, 
         created_at=datetime.utcnow()
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    
     return {
         "success": True, 
         "message": "ምዝገባው በተካሄደ ሁኔታ ተጠናቋል", 
         "user": {
             "telegram_id": new_user.telegram_id, 
-            "balance": new_user.balance,
-            "wallet": new_user.balance,
+            "balance": new_user.wallet,
+            "wallet": new_user.wallet,
             "gift_coin": new_user.gift_coin
         }
     }
@@ -110,13 +115,17 @@ def get_user(telegram_id: str, db: Session = Depends(get_db)):
             "success": False, 
             "user": {"telegram_id": telegram_id, "balance": 0.0, "wallet": 0.0, "gift_coin": 0.0}
         }
+        
+    # 💡 ፊክስ፦ 'wallet' በዳታቤዝ ውስጥ ዋጋው Null ከሆነ 0.0 እንዲሆን ተደርጓል
+    user_wallet = getattr(user, "wallet", 0.0) or 0.0
     return {
         "success": True, 
         "user": {
             "telegram_id": user.telegram_id, 
-            "balance": user.balance,
-            "wallet": user.balance,
-            "gift_coin": getattr(user, "gift_coin", 0.0)
+            # ሁለቱንም እንልካለን Frontend-ህ የትኛውንም ቢጠቀም እንዳይበላሽ
+            "balance": user_wallet, 
+            "wallet": user_wallet,
+            "gift_coin": getattr(user, "gift_coin", 0.0) or 0.0
         }
     }
 
@@ -131,7 +140,6 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
         return {"success": False, "message": "User not found."}
 
     try:
-        # 🛠️ ፊክስ፦ በባቡ ላይ ያየናቸውን ሁሉንም አዳዲስ Columns እዚህ ላይ በትክክል እንሞላቸዋለን
         new_deposit = Deposit(
             user_id=user.id,
             amount=req.amount,
@@ -140,11 +148,9 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
             tx_hash=f"ባንክ፦ {req.bank_name} | SMS፦ {req.sms_data}", 
             status="Pending",
             created_at=datetime.utcnow(),
-            
-            # 🆕 በምስሉ ላይ ያየናቸውና በዳታቤዝህ ላይ የግድ መሞላት ያለባቸው አምዶች፡
             telegram_id=str(req.telegram_id),
             telegram_name=req.telegram_name if req.telegram_name else "ተጫዋች",
-            wallet=None # የዲፖዚት ዋሌት አድራሻ ከሌለ Null መሆን ይችላል
+            wallet=None
         )
         db.add(new_deposit)
         db.commit()
@@ -184,11 +190,13 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     if not user:
         return {"success": False, "message": "User not found."}
 
-    if user.balance < req.amount:
-        return {"success": False, "message": f"ይቅርታ፣ በቂ ባላንስ የሎትም! ያሎት ባላንስ {user.balance} ETB ነው።"}
+    user_wallet = getattr(user, "wallet", 0.0) or 0.0
+    if user_wallet < req.amount:
+        return {"success": False, "message": f"ይቅርታ፣ በቂ ባላንስ የሎትም! ያሎት ባላንስ {user_wallet} ETB ነው።"}
 
     try:
-        user.balance -= req.amount
+        # 💡 ፊክስ፦ ብር ሲወጣ በዳታቤዝ ላይ ከ 'wallet' ኮለም ላይ እንቀንሳለን
+        user.wallet = user_wallet - req.amount
         new_withdraw = Withdrawal(
             user_id=user.id,
             amount=req.amount,
@@ -242,7 +250,9 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
             return {"success": False, "message": "ይህንን ጥያቄ የላከው ተጫዋች አልተገኘም!"}
 
         if payload.action == "APPROVE":
-            user.balance += deposit.amount
+            # 💡 ፊክስ፦ ዲፖዚቱ ሲጸድቅ በዳታቤዝ ላይ 'wallet' ላይ ይደመራል
+            current_wallet = getattr(user, "wallet", 0.0) or 0.0
+            user.wallet = current_wallet + deposit.amount
             deposit.status = "Approved"
             deposit.approved_by = str(payload.admin_telegram_id)
             db.commit()
@@ -255,7 +265,8 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
                     f"🏦 <b>ባንክ፦</b> {deposit.method}\n"
                     f"👮‍♂️ <b>ያጸደቀው አድሚን፦</b> {payload.admin_telegram_id}"
                 )
-                background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
+                # 💡 ፊክስ፦ መልክቱ የተላከበትን chat_id (ADMIN_TELEGRAM_ID) በፓራሜትር አስተላልፈናል
+                background_tasks.add_task(_telegram_edit_message_sync, ADMIN_TELEGRAM_ID, payload.message_id, text)
                 
             return {"success": True, "message": "ዲፖዚቱ በተሳካ ሁኔታ ጸድቋል!"}
         
@@ -266,7 +277,7 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
             
             if payload.message_id:
                 text = f"🔴 <b>የዲፖዚት ጥያቄ #{deposit.id} ውድቅ ተደርጓል!</b>\n👮‍♂️ <b>የሰረዘው አድሚን፦</b> {payload.admin_telegram_id}"
-                background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
+                background_tasks.add_task(_telegram_edit_message_sync, ADMIN_TELEGRAM_ID, payload.message_id, text)
                 
             return {"success": True, "message": "ጥያቄው ውድቅ ተደርጓል!"}
 
@@ -293,7 +304,9 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
             return {"success": False, "message": "ተጫዋቹ አልተገኘም!"}
 
         if payload.action == "REJECT":
-            user.balance += withdraw.amount
+            # 💡 ፊክስ፦ ዊዝድሮው ጥያቄው ውድቅ ሲደረግ የተቀነሰው ብር ወደ 'wallet' ይመለሳል
+            current_wallet = getattr(user, "wallet", 0.0) or 0.0
+            user.wallet = current_wallet + withdraw.amount
             withdraw.status = "Rejected"
             withdraw.approved_by = str(payload.admin_telegram_id)
             db.commit()
@@ -305,7 +318,7 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
                     f"👤 <b>ተጫዋች ID፦</b> <code>{user.telegram_id}</code>\n"
                     f"👮‍♂️ <b>የሰረዘው አድሚን፦</b> {payload.admin_telegram_id}"
                 )
-                background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
+                background_tasks.add_task(_telegram_edit_message_sync, ADMIN_TELEGRAM_ID, payload.message_id, text)
                 
             return {"success": True, "message": "የማውጫ ጥያቄው ውድቅ ተደርጎ ብሩ ተመልሷል!"}
         
@@ -322,7 +335,7 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
                     f"💳 <b>አካውንት፦</b> <code>{withdraw.wallet}</code>\n"
                     f"👮‍♂️ <b>ያጸደቀው አድሚን፦</b> {payload.admin_telegram_id}"
                 )
-                background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
+                background_tasks.add_task(_telegram_edit_message_sync, ADMIN_TELEGRAM_ID, payload.message_id, text)
             
             return {"success": True, "message": "ክፍያው መፈጸሙ ተረጋግጧል!"}
 
