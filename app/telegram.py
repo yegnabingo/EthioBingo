@@ -10,7 +10,7 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 ADMIN_TELEGRAM_ID = str(os.getenv("ADMIN_TELEGRAM_ID", "")).strip()
 BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123456789")
-WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "") # 🔐 አዲሱ ሚስጥራዊ ቃል
+WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "") # 🔐 ሚስጥራዊ ቁልፍ
 
 # 🔗 የባክኤንድ እና የሚኒ አፕ ሊንኮች
 SERVER_URL = os.getenv("SERVER_URL", "https://web-production-fd82a.up.railway.app").rstrip('/')
@@ -48,7 +48,6 @@ def inline_check_balance(call):
     telegram_id = str(call.from_user.id)
     url = f"{BACKEND_URL}/api/users/{telegram_id}" 
     
-    # ለደህንነት ሲባል ሴክሬት ቶከኑን በሄደር እንልካለን
     headers = {"X-Webhook-Secret": WEBHOOK_SECRET} if WEBHOOK_SECRET else {}
     
     try:
@@ -95,6 +94,7 @@ def process_deposit_amount(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
     
+    # 1. መጀመሪያ Loading ምልክቱን እናጥፋው (Don't keep it hanging)
     try:
         bot.answer_callback_query(call.id)
     except Exception as e:
@@ -103,12 +103,10 @@ def handle_admin_actions(call):
     print("========== CALLBACK ==========")
     admin_id_str = str(call.from_user.id).strip()
     
-    if ADMIN_TELEGRAM_ID and admin_id_str != ADMIN_TELEGRAM_ID:
-        error_msg = "❌ ይቅርታ偏 ይህንን ትዕዛዝ ለመፈጸም የአስተዳዳሪ ፈቃድ የለዎትም!"
-        try:
-            bot.send_message(call.message.chat.id, error_msg)
-        except Exception as e:
-            print(f"Failed to send unauthorized message: {e}")
+    # 2. የአድሚን ID ማረጋገጫ (ባዶ ካልሆነ ብቻ ያወዳድራል)
+    if ADMIN_TELEGRAM_ID and ADMIN_TELEGRAM_ID != "" and admin_id_str != ADMIN_TELEGRAM_ID:
+        error_msg = f"❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመፈጸም የአስተዳዳሪ ፈቃድ የለዎትም! (የእርስዎ ID: {admin_id_str})"
+        bot.send_message(call.message.chat.id, error_msg)
         return
 
     action_data = call.data.split('_')
@@ -135,25 +133,16 @@ def handle_admin_actions(call):
             "admin_password": ADMIN_PASSWORD
         }
 
-    # 🔐 የደህንነት ማረጋገጫ ሄደር እዚህ ጋር ተጨምሯል
-    headers = {
-        "Content-Type": "application/json"
-    }
+    # 🔐 ሄደሮች ማዘጋጀት
+    headers = {"Content-Type": "application/json"}
     if WEBHOOK_SECRET:
         headers["X-Webhook-Secret"] = WEBHOOK_SECRET
 
     print("POST URL:", url)
-    print("HEADERS:", headers)
     print("PAYLOAD:", payload)
 
     try:
-        response = requests.post(
-            url,
-            json=payload,
-            headers=headers,
-            timeout=15
-        )
-
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
         print("STATUS:", response.status_code)
         print("BODY:", response.text)
 
@@ -168,13 +157,20 @@ def handle_admin_actions(call):
             status_text = "🟢 ጸድቋል (APPROVED)" if action == "app" else "🔴 ውድቅ ተደርጓል (REJECTED)"
             type_text = "ገንዘብ ማስገቢያ" if tx_type == "dep" else "ገንዘብ ማውጫ"
             
-            updated_text = f"📝 **የእርምጃ ማጠቃለያ**\n\n🔹 **ዓይነት፦** {type_text}\n🔹 **መለያ (ID)፦** #{target_id}\n🔹 **ሁኔታ፦** {status_text}\n\n✅ መረጃው በዳታቤዝ ላይ በተሳካ ሁኔታ ተዘምኗል!"
+            # ስህተት እንዳይፈጥር በ HTML ፎርማት ተተክቷል
+            updated_text = (
+                f"📝 <b>የእርምጃ ማጠቃለያ</b>\n\n"
+                f"🔹 <b>ዓይነት፦</b> {type_text}\n"
+                f"🔹 <b>መለያ (ID)፦</b> #{target_id}\n"
+                f"🔹 <b>ሁኔታ፦</b> {status_text}\n\n"
+                f"✅ መረጃው በዳታቤዝ ላይ በተሳካ ሁኔታ ተዘምኗል!"
+            )
             
             bot.edit_message_text(
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id,
                 text=updated_text,
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
         else:
             error_detail = res_data.get('message', 'Unknown Error')
@@ -183,7 +179,7 @@ def handle_admin_actions(call):
 
     except Exception as e:
         print("Admin Action Error:", e)
-        bot.send_message(call.message.chat.id, "❌ ከባክኤንድ ሰርቨር ጋር መገናኘት አልተቻለም")
+        bot.send_message(call.message.chat.id, f"❌ ከባክኤንድ ሰርቨር ጋር መገናኘት አልተቻለም፦ {str(e)}")
 
 
 if __name__ == "__main__":
