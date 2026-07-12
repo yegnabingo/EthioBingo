@@ -255,7 +255,7 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
         if not deposit: 
             return {"success": False, "message": "የዲፖዚት ጥያቄው በዳታቤዝ ውስጥ አልተገኘም!"}
         
-        if deposit.status != "Pending": 
+        if deposit.status != "pending": 
             return {"success": False, "message": "ይህ ጥያቄ ቀድሞ ውሳኔ አግኝቷል (Pending አይደለም)!"}
 
         user = db.query(User).filter(User.id == deposit.user_id).first()
@@ -267,7 +267,7 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
             user.wallet = current_wallet + deposit.amount
             user.balance = user.wallet
             
-            deposit.status = "Approved"
+            deposit.status = "approved"
             deposit.approved_by = str(payload.admin_telegram_id)
             db.commit()
             
@@ -284,7 +284,7 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
             return {"success": True, "message": "ዲፖዚቱ በተሳካ ሁኔታ ጸድቋል!"}
         
         else:
-            deposit.status = "Rejected"
+            deposit.status = "rejected"
             deposit.approved_by = str(payload.admin_telegram_id)
             db.commit()
             
@@ -309,7 +309,7 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
         if not withdraw: 
             return {"success": False, "message": "የማውጫ ጥያቄው በዳታቤዝ ውስጥ አልተገኘም!"}
         
-        if withdraw.status != "Pending": 
+        if withdraw.status != "pending": 
             return {"success": False, "message": "ይህ ጥያቄ ቀድሞ ውሳኔ አግኝቷል!"}
 
         user = db.query(User).filter(User.id == withdraw.user_id).first()
@@ -321,7 +321,7 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
             user.wallet = current_wallet + withdraw.amount
             user.balance = user.wallet
             
-            withdraw.status = "Rejected"
+            withdraw.status = "rejected"
             withdraw.approved_by = str(payload.admin_telegram_id)
             db.commit()
                  
@@ -337,7 +337,7 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
             return {"success": True, "message": "የማውጫ ጥያቄው ውድቅ ተደርጎ ብሩ ተመልሷል!"}
         
         else:
-            withdraw.status = "Approved"
+            withdraw.status = "approved"
             withdraw.approved_by = str(payload.admin_telegram_id)
             db.commit()
             
