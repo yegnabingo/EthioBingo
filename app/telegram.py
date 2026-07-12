@@ -168,7 +168,7 @@ def handle_admin_actions(call):
 
     # ዩአርኤል እና ፔይሎድ ማዘጋጀት
     # 💡 ፊክስ፦ በ users.py ላይ ስታተሱ "approved" እና "rejected" (በትናንሽ ፊደል) ስለሚፈልግ እዚህ ጋር ተስተካክሏል
-    backend_action = "APPROVE" if action == "app" else "REJECT"
+    backend_action = "APPROVED" if action == "app" else "REJECTED"
     
     if tx_type == "dep":
         url = f"{BACKEND_URL}/api/deposit/admin/approve"
