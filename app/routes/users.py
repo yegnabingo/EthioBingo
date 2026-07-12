@@ -15,7 +15,7 @@ router = APIRouter(
     tags=["Users"]
 )
 
-# ⚙️ የቅንብር ክፍሎች (ቀጥተኛ እና ከቦቱ ጋር ተመሳሳይ የሆኑ)
+# ⚙️ የቅንብር ክፍሎች
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 ADMIN_TELEGRAM_ID = str(os.getenv("ADMIN_TELEGRAM_ID", "")).strip()
 
@@ -53,7 +53,7 @@ def _telegram_edit_message_sync(message_id: int, text: str):
     except Exception as e:
         print(f"❌ Telegram Edit Exception: {e}")
 
-# 🛠️ የ Pydantic ሞዴል (ከቦቱ ፔይሎድ ጋር ፍጹም ተመሳሳይ)
+# 🛠️ የ Pydantic ሞዴል
 class AdminAction(BaseModel):
     deposit_id: Optional[int] = None
     withdraw_id: Optional[int] = None
@@ -131,23 +131,28 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
         return {"success": False, "message": "User not found."}
 
     try:
-        # 🔗 በማሻሻያው መሰረት አዲሶቹን Column-ዎች በትክክል መሙላት
+        # 🛠️ ፊክስ፦ በባቡ ላይ ያየናቸውን ሁሉንም አዳዲስ Columns እዚህ ላይ በትክክል እንሞላቸዋለን
         new_deposit = Deposit(
             user_id=user.id,
             amount=req.amount,
-            method=req.bank_name,     # ✅ ወደ method ይገባል (Telebirr, CBE ወዘተ)
-            sms_text=req.sms_data,    # ✅ ወደ sms_text ይገባል
-            tx_hash=f"ባንክ፦ {req.bank_name} | SMS፦ {req.sms_data}", # የድሮው እንዳይበላሽ
+            method=req.bank_name,     
+            sms_text=req.sms_data,    
+            tx_hash=f"ባንክ፦ {req.bank_name} | SMS፦ {req.sms_data}", 
             status="Pending",
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
+            
+            # 🆕 በምስሉ ላይ ያየናቸውና በዳታቤዝህ ላይ የግድ መሞላት ያለባቸው አምዶች፡
+            telegram_id=str(req.telegram_id),
+            telegram_name=req.telegram_name if req.telegram_name else "ተጫዋች",
+            wallet=None # የዲፖዚት ዋሌት አድራሻ ከሌለ Null መሆን ይችላል
         )
         db.add(new_deposit)
         db.commit()
         db.refresh(new_deposit)
     except Exception as e:
         db.rollback()
-        print(f"❌ Database Deposit Error: {e}") # ለዲባግ እንዲረዳህ
-        return {"success": False, "message": "Failed to record deposit request."}
+        print(f"❌ Database Deposit Error: {e}") 
+        return {"success": False, "message": f"Failed to record deposit request: {str(e)}"}
 
     inline_keyboard = {
         "inline_keyboard": [[
@@ -184,12 +189,11 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
 
     try:
         user.balance -= req.amount
-        # 🔗 በማሻሻያው መሰረት የ Withdrawal Column-ዎችን ማስተካከል። 
         new_withdraw = Withdrawal(
             user_id=user.id,
             amount=req.amount,
-            method=req.bank_name,     # ✅ ወደ method ይገባል (Telebirr, CBE ወዘተ)
-            wallet=str(req.account_number), # ✅ የባንክ አካውንት ቁጥር
+            method=req.bank_name,     
+            wallet=str(req.account_number), 
             status="Pending",
             created_at=datetime.utcnow()
         )
@@ -198,8 +202,8 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
         db.refresh(new_withdraw)
     except Exception as e:
         db.rollback()
-        print(f"❌ Database Withdraw Error: {e}") # ለዲባግ እንዲረዳህ
-        return {"success": False, "message": "Failed to record withdrawal request."}
+        print(f"❌ Database Withdraw Error: {e}") 
+        return {"success": False, "message": f"Failed to record withdrawal request: {str(e)}"}
 
     inline_keyboard = {
         "inline_keyboard": [[
@@ -221,6 +225,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     send_admin_notification(msg_text, reply_markup=inline_keyboard)
     return {"success": True, "message": "የማውጫ ጥያቄዎ ተመዝግቧል!"}
 
+
 # 👮‍♂️ 5. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Deposit)
 @router.post("/deposit/admin/approve")
 def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
@@ -237,7 +242,6 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
             return {"success": False, "message": "ይህንን ጥያቄ የላከው ተጫዋች አልተገኘም!"}
 
         if payload.action == "APPROVE":
-            # 💰 ባላንስ ጨምር እና መረጃዎችን አድስ
             user.balance += deposit.amount
             deposit.status = "Approved"
             deposit.approved_by = str(payload.admin_telegram_id)
@@ -268,7 +272,6 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
 
     except Exception as e:
         db.rollback()
-        # ⚠️ ስህተት ከተፈጠረ አድሚኑ እንዲያውቀው መልዕክት ይላክ (Loading እንዳይቀር)
         error_msg = f"❌ <b>ባክኤንድ ስህተት (Deposit Approve)፦</b>\n<code>{str(e)}</code>"
         send_admin_notification(error_msg)
         return {"success": False, "message": f"Internal Server Error: {str(e)}"}
@@ -290,7 +293,6 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
             return {"success": False, "message": "ተጫዋቹ አልተገኘም!"}
 
         if payload.action == "REJECT":
-            # 💰 ብሩን ለተጫዋቹ መልስ
             user.balance += withdraw.amount
             withdraw.status = "Rejected"
             withdraw.approved_by = str(payload.admin_telegram_id)
@@ -326,7 +328,6 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
 
     except Exception as e:
         db.rollback()
-        # ⚠️ ስህተት ከተፈጠረ መልዕክት ይላክ
         error_msg = f"❌ <b>ባክኤንድ ስህተት (Withdraw Approve)፦</b>\n<code>{str(e)}</code>"
         send_admin_notification(error_msg)
         return {"success": False, "message": f"Internal Server Error: {str(e)}"}
