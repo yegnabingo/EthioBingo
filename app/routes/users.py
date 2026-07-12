@@ -61,10 +61,11 @@ class AdminAction(BaseModel):
 # 📥 1. አዲስ ተጫዋች ሲመዘገብ
 @router.post("/users/register")
 def register_user(telegram_id: str, telegram_name: str = None, first_name: str = None, db: Session = Depends(get_db)):
-    if not str(telegram_id).strip().isdigit():
+    tg_id_str = str(telegram_id).strip()
+    if not tg_id_str.isdigit():
         return {"success": False, "message": "Invalid Telegram ID."}
     
-    existing = db.query(User).filter(User.telegram_id == str(telegram_id)).first()
+    existing = db.query(User).filter(User.telegram_id == tg_id_str).first()
     if existing:
         user_wallet = getattr(existing, "wallet", 0.0) or 0.0
         return {
@@ -78,7 +79,7 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
         }
     
     new_user = User(
-        telegram_id=str(telegram_id), 
+        telegram_id=tg_id_str, 
         telegram_name=telegram_name, 
         first_name=first_name, 
         wallet=0.0, 
@@ -104,11 +105,12 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
 # 🔍 2. የተጫዋቹን የዋሌት መረጃ መፈተሻ API
 @router.get("/users/{telegram_id}")
 def get_user(telegram_id: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.telegram_id == str(telegram_id)).first()
+    tg_id_str = str(telegram_id).strip()
+    user = db.query(User).filter(User.telegram_id == tg_id_str).first()
     if not user:
         return {
             "success": False, 
-            "user": {"telegram_id": telegram_id, "balance": 0.0, "wallet": 0.0, "gift_coin": 0.0}
+            "user": {"telegram_id": tg_id_str, "balance": 0.0, "wallet": 0.0, "gift_coin": 0.0}
         }
         
     user_wallet = getattr(user, "wallet", 0.0) or 0.0
@@ -125,16 +127,16 @@ def get_user(telegram_id: str, db: Session = Depends(get_db)):
 # 💰 3. ተጫዋች ከሚኒ አፕ ላይ ዲፖዚት ሲያደርግ
 @router.post("/users/deposit")
 def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
-    if not str(req.telegram_id).strip().isdigit():
+    tg_id_str = str(req.telegram_id).strip()
+    if not tg_id_str.isdigit():
         return {"success": False, "message": "Invalid Telegram ID."}
     
-    user = db.query(User).filter(User.telegram_id == str(req.telegram_id)).first()
+    user = db.query(User).filter(User.telegram_id == tg_id_str).first()
     
-    # 💡 ፊክስ፦ ተጫዋቹ በ users ቴብል ላይ ከሌለ በራስ-ሰር እንዲመዘገብ ያደርጋል (መዝገብ እንዳያቆም)
     if not user:
         try:
             user = User(
-                telegram_id=str(req.telegram_id),
+                telegram_id=tg_id_str,
                 telegram_name=req.telegram_name if req.telegram_name else "ተጫዋች",
                 wallet=0.0,
                 balance=0.0,
@@ -157,7 +159,7 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
             tx_hash=f"ባንክ፦ {req.bank_name} | SMS፦ {req.sms_data}", 
             status="Pending",
             created_at=datetime.utcnow(),
-            telegram_id=str(req.telegram_id),
+            telegram_id=tg_id_str,
             telegram_name=req.telegram_name if req.telegram_name else "ተጫዋች",
             wallet=str(user.wallet)
         )
@@ -192,10 +194,11 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
 # 📤 4. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ
 @router.post("/users/withdraw")
 def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
-    if not str(req.telegram_id).strip().isdigit():
+    tg_id_str = str(req.telegram_id).strip()
+    if not tg_id_str.isdigit():
         return {"success": False, "message": "Invalid Telegram ID."}
     
-    user = db.query(User).filter(User.telegram_id == str(req.telegram_id)).first()
+    user = db.query(User).filter(User.telegram_id == tg_id_str).first()
     if not user:
         return {"success": False, "message": "User not found. Please register first."}
 
@@ -205,7 +208,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
 
     try:
         user.wallet = user_wallet - req.amount
-        user.balance = user.wallet # ሁለቱንም እኩል እናስኬዳቸዋለን
+        user.balance = user.wallet
         
         new_withdraw = Withdrawal(
             user_id=user.id,
@@ -233,7 +236,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     msg_text = (
         f"⚠️ <b>አዲስ የገንዘብ ማውጫ ጥያቄ!</b>\n\n"
         f"🆔 <b>የጥያቄ ቁጥር፦</b> #{new_withdraw.id}\n"
-        f"👤 ተጫዋች ID፦ {req.telegram_id}\n"
+        f"👤 ተጫዋች ID፦ {tg_id_str}\n"
         f"🏦 ባንክ፦ {req.bank_name}\n"
         f"💳 የባንክ አካውንት፦ <code>{req.account_number}</code>\n"
         f"💰 የገንዘብ መጠን፦ <b>{req.amount} ETB</b>\n\n"
@@ -262,7 +265,7 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
         if payload.action == "APPROVE":
             current_wallet = getattr(user, "wallet", 0.0) or 0.0
             user.wallet = current_wallet + deposit.amount
-            user.balance = user.wallet # ለደህንነት ሁለቱንም ማዘመን
+            user.balance = user.wallet
             
             deposit.status = "Approved"
             deposit.approved_by = str(payload.admin_telegram_id)
