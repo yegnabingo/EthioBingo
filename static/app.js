@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 🔄 ፊክስ፦ ገጹ ሲጫን ባላንስ እዚህ ጋር መጀመሪያ ይጠራል
+    // 🔄 ገጹ ሲጫን ባላንስ ወዲያውኑ ይጠራል
     refreshUserBalance();
     setInterval(refreshUserBalance, 10000);
 });
@@ -534,7 +534,7 @@ async function refreshUserBalance() {
             const data = await response.json();
             if (data.success && data.user) {
                 
-                # 💡 ማስተካከያ፦ HTMLህ ላይ id="wallet" ወይም id="walletBalance" ቢሆንም እንኳ ያገኘዋል
+                // 💡 ፊክስ፦ አስተያየት መስጫው ወደ ትክክለኛው የጃቫስክሪፕት ' //' ተቀይሯል
                 let walletElement = document.getElementById('wallet') || document.getElementById('walletBalance');
                 
                 if (walletElement) {
@@ -544,7 +544,7 @@ async function refreshUserBalance() {
                     console.error("⚠️ ስህተት፦ በስክሪኑ ላይ የWallet ሳጥን መለያ (ID) አልተገኘም!");
                 }
                 
-                # 🪙 የጊፍት ኮይን ማደሻ
+                // 🪙 የጊፍት ኮይን ማደሻ
                 const giftElement = document.getElementById('giftBalance') || document.getElementById('gift');
                 if (giftElement) {
                     const coinAmount = data.user.gift_coin !== undefined ? data.user.gift_coin : 0.00;
@@ -626,7 +626,6 @@ async function submitDeposit() {
             if (amountInput) amountInput.value = ''; 
             if (smsInput) smsInput.value = '';    
             closeWalletModal();
-            // 💡 ዳታቤዙ በደንብ ተረጋግቶ እንዲያነበው ጥቂት ሚሊሰከንድ ሰጥተነዋል
             setTimeout(refreshUserBalance, 800);
         } else {
             alert('❌ ስህተት፦ ' + result.message);
@@ -681,7 +680,6 @@ async function submitWithdraw() {
             if (amountInput) amountInput.value = '';
             if (accInput) accInput.value = '';
             closeWalletModal();
-            // 💡 ባላንሱ መቀነሱን በቅጽበት በሚኒ አፑ ላይ ለማሳየት
             setTimeout(refreshUserBalance, 800);
         } else {
             alert('❌ ስህተት፦ ' + result.message);
