@@ -538,8 +538,8 @@ async function refreshUserBalance() {
                 let walletElement = document.getElementById('wallet') || document.getElementById('walletBalance');
                 
                 if (walletElement) {
-                    walletElement.innerText = `${data.user.balance} ETB`;
-                    console.log("✅ በሚኒ አፑ ስክሪን ላይ አዲሱ ባላንስ ተጭኗል፦", data.user.balance);
+                    walletElement.innerText = `${data.user.wallet} ETB`;
+                    console.log("✅ በሚኒ አፑ ስክሪን ላይ አዲሱ ባላንስ ተጭኗል፦", data.user.wallet);
                 } else {
                     console.error("⚠️ ስህተት፦ በስክሪኑ ላይ የWallet ሳጥን መለያ (ID) አልተገኘም!");
                 }
