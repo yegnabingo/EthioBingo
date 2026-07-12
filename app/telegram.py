@@ -93,7 +93,7 @@ def handle_admin_actions(call):
     
     # 1. Loading አኒሜሽኑን ወዲያውኑ እናጥፋው
     try:
-        bot.answer_callback_query(call.id)
+        bot.answer_callback_query(call.id, text="ጥያቄው እየተመረመረ ነው...")
     except Exception as e:
         print(f"⚠️ Callback answer error: {e}")
     
