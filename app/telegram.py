@@ -102,8 +102,7 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=15)
         print(f"📊 Response Status: {response.status_code}")
-        print(f"📝 Response Body: {response.text}")
-
+        
         try:
             res_data = response.json()
         except:
@@ -111,19 +110,8 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
 
         if response.status_code == 200 and res_data.get("success"):
             print(f"✅ Action successfully handled by backend for ID #{target_id}")
-            
-            # 💡 ፊክስ፦ ውሳኔው በተሳካ ሁኔታ ሲጠናቀቅ አድሚኑ ጋር ያለውን የቴሌግራም መልዕክት ሁኔታ ይቀይረዋል
-            status_text = "✅ ጸድቋል (Approved)" if action == "app" else "❌ ውድቅ ተደርጓል (Rejected)"
-            type_text = "የገንዘብ ማስገቢያ" if tx_type == "dep" else "የገንዘብ ማውጫ"
-            
-            updated_msg = f"{call.message.text}\n\n====================\n⚖️ **ውሳኔ፦** {status_text}"
-            
-            bot.edit_message_text(
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
-                text=updated_msg,
-                reply_markup=None  # የአፕሩቭ በተኖቹን ያጠፋቸዋል
-            )
+            # 💡 ማስታወሻ፦ መልእክቱን በራስ-ሰር ማስተካከል እና በተኖቹን ማጥፋት አሁን በ users.py (backend) በኩል በHTML ስታይል ይከናወናል።
+            # በግጭት ምክንያት የሚፈጠረውን 'Bad Request' ለማስቀረት እዚህ ጋር በድጋሚ edit ማድረግ አያስፈልግም።
         else:
             error_detail = res_data.get('message', f'HTTP Error {response.status_code}')
             bot.send_message(call.message.chat.id, f"❌ ሰርቨሩ ጥያቄውን አልተቀበለውም፦ {error_detail}")
@@ -135,7 +123,6 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
 # 🛠️ አድሚኑ የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
-    
     try:
         bot.answer_callback_query(callback_query_id=call.id, text="⏳ ውሳኔዎ በሂደት ላይ ነው...")
     except Exception as e:
@@ -147,7 +134,7 @@ def handle_admin_actions(call):
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
     target_id = int(action_data[2])
 
-    # 2. ዩአርኤል እና ፔይሎድ ማዘጋጀት
+    # ዩአርኤል እና ፔይሎድ ማዘጋጀት
     if tx_type == "dep":
         url = f"{BACKEND_URL}/api/deposit/admin/approve"
         payload = {
@@ -168,10 +155,9 @@ def handle_admin_actions(call):
         }
 
     headers = {"Content-Type": "application/json"}
-
-    print(f"📡 Requesting: {url} with Payload: {payload}")
+    print(f"📡 Requesting: {url}")
     
-    # 3️⃣ ጥያቄውን በጀርባ (Background Thread) መላክ
+    # ጥያቄውን በጀርባ (Background Thread) መላክ
     threading.Thread(
         target=send_admin_action_to_backend, 
         args=(call, url, payload, headers, target_id, action, tx_type),
