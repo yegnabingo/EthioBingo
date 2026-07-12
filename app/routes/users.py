@@ -131,10 +131,13 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
         return {"success": False, "message": "User not found."}
 
     try:
+        # 🔗 በማሻሻያው መሰረት አዲሶቹን Column-ዎች በትክክል መሙላት
         new_deposit = Deposit(
             user_id=user.id,
             amount=req.amount,
-            tx_hash=f"ባንክ፦ {req.bank_name} | SMS፦ {req.sms_data}", 
+            method=req.bank_name,     # ✅ ወደ method ይገባል (Telebirr, CBE ወዘተ)
+            sms_text=req.sms_data,    # ✅ ወደ sms_text ይገባል
+            tx_hash=f"ባንክ፦ {req.bank_name} | SMS፦ {req.sms_data}", # የድሮው እንዳይበላሽ
             status="Pending",
             created_at=datetime.utcnow()
         )
@@ -143,6 +146,7 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
         db.refresh(new_deposit)
     except Exception as e:
         db.rollback()
+        print(f"❌ Database Deposit Error: {e}") # ለዲባግ እንዲረዳህ
         return {"success": False, "message": "Failed to record deposit request."}
 
     inline_keyboard = {
@@ -164,6 +168,7 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
     send_admin_notification(msg_text, reply_markup=inline_keyboard)
     return {"success": True, "message": "የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል!"}
 
+
 # 📤 4. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ
 @router.post("/users/withdraw")
 def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
@@ -179,10 +184,12 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
 
     try:
         user.balance -= req.amount
+        # 🔗 በማሻሻያው መሰረት የ Withdrawal Column-ዎችን ማስተካከል። 
         new_withdraw = Withdrawal(
             user_id=user.id,
             amount=req.amount,
-            wallet=f"ባንክ፦ {req.bank_name} | አካውንት፦ {req.account_number}",
+            method=req.bank_name,     # ✅ ወደ method ይገባል (Telebirr, CBE ወዘተ)
+            wallet=str(req.account_number), # ✅ የባንክ አካውንት ቁጥር
             status="Pending",
             created_at=datetime.utcnow()
         )
@@ -191,6 +198,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
         db.refresh(new_withdraw)
     except Exception as e:
         db.rollback()
+        print(f"❌ Database Withdraw Error: {e}") # ለዲባግ እንዲረዳህ
         return {"success": False, "message": "Failed to record withdrawal request."}
 
     inline_keyboard = {
