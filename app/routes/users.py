@@ -1,6 +1,6 @@
 import os
 import requests
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Header
 from sqlalchemy.orm import Session
 from datetime import datetime
 from pydantic import BaseModel
@@ -15,8 +15,11 @@ router = APIRouter(
     tags=["Users"]
 )
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-ADMIN_TELEGRAM_ID = str(os.getenv("ADMIN_CHAT_ID", "")).strip()
+# ⚙️ በአዲሱ የRailway Variables መሠረት የተስተካከሉ
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+ADMIN_TELEGRAM_ID = str(os.getenv("ADMIN_TELEGRAM_ID", "")).strip()
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123456789")
+WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
 
 def get_db():
     db = SessionLocal()
@@ -52,13 +55,14 @@ def _telegram_edit_message_sync(message_id: int, text: str):
     except Exception as e:
         print(f"❌ Telegram Edit Exception: {e}")
 
-# 🛠️ የ Pydantic ሞዴል
+# 🛠️ የ Pydantic ሞዴል (admin_password ተጨምሮበታል)
 class AdminAction(BaseModel):
     deposit_id: Optional[int] = None
     withdraw_id: Optional[int] = None
     action: str
     admin_telegram_id: str
     message_id: Optional[int] = None
+    admin_password: Optional[str] = None
 
 # 📥 1. አዲስ ተጫዋች ሲመዘገብ
 @router.post("/users/register")
@@ -101,7 +105,11 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
 
 # 🔍 2. የተጫዋቹን የዋሌት መረጃ መፈተሻ API
 @router.get("/users/{telegram_id}")
-def get_user(telegram_id: str, db: Session = Depends(get_db)):
+def get_user(telegram_id: str, db: Session = Depends(get_db), x_webhook_secret: Optional[str] = Header(None)):
+    # 🔒 የደህንነት ማረጋገጫ (ከተፈለገ)
+    if WEBHOOK_SECRET and x_webhook_secret and x_webhook_secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="Unauthorized Secret Token")
+
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
     if not user:
         return {
@@ -145,7 +153,7 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
 
     inline_keyboard = {
         "inline_keyboard": [[
-            {"text": "✅ Approve (አጽдቅ)", "callback_data": f"app_dep_{new_deposit.id}"},
+            {"text": "✅ Approve (አጽድቅ)", "callback_data": f"app_dep_{new_deposit.id}"},
             {"text": "❌ Reject (ሰርዝ)", "callback_data": f"rej_dep_{new_deposit.id}"}
         ]]
     }
@@ -173,7 +181,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
         return {"success": False, "message": "User not found."}
 
     if user.balance < req.amount:
-        return {"success": False, "message": f"ይቅርታ偏 በቂ ባላንስ የሎትም! ያሎት ባላንስ {user.balance} ETB ነው።"}
+        return {"success": False, "message": f"ይቅርታ፣ በቂ ባላንስ የሎትም! ያሎት ባላንስ {user.balance} ETB ነው።"}
 
     try:
         user.balance -= req.amount
@@ -205,7 +213,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
         f"🏦 ባንክ፦ {req.bank_name}\n"
         f"💳 የባንክ አካውንት፦ <code>{req.account_number}</code>\n"
         f"💰 የገንዘብ መጠን፦ <b>{req.amount} ETB</b>\n\n"
-        f"<i>ይህንን ብር በባንክ ልከው ሲያበቁ 'Paid' የሚለውን ይጫኑ。</i>"
+        f"<i>ይህንን ብር በባንክ ልከው ሲያበቁ 'Paid' የሚለውን ይጫኑ።</i>"
     )
 
     send_admin_notification(msg_text, reply_markup=inline_keyboard)
@@ -213,7 +221,13 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
 
 # 👮‍♂️ 5. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Deposit)
 @router.post("/deposit/admin/approve")
-def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db), x_webhook_secret: Optional[str] = Header(None)):
+    # 🔒 የደህንነት ማረጋገጫ (Secret Token & Password)
+    if WEBHOOK_SECRET and x_webhook_secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="Unauthorized Secret Token")
+    if payload.admin_password and payload.admin_password != ADMIN_PASSWORD:
+        return {"success": False, "message": "Invalid Admin Password."}
+        
     if not str(payload.admin_telegram_id).strip().isdigit():
         return {"success": False, "message": "Invalid admin ID."}
     
@@ -234,7 +248,6 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
         db.commit()
         
         if payload.message_id:
-            # 🛠️ ፊክስ፦ የቴሌግራም መልዕክት ማስተካከያውን ወደ Background Task በመቀየር ሰርቨሩ እንዳይቆለፍ ማድረግ
             text = f"🟢 <b>የዲፖዚት ጥያቄ #{deposit.id} ጸድቋል!</b>\n💰 የተጨመረው መጠን፦ {deposit.amount} ETB\n👤 User: {user.telegram_id}"
             background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
             
@@ -253,7 +266,13 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
 
 # 👮‍♂️ 6. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Withdraw)
 @router.post("/withdraw/admin/approve")
-def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db), x_webhook_secret: Optional[str] = Header(None)):
+    # 🔒 የደህንነት ማረጋገጫ (Secret Token & Password)
+    if WEBHOOK_SECRET and x_webhook_secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="Unauthorized Secret Token")
+    if payload.admin_password and payload.admin_password != ADMIN_PASSWORD:
+        return {"success": False, "message": "Invalid Admin Password."}
+
     if not str(payload.admin_telegram_id).strip().isdigit():
         return {"success": False, "message": "Invalid admin ID."}
     
