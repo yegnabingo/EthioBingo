@@ -1,7 +1,7 @@
 import os
 import sys
 import requests
-import threading  # 💡 ፊክስ፦ የባክኤንድ ጥያቄ ቦቱን Freeze እንዳያደርገው በThread ለማሰራት
+import threading  # 💡 የባክኤንድ ጥያቄ ቦቱን Freeze እንዳያደርገው በThread ለማሰራት
 from telebot import TeleBot, types
 
 # --------------------------------------------------------------------------
@@ -13,8 +13,8 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123456789")
 
 # 🔗 የባክኤንድ አድራሻ
 SERVER_URL = os.getenv("SERVER_URL", "https://web-production-fd82a.up.railway.app").rstrip('/')
-BACKEND_URL = "https://web-production-fd82a.up.railway.app"
-MINI_APP_URL = "https://web-production-fd82a.up.railway.app"
+BACKEND_URL = SERVER_URL
+MINI_APP_URL = SERVER_URL
 
 bot = TeleBot(BOT_TOKEN)
 
@@ -44,7 +44,6 @@ def send_welcome(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_balance")
 def inline_check_balance(call):
-    # የቼክ ባላንስ ሎዲንግን ለማጥፋት
     try:
         bot.answer_callback_query(callback_query_id=call.id)
     except:
@@ -62,8 +61,9 @@ def inline_check_balance(call):
 
         if response.status_code == 200 and res_data.get("success"):
             user_obj = res_data.get("user", {})
-            balance = user_obj.get("balance", 0.0) 
-            bot.send_message(call.message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {balance} ETB")
+            # 💡 ፊክስ፦ በዳታቤዝህ ላይ ያለው ኮለም 'wallet' ስለሆነ ከ balance ወደ wallet ተቀይሯል
+            wallet_amount = user_obj.get("wallet", 0.0) 
+            bot.send_message(call.message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {wallet_amount} ETB")
         else:
             bot.send_message(call.message.chat.id, "❌ ተጠቃሚዎ አልተመዘገበም፣ እባክዎ መጀመሪያ ሚኒ አፑን ይክፈቱ!")
     except Exception as e:
@@ -98,7 +98,7 @@ def process_deposit_amount(message):
 
 
 # 🛠️ ማስተካከያ ሎጂክ ለባክኤንድ ጥያቄ (Thread ውስጥ የሚሮጥ)
-def send_admin_action_to_backend(call, url, payload, headers, target_id):
+def send_admin_action_to_backend(call, url, payload, headers, target_id, action, tx_type):
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=15)
         print(f"📊 Response Status: {response.status_code}")
@@ -111,6 +111,19 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id):
 
         if response.status_code == 200 and res_data.get("success"):
             print(f"✅ Action successfully handled by backend for ID #{target_id}")
+            
+            # 💡 ፊክስ፦ ውሳኔው በተሳካ ሁኔታ ሲጠናቀቅ አድሚኑ ጋር ያለውን የቴሌግራም መልዕክት ሁኔታ ይቀይረዋል
+            status_text = "✅ ጸድቋል (Approved)" if action == "app" else "❌ ውድቅ ተደርጓል (Rejected)"
+            type_text = "የገንዘብ ማስገቢያ" if tx_type == "dep" else "የገንዘብ ማውጫ"
+            
+            updated_msg = f"{call.message.text}\n\n====================\n⚖️ **ውሳኔ፦** {status_text}"
+            
+            bot.edit_message_text(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                text=updated_msg,
+                reply_markup=None  # የአፕሩቭ በተኖቹን ያጠፋቸዋል
+            )
         else:
             error_detail = res_data.get('message', f'HTTP Error {response.status_code}')
             bot.send_message(call.message.chat.id, f"❌ ሰርቨሩ ጥያቄውን አልተቀበለውም፦ {error_detail}")
@@ -123,9 +136,8 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id):
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
     
-    # 1️⃣ 🎯 ዋናው ፊክስ፦ የቴሌግራምን Loading አኒሜሽን ወዲያውኑ በሴኮንድ ሺኛ ዲግሪ እንግደለው!
     try:
-        bot.answer_callback_query(callback_query_id=call.id, text="⏳ ጥያቄው ወደ ባክኤንድ እየተላከ ነው...")
+        bot.answer_callback_query(callback_query_id=call.id, text="⏳ ውሳኔዎ በሂደት ላይ ነው...")
     except Exception as e:
         print(f"⚠️ Callback answer error: {e}")
     
@@ -157,13 +169,12 @@ def handle_admin_actions(call):
 
     headers = {"Content-Type": "application/json"}
 
-    print(f"📡 Sending request to: {url}")
+    print(f"📡 Requesting: {url} with Payload: {payload}")
     
-    # 3️⃣ 🎯 ሁለተኛው ፊክስ፦ ጥያቄውን በጀርባ (Background Thread) መላክ! 
-    # ይህ ቦቱ በፍጹም እንዳይቆም (Freeze እንዳይሆን) እና ሎዲንጉ ወዲያው እንዲጠፋ ያደርጋል።
+    # 3️⃣ ጥያቄውን በጀርባ (Background Thread) መላክ
     threading.Thread(
         target=send_admin_action_to_backend, 
-        args=(call, url, payload, headers, target_id),
+        args=(call, url, payload, headers, target_id, action, tx_type),
         daemon=True
     ).start()
 
