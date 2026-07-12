@@ -38,14 +38,19 @@ class Deposit(Base):
     amount = Column(Float)
     
     # 💡 በእጅ ማረጋገጫ (Manual Approval) እንዲሰራ የተጨመሩ Column-ዎች
-    method = Column(String, nullable=True) # Telebirr, CBE, Bank ወዘተ
-    phone_or_acc = Column(String, nullable=True) # የላከበት ስልክ ቁጥር
-    sms_text = Column(Text, nullable=True) # ተጠቃሚው የለጠፈው SMS
+    method = Column(String, nullable=True) 
+    phone_or_acc = Column(String, nullable=True) 
+    sms_text = Column(Text, nullable=True) 
     
-    tx_hash = Column(String, nullable=True) # የነበረው (እንዳይጠፋ)
-    status = Column(String, default="Pending") # Pending, Approved, Rejected
+    tx_hash = Column(String, nullable=True) 
+    status = Column(String, default="Pending") 
     approved_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # 🔗 በ Railway ዳታቤዝህ ላይ በፎቶ ያየናቸውና ግዴታ መካተት ያለባቸው ተጨማሪ አምዶች፡
+    telegram_id = Column(String, nullable=True)
+    wallet = Column(String, nullable=True)
+    telegram_name = Column(String, nullable=True)
 
 
 class Withdrawal(Base):
@@ -56,11 +61,11 @@ class Withdrawal(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     amount = Column(Float)
     
-    # 💡 ወደ የትኛው ባንክ/ስልክ እንደሚወጣ ለመለየት የተጨመረ
-    method = Column(String, nullable=True) # Telebirr, CBE, ወዘተ
-    wallet = Column(String) # የባንክ ወይም የቴሌብር አካውንት ቁጥር
+    # 💡 ወደ የትኛው ባንክ/ስልክ እንደሚወጣ ለመለየት የተጨመረ (በዳታቤዝህ ላይ ከሌለ ስህተት እንዳይፈጥር Safe እናድርገው)
+    method = Column(String, nullable=True, default="Bank") 
+    wallet = Column(String, nullable=True) # አካውንት ቁጥር
     
-    status = Column(String, default="Pending") # Pending, Approved, Rejected
+    status = Column(String, default="Pending") 
     approved_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
