@@ -2,6 +2,7 @@ import os
 import sys
 import requests
 import threading  # 💡 የባክኤንድ ጥያቄ ቦቱን Freeze እንዳያደርገው በThread ለማሰራት
+from datetime import datetime
 from telebot import TeleBot, types
 
 # --------------------------------------------------------------------------
@@ -61,7 +62,6 @@ def inline_check_balance(call):
 
         if response.status_code == 200 and res_data.get("success"):
             user_obj = res_data.get("user", {})
-            # 💡 ፊክስ፦ በዳታቤዝህ ላይ ያለው ኮለም 'wallet' ስለሆነ ከ balance ወደ wallet ተቀይሯል
             wallet_amount = user_obj.get("wallet", 0.0) 
             bot.send_message(call.message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {wallet_amount} ETB")
         else:
@@ -110,23 +110,55 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
 
         if response.status_code == 200 and res_data.get("success"):
             print(f"✅ Action successfully handled by backend for ID #{target_id}")
-            # 💡 ማስታወሻ፦ መልእክቱን በራስ-ሰር ማስተካከል እና በተኖቹን ማጥፋት አሁን በ users.py (backend) በኩል በHTML ስታይል ይከናወናል።
-            # በግጭት ምክንያት የሚፈጠረውን 'Bad Request' ለማስቀረት እዚህ ጋር በድጋሚ edit ማድረግ አያስፈልግም።
+            
+            # 🎯 1. ቴሌግራም ላይ የፖፕ-አፕ (Alert) ማረጋገጫ ማሳያ 
+            label = "Deposit" if tx_type == "dep" else "Withdrawal"
+            alert_text = f"✅ {label} #{target_id} approved successfully!" if action == "app" else f"❌ {label} #{target_id} rejected & balance refunded"
+            try:
+                bot.answer_callback_query(call.id, text=alert_text, show_alert=True)
+            except:
+                pass
+            
+            # 🎯 2. ልክ አንተ በላክኸው ምስል ላይ እንዳለው መልዕክቱን ማሻሻልና ቁልፎቹን ማጥፋት
+            status_emoji = "✅" if action == "app" else "❌"
+            status_text = "APPROVED" if action == "app" else "REJECTED"
+            current_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+            
+            new_text = f"{call.message.text}\n\n{status_emoji} <b>{status_text} at {current_time} UTC</b>"
+            
+            try:
+                bot.edit_message_text(
+                    chat_id=call.message.chat.id,
+                    message_id=call.message.message_id,
+                    text=new_text,
+                    parse_mode="HTML",
+                    reply_markup=None  # ቁልፎቹን ሙሉ በሙሉ ያጠፋቸዋል
+                )
+            except Exception as edit_err:
+                print(f"⚠️ Telegram message edit minor issue: {edit_err}")
+                
         else:
             error_detail = res_data.get('message', f'HTTP Error {response.status_code}')
-            bot.send_message(call.message.chat.id, f"❌ ሰርቨሩ ጥያቄውን አልተቀበለውም፦ {error_detail}")
+            try:
+                bot.answer_callback_query(call.id, text=f"❌ ስህተት፦ {error_detail}", show_alert=True)
+            except:
+                bot.send_message(call.message.chat.id, f"❌ ሰርቨሩ ጥያቄውን አልተቀበለውም፦ {error_detail}")
     except Exception as e:
         print("Admin Action Error:", e)
-        bot.send_message(call.message.chat.id, f"❌ ወደ ባክኤንድ መገናኘት አልተቻለም፦ {str(e)}")
+        try:
+            bot.answer_callback_query(call.id, text="⚠️ ከባክኤንድ ሰርቨር ጋር መገናኘት አልተቻለም።", show_alert=True)
+        except:
+            bot.send_message(call.message.chat.id, f"❌ ወደ ባክኤንድ መገናኘት አልተቻለም፦ {str(e)}")
 
 
 # 🛠️ አድሚኑ የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
+    # 'Loading...' ምልክቱን ለማሳየት መጀመሪያውኑ ምላሽ እንሰጣለን
     try:
         bot.answer_callback_query(callback_query_id=call.id, text="⏳ ውሳኔዎ በሂደት ላይ ነው...")
-    except Exception as e:
-        print(f"⚠️ Callback answer error: {e}")
+    except:
+        pass
     
     admin_id_str = str(call.from_user.id).strip()
     action_data = call.data.split('_')
@@ -135,11 +167,14 @@ def handle_admin_actions(call):
     target_id = int(action_data[2])
 
     # ዩአርኤል እና ፔይሎድ ማዘጋጀት
+    # 💡 ፊክስ፦ በ users.py ላይ ስታተሱ "approved" እና "rejected" (በትናንሽ ፊደል) ስለሚፈልግ እዚህ ጋር ተስተካክሏል
+    backend_action = "APPROVE" if action == "app" else "REJECT"
+    
     if tx_type == "dep":
         url = f"{BACKEND_URL}/api/deposit/admin/approve"
         payload = {
             "deposit_id": target_id, 
-            "action": "APPROVE" if action == "app" else "REJECT",
+            "action": backend_action,
             "admin_telegram_id": admin_id_str,
             "message_id": call.message.message_id,
             "admin_password": ADMIN_PASSWORD
@@ -148,7 +183,7 @@ def handle_admin_actions(call):
         url = f"{BACKEND_URL}/api/withdraw/admin/approve"
         payload = {
             "withdraw_id": target_id, 
-            "action": "APPROVE" if action == "app" else "REJECT",
+            "action": backend_action,
             "admin_telegram_id": admin_id_str,
             "message_id": call.message.message_id,
             "admin_password": ADMIN_PASSWORD
