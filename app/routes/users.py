@@ -224,77 +224,109 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
 # 👮‍♂️ 5. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Deposit)
 @router.post("/deposit/admin/approve")
 def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    if not str(payload.admin_telegram_id).strip().isdigit():
-        return {"success": False, "message": "Invalid admin ID."}
-    
-    deposit = db.query(Deposit).filter(Deposit.id == payload.deposit_id).first()
-    if not deposit: 
-        return {"success": False, "message": "የዲፖዚት ጥያቄው አልተገኘም"}
-    if deposit.status != "Pending": 
-        return {"success": False, "message": "ይህ ጥያቄ ቀድሞ ውሳኔ አግኝቷል"}
-
-    user = db.query(User).filter(User.id == deposit.user_id).first()
-    if not user: 
-        return {"success": False, "message": "ተጫዋቹ አልተገኘም"}
-
-    if payload.action == "APPROVE":
-        user.balance += deposit.amount
-        deposit.status = "Approved"
-        deposit.approved_by = payload.admin_telegram_id
-        db.commit()
+    try:
+        deposit = db.query(Deposit).filter(Deposit.id == payload.deposit_id).first()
+        if not deposit: 
+            return {"success": False, "message": "የዲፖዚት ጥያቄው በዳታቤዝ ውስጥ አልተገኘም!"}
         
-        if payload.message_id:
-            text = f"🟢 <b>የዲፖዚት ጥያቄ #{deposit.id} ጸድቋል!</b>\n💰 የተጨመረው መጠን፦ {deposit.amount} ETB\n👤 User: {user.telegram_id}"
-            background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
+        if deposit.status != "Pending": 
+            return {"success": False, "message": "ይህ ጥያቄ ቀድሞ ውሳኔ አግኝቷል (Pending አይደለም)!"}
+
+        user = db.query(User).filter(User.id == deposit.user_id).first()
+        if not user: 
+            return {"success": False, "message": "ይህንን ጥያቄ የላከው ተጫዋች አልተገኘም!"}
+
+        if payload.action == "APPROVE":
+            # 💰 ባላንስ ጨምር እና መረጃዎችን አድስ
+            user.balance += deposit.amount
+            deposit.status = "Approved"
+            deposit.approved_by = str(payload.admin_telegram_id)
+            db.commit()
             
-        return {"success": True, "message": "ዲፖዚቱ በተሳካ ሁኔታ ጸድቋል!"}
-    
-    else:
-        deposit.status = "Rejected"
-        deposit.approved_by = payload.admin_telegram_id
-        db.commit()
+            if payload.message_id:
+                text = (
+                    f"🟢 <b>የዲፖዚት ጥያቄ #{deposit.id} ጸድቋል!</b>\n\n"
+                    f"💰 <b>የተጨመረው መጠን፦</b> {deposit.amount} ETB\n"
+                    f"👤 <b>ተጫዋች ID፦</b> <code>{user.telegram_id}</code>\n"
+                    f"🏦 <b>ባንክ፦</b> {deposit.method}\n"
+                    f"👮‍♂️ <b>ያጸደቀው አድሚን፦</b> {payload.admin_telegram_id}"
+                )
+                background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
+                
+            return {"success": True, "message": "ዲፖዚቱ በተሳካ ሁኔታ ጸድቋል!"}
         
-        if payload.message_id:
-            text = f"🔴 <b>የዲፖዚት ጥያቄ #{deposit.id} ውድቅ ተደርጓል!</b>"
-            background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
+        else:
+            deposit.status = "Rejected"
+            deposit.approved_by = str(payload.admin_telegram_id)
+            db.commit()
             
-        return {"success": True, "message": "ጥያቄው ውድቅ ተደርጓል!"}
+            if payload.message_id:
+                text = f"🔴 <b>የዲፖዚት ጥያቄ #{deposit.id} ውድቅ ተደርጓል!</b>\n👮‍♂️ <b>የሰረዘው አድሚን፦</b> {payload.admin_telegram_id}"
+                background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
+                
+            return {"success": True, "message": "ጥያቄው ውድቅ ተደርጓል!"}
+
+    except Exception as e:
+        db.rollback()
+        # ⚠️ ስህተት ከተፈጠረ አድሚኑ እንዲያውቀው መልዕክት ይላክ (Loading እንዳይቀር)
+        error_msg = f"❌ <b>ባክኤንድ ስህተት (Deposit Approve)፦</b>\n<code>{str(e)}</code>"
+        send_admin_notification(error_msg)
+        return {"success": False, "message": f"Internal Server Error: {str(e)}"}
+
 
 # 👮‍♂️ 6. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Withdraw)
 @router.post("/withdraw/admin/approve")
 def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    if not str(payload.admin_telegram_id).strip().isdigit():
-        return {"success": False, "message": "Invalid admin ID."}
-    
-    withdraw = db.query(Withdrawal).filter(Withdrawal.id == payload.withdraw_id).first()
-    if not withdraw: 
-        return {"success": False, "message": "የማውጫ ጥያቄው አልተገኘም"}
-    if withdraw.status != "Pending": 
-        return {"success": False, "message": "ይህ ጥያቄ ቀድሞ ውሳኔ አግኝቷል"}
+    try:
+        withdraw = db.query(Withdrawal).filter(Withdrawal.id == payload.withdraw_id).first()
+        if not withdraw: 
+            return {"success": False, "message": "የማውጫ ጥያቄው በዳታቤዝ ውስጥ አልተገኘም!"}
+        
+        if withdraw.status != "Pending": 
+            return {"success": False, "message": "ይህ ጥያቄ ቀድሞ ውሳኔ አግኝቷል!"}
 
-    user = db.query(User).filter(User.id == withdraw.user_id).first()
-    if not user: 
-        return {"success": False, "message": "ተጫዋቹ አልተገኘም"}
+        user = db.query(User).filter(User.id == withdraw.user_id).first()
+        if not user: 
+            return {"success": False, "message": "ተጫዋቹ አልተገኘም!"}
 
-    if payload.action == "REJECT":
-        user.balance += withdraw.amount
-        withdraw.status = "Rejected"
-        withdraw.approved_by = payload.admin_telegram_id
-        db.commit()
-             
-        if payload.message_id:
-            text = f"🔴 <b>የማውጫ ጥያቄ #{withdraw.id} ተሰርዟል!</b>\n💰 {withdraw.amount} ETB ተመልሷል"
-            background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
+        if payload.action == "REJECT":
+            # 💰 ብሩን ለተጫዋቹ መልስ
+            user.balance += withdraw.amount
+            withdraw.status = "Rejected"
+            withdraw.approved_by = str(payload.admin_telegram_id)
+            db.commit()
+                 
+            if payload.message_id:
+                text = (
+                    f"🔴 <b>የማውጫ ጥያቄ #{withdraw.id} ተሰርዟል!</b>\n\n"
+                    f"💰 <b>የተመለሰው መጠን፦</b> {withdraw.amount} ETB\n"
+                    f"👤 <b>ተጫዋች ID፦</b> <code>{user.telegram_id}</code>\n"
+                    f"👮‍♂️ <b>የሰረዘው አድሚን፦</b> {payload.admin_telegram_id}"
+                )
+                background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
+                
+            return {"success": True, "message": "የማውጫ ጥያቄው ውድቅ ተደርጎ ብሩ ተመልሷል!"}
+        
+        else:
+            withdraw.status = "Approved"
+            withdraw.approved_by = str(payload.admin_telegram_id)
+            db.commit()
             
-        return {"success": True, "message": "የማውጫ ጥያቄው ውድቅ ተደርጎ ብሩ ተመልሷል!"}
-    
-    else:
-        withdraw.status = "Approved"
-        withdraw.approved_by = payload.admin_telegram_id
-        db.commit()
-        
-        if payload.message_id:
-            text = f"🟢 <b>የማውጫ ክፍያ #{withdraw.id} መፈጸሙ ተረጋግጧል!</b>\n💰 መጠን፦ {withdraw.amount} ETB"
-            background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
-        
-        return {"success": True, "message": "ክፍያው መፈጸሙ ተረጋግጧል!"}
+            if payload.message_id:
+                text = (
+                    f"🟢 <b>የማውጫ ክፍያ #{withdraw.id} መፈጸሙ ተረጋግጧል!</b>\n\n"
+                    f"💰 <b>የወጣው መጠን፦</b> {withdraw.amount} ETB\n"
+                    f"🏦 <b>ባንክ፦</b> {withdraw.method}\n"
+                    f"💳 <b>አካውንት፦</b> <code>{withdraw.wallet}</code>\n"
+                    f"👮‍♂️ <b>ያጸደቀው አድሚን፦</b> {payload.admin_telegram_id}"
+                )
+                background_tasks.add_task(_telegram_edit_message_sync, payload.message_id, text)
+            
+            return {"success": True, "message": "ክፍያው መፈጸሙ ተረጋግጧል!"}
+
+    except Exception as e:
+        db.rollback()
+        # ⚠️ ስህተት ከተፈጠረ መልዕክት ይላክ
+        error_msg = f"❌ <b>ባክኤንድ ስህተት (Withdraw Approve)፦</b>\n<code>{str(e)}</code>"
+        send_admin_notification(error_msg)
+        return {"success": False, "message": f"Internal Server Error: {str(e)}"}
