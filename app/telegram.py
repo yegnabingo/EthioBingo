@@ -4,15 +4,13 @@ import requests
 from telebot import TeleBot, types
 
 # --------------------------------------------------------------------------
-# ⚙️ የቅንብር ክፍሎች (በአዲሱ የRailway Variables መሠረት)
+# ⚙️ የቅንብር ክፍሎች (ቀጥተኛ እና አስተማማኝ)
 # --------------------------------------------------------------------------
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-ADMIN_TELEGRAM_ID = str(os.getenv("ADMIN_TELEGRAM_ID", "")).strip()
 BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123456789")
-WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "") # 🔐 ሚስጥራዊ ቁልፍ
 
-# 🔗 የባክኤንድ እና የሚኒ አፕ ሊንኮች
+# 🔗 የባክኤንድ አድራሻ (የመጨረሻውን slash ያጠፋል)
 SERVER_URL = os.getenv("SERVER_URL", "https://web-production-fd82a.up.railway.app").rstrip('/')
 BACKEND_URL = SERVER_URL
 MINI_APP_URL = SERVER_URL
@@ -48,10 +46,8 @@ def inline_check_balance(call):
     telegram_id = str(call.from_user.id)
     url = f"{BACKEND_URL}/api/users/{telegram_id}" 
     
-    headers = {"X-Webhook-Secret": WEBHOOK_SECRET} if WEBHOOK_SECRET else {}
-    
     try:
-        response = requests.get(url, headers=headers, timeout=15)
+        response = requests.get(url, timeout=15)
         try:
             res_data = response.json()
         except:
@@ -63,8 +59,8 @@ def inline_check_balance(call):
             bot.send_message(call.message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {balance} ETB")
         else:
             bot.send_message(call.message.chat.id, "❌ ተጠቃሚዎ አልተመዘገበም፣ እባክዎ መጀመሪያ ሚኒ አፑን ይክፈቱ!")
-    except Exception:
-        bot.send_message(call.message.chat.id, "⚠️ የባላንስ መረጃን ለማምጣት አልተቻለም።")
+    except Exception as e:
+        bot.send_message(call.message.chat.id, f"⚠️ የባላንስ መረጃን ለማምጣት አልተቻለም፦ {str(e)}")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "start_deposit")
@@ -94,26 +90,19 @@ def process_deposit_amount(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
     
-    # 1. መጀመሪያ Loading ምልክቱን እናጥፋው (Don't keep it hanging)
+    # 1. Loading አኒሜሽኑን ወዲያውኑ እናጥፋው
     try:
         bot.answer_callback_query(call.id)
     except Exception as e:
-        print(f"⚠️ Failed to answer callback query: {e}")
+        print(f"⚠️ Callback answer error: {e}")
     
-    print("========== CALLBACK ==========")
     admin_id_str = str(call.from_user.id).strip()
-    
-    # 2. የአድሚን ID ማረጋገጫ (ባዶ ካልሆነ ብቻ ያወዳድራል)
-    if ADMIN_TELEGRAM_ID and ADMIN_TELEGRAM_ID != "" and admin_id_str != ADMIN_TELEGRAM_ID:
-        error_msg = f"❌ ይቅርታ፣ ይህንን ትዕዛዝ ለመፈጸም የአስተዳዳሪ ፈቃድ የለዎትም! (የእርስዎ ID: {admin_id_str})"
-        bot.send_message(call.message.chat.id, error_msg)
-        return
-
     action_data = call.data.split('_')
     action = action_data[0]    # 'app' ወይም 'rej'
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
     target_id = int(action_data[2])
 
+    # 2. ዩአርኤል እና ፔይሎድ ማዘጋጀት
     if tx_type == "dep":
         url = f"{BACKEND_URL}/api/deposit/admin/approve"
         payload = {
@@ -133,31 +122,28 @@ def handle_admin_actions(call):
             "admin_password": ADMIN_PASSWORD
         }
 
-    # 🔐 ሄደሮች ማዘጋጀት
     headers = {"Content-Type": "application/json"}
-    if WEBHOOK_SECRET:
-        headers["X-Webhook-Secret"] = WEBHOOK_SECRET
 
-    print("POST URL:", url)
-    print("PAYLOAD:", payload)
+    print(f"📡 Sending request to: {url}")
+    print(f"📦 Payload: {payload}")
 
     try:
+        # 3. ጥያቄውን ቀጥታ ወደ FastAPI መላክ
         response = requests.post(url, json=payload, headers=headers, timeout=15)
-        print("STATUS:", response.status_code)
-        print("BODY:", response.text)
+        
+        print(f"📊 Response Status: {response.status_code}")
+        print(f"📝 Response Body: {response.text}")
 
         try:
             res_data = response.json()
         except:
             res_data = {"success": False, "message": response.text}
 
+        # 4. ውጤቱን ማስተናገድ
         if response.status_code == 200 and res_data.get("success"):
-            print("✅ Admin Action successfully processed by backend.")
-            
             status_text = "🟢 ጸድቋል (APPROVED)" if action == "app" else "🔴 ውድቅ ተደርጓል (REJECTED)"
             type_text = "ገንዘብ ማስገቢያ" if tx_type == "dep" else "ገንዘብ ማውጫ"
             
-            # ስህተት እንዳይፈጥር በ HTML ፎርማት ተተክቷል
             updated_text = (
                 f"📝 <b>የእርምጃ ማጠቃለያ</b>\n\n"
                 f"🔹 <b>ዓይነት፦</b> {type_text}\n"
@@ -173,13 +159,12 @@ def handle_admin_actions(call):
                 parse_mode="HTML"
             )
         else:
-            error_detail = res_data.get('message', 'Unknown Error')
-            print(f"❌ Backend returned error: {error_detail}")
-            bot.send_message(call.message.chat.id, f"❌ ስህተት፦ {error_detail}")
+            error_detail = res_data.get('message', f'HTTP Error {response.status_code}')
+            bot.send_message(call.message.chat.id, f"❌ ሰርቨሩ ጥያቄውን አልተቀበለውም፦ {error_detail}")
 
     except Exception as e:
         print("Admin Action Error:", e)
-        bot.send_message(call.message.chat.id, f"❌ ከባክኤንድ ሰርቨር ጋር መገናኘት አልተቻለም፦ {str(e)}")
+        bot.send_message(call.message.chat.id, f"❌ ወደ ባክኤንድ መገናኘት አልተቻለም፦ {str(e)}")
 
 
 if __name__ == "__main__":
