@@ -157,7 +157,7 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
             method=req.bank_name,     
             sms_text=req.sms_data,    
             tx_hash=f"ባንክ፦ {req.bank_name} | SMS፦ {req.sms_data}", 
-            status="Pending",
+            status="pending",
             created_at=datetime.utcnow(),
             telegram_id=tg_id_str,
             telegram_name=req.telegram_name if req.telegram_name else "ተጫዋች",
@@ -173,8 +173,8 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
 
     inline_keyboard = {
         "inline_keyboard": [[
-            {"text": "✅ Approve (አጽድቅ)", "callback_data": f"app_dep_{new_deposit.id}"},
-            {"text": "❌ Reject (ሰርዝ)", "callback_data": f"rej_dep_{new_deposit.id}"}
+            {"text": "✅ APPROVED (አጽድቅ)", "callback_data": f"app_dep_{new_deposit.id}"},
+            {"text": "❌ REJECTED (ሰርዝ)", "callback_data": f"rej_dep_{new_deposit.id}"}
         ]]
     }
 
@@ -215,7 +215,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
             amount=req.amount,
             method=req.bank_name,     
             wallet=str(req.account_number), 
-            status="Pending",
+            status="pending",
             created_at=datetime.utcnow()
         )
         db.add(new_withdraw)
@@ -228,8 +228,8 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
 
     inline_keyboard = {
         "inline_keyboard": [[
-            {"text": "✅ Paid (ከፍያለሁ)", "callback_data": f"app_wit_{new_withdraw.id}"},
-            {"text": "❌ Reject (ሰርዝ)", "callback_data": f"rej_wit_{new_withdraw.id}"}
+            {"text": "✅ APPROVED (ከፍያለሁ)", "callback_data": f"app_wit_{new_withdraw.id}"},
+            {"text": "❌ REJECTED (ሰርዝ)", "callback_data": f"rej_wit_{new_withdraw.id}"}
         ]]
     }
 
@@ -262,7 +262,7 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
         if not user: 
             return {"success": False, "message": "ይህንን ጥያቄ የላከው ተጫዋች አልተገኘም!"}
 
-        if payload.action == "APPROVE":
+        if payload.action == "APPROVED":
             current_wallet = getattr(user, "wallet", 0.0) or 0.0
             user.wallet = current_wallet + deposit.amount
             user.balance = user.wallet
@@ -296,7 +296,7 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
 
     except Exception as e:
         db.rollback()
-        error_msg = f"❌ <b>ባክኤንድ ስህተት (Deposit Approve)፦</b>\n<code>{str(e)}</code>"
+        error_msg = f"❌ <b>ባክኤንድ ስህተት (Deposit Approved)፦</b>\n<code>{str(e)}</code>"
         send_admin_notification(error_msg)
         return {"success": False, "message": f"Internal Server Error: {str(e)}"}
 
@@ -316,7 +316,7 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
         if not user: 
             return {"success": False, "message": "ተጫዋቹ አልተገኘም!"}
 
-        if payload.action == "REJECT":
+        if payload.action == "REJECTED":
             current_wallet = getattr(user, "wallet", 0.0) or 0.0
             user.wallet = current_wallet + withdraw.amount
             user.balance = user.wallet
@@ -355,6 +355,6 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
 
     except Exception as e:
         db.rollback()
-        error_msg = f"❌ <b>ባክኤንድ ስህተት (Withdraw Approve)፦</b>\n<code>{str(e)}</code>"
+        error_msg = f"❌ <b>ባክኤንድ ስህተት (Withdraw Approved)፦</b>\n<code>{str(e)}</code>"
         send_admin_notification(error_msg)
         return {"success": False, "message": f"Internal Server Error: {str(e)}"}
