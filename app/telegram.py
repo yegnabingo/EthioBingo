@@ -15,7 +15,6 @@ SERVER_URL = os.getenv("SERVER_URL", "https://web-production-fd82a.up.railway.ap
 BACKEND_URL = "https://web-production-fd82a.up.railway.app"
 MINI_APP_URL = "https://web-production-fd82a.up.railway.app"
 
-
 bot = TeleBot(BOT_TOKEN)
 
 print(f"🎰 የYegnaኛ Bingo ቦት (@{BOT_USERNAME}) በሰላም ስራ ጀምሯል...")
@@ -142,23 +141,9 @@ def handle_admin_actions(call):
 
         # 4. ውጤቱን ማስተናገድ
         if response.status_code == 200 and res_data.get("success"):
-            status_text = "🟢 ጸድቋል (APPROVED)" if action == "app" else "🔴 ውድቅ ተደርጓል (REJECTED)"
-            type_text = "ገንዘብ ማስገቢያ" if tx_type == "dep" else "ገንዘብ ማውጫ"
-            
-            updated_text = (
-                f"📝 <b>የእርምጃ ማጠቃለያ</b>\n\n"
-                f"🔹 <b>ዓይነት፦</b> {type_text}\n"
-                f"🔹 <b>መለያ (ID)፦</b> #{target_id}\n"
-                f"🔹 <b>ሁኔታ፦</b> {status_text}\n\n"
-                f"✅ መረጃው በዳታቤዝ ላይ በተሳካ ሁኔታ ተዘምኗል!"
-            )
-            
-            bot.edit_message_text(
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
-                text=updated_text,
-                parse_mode="HTML"
-            )
+            # 💡 ፊክስ፦ መልዕክቱን ማስተካከል (Edit) በ FastAPI Background Task ስለሚሰራ እዚህ ጋር በድጋሚ ኤዲት ማድረግ አያስፈልግም!
+            # ይህ መደረጉ በቴሌግራም ኤፒአይ ላይ የሚፈጠረውን ግጭት (Conflict) ያስቀራል።
+            print(f"✅ Action successfully handled by backend for ID #{target_id}")
         else:
             error_detail = res_data.get('message', f'HTTP Error {response.status_code}')
             bot.send_message(call.message.chat.id, f"❌ ሰርቨሩ ጥያቄውን አልተቀበለውም፦ {error_detail}")
