@@ -12,8 +12,9 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123456789")
 
 # 🔗 የባክኤንድ አድራሻ (የመጨረሻውን slash ያጠፋል)
 SERVER_URL = os.getenv("SERVER_URL", "https://web-production-fd82a.up.railway.app").rstrip('/')
-BACKEND_URL = SERVER_URL
-MINI_APP_URL = SERVER_URL
+BACKEND_URL = "https://web-production-fd82a.up.railway.app"
+MINI_APP_URL = "https://web-production-fd82a.up.railway.app"
+
 
 bot = TeleBot(BOT_TOKEN)
 
