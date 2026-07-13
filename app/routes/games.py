@@ -26,12 +26,15 @@ def current_game(
     # 1. መጀመሪያ የተጫዋቹን መረጃ ከዳታቤዝ መፈለግ
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
     
-    # ተጠቃሚው በዳታቤዝ እስካሁን ከሌለ በራስ-ሰር እንመዘግበዋለን (Auto-Registration)
+    # 🎯 ፊክስ፦ ተጫዋቹ በዳታቤዝ ከሌለ እና በራሱ ሰርቨር ሲመዘገብ ከ crud.py እና users.py ጋር እንዲስማማ ማድረግ
     if not user:
         user = User(
             telegram_id=telegram_id,
+            telegram_name=f"User_{telegram_id}",
+            first_name="Player",
             balance=0.0,
-            gift_coin=0.0,  # 🛠 ፊክስ፦ ከቀድሞው ሞዴል 'gift_coin' ጋር ስሙ ተስተካክሏል
+            wallet=0.0,      # ሁለቱንም የሞዴል አማራጮች ለመጠበቅ
+            gift_coin=0.0,   # ከቀድሞው ሞዴል 'gift_coin' ጋር ስሙ ተስተካክሏል
             is_admin=False
         )
         db.add(user)
@@ -84,7 +87,7 @@ def current_game(
     total_pool_money = total_cards_bought * game.ticket_price
     derash_money = total_pool_money * 0.80  # 80% ህግ
 
-    # 🎯 5. ለተጫዋቹ የፊት ገጽ (Frontend) መረጃውን መመለስ
+    # 🎯 5. ለተጫዋቹ የፊት ገጽ (Frontend) እና ለቦቱ መረጃውን መመለስ
     return {
         "success": True,
         "game_id": game.id,                      # የዳታቤዝ መታወቂያ
@@ -94,7 +97,11 @@ def current_game(
         # 📊 ለአኒሜሽን ገጾች የሚያስፈልጉት ሰባቱ ቁልፍ መረጃዎች፦
         "bet": game.ticket_price,                 # Bet (10, 20, 50...)
         "active_game": 1 if game.status == "running" else 0, # Active Game
-        "wallet": user.balance,                   # Wallet - Real User Balance
+        
+        # 🎯 ፊክስ፦ ፍሮንትኤንዱም ሆነ ቴሌግራም ቦቱ በየትኛውም ስም ቢፈልጉት እንዳያጡት ሁለቱንም በአንድ ላይ እንልካለን
+        "wallet": user.balance,                   # ለአሮጌው ፍሮንትኤንድ/ቦት ሎጂክ
+        "balance": user.balance,                  # ለአዲሱ የተስተካከለው ሎጂክ
+        
         "gift": user.gift_coin,                   # Gift Coin (የተስተካከለ)
         "players": total_cards_bought,            # Players (የተያዘ የካርድ ብዛት)
         "derash": round(derash_money, 2),         # Derash (ካሸነፈ የሚደርሰው የ 80% ብር)
