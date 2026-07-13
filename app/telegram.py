@@ -62,7 +62,8 @@ def inline_check_balance(call):
 
         if response.status_code == 200 and res_data.get("success"):
             user_obj = res_data.get("user", {})
-            wallet_amount = user_obj.get("wallet", 0.0) 
+            # 💡 ከጌሙ ባላንስ ጋር እንዲቀናጅ ከ wallet ወደ balance ተቀይሯል
+            wallet_amount = user_obj.get("balance", 0.0) 
             bot.send_message(call.message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {wallet_amount} ETB")
         else:
             bot.send_message(call.message.chat.id, "❌ ተጠቃሚዎ አልተመዘገበም፣ እባክዎ መጀመሪያ ሚኒ አፑን ይክፈቱ!")
@@ -119,7 +120,7 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
             except:
                 pass
             
-            # 🎯 2. ልክ አንተ በላክኸው ምስል ላይ እንዳለው መልዕክቱን ማሻሻልና ቁልፎቹን ማጥፋት
+            # 🎯 2. መልዕክቱን ማሻሻልና ቁልፎቹን ማጥፋት
             status_emoji = "✅" if action == "app" else "❌"
             status_text = "APPROVED" if action == "app" else "REJECTED"
             current_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
@@ -154,7 +155,6 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
 # 🛠️ አድሚኑ የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
 def handle_admin_actions(call):
-    # 'Loading...' ምልክቱን ለማሳየት መጀመሪያውኑ ምላሽ እንሰጣለን
     try:
         bot.answer_callback_query(callback_query_id=call.id, text="⏳ ውሳኔዎ በሂደት ላይ ነው...")
     except:
@@ -166,11 +166,9 @@ def handle_admin_actions(call):
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
     target_id = int(action_data[2])
 
-    # ዩአርኤል እና ፔይሎድ ማዘጋጀት
-    # 💡 ፊክስ፦ በ users.py ላይ ስታተሱ "approved" እና "rejected" (በትናንሽ ፊደል) ስለሚፈልግ እዚህ ጋር ተስተካክሏል
-    backend_action = "APPROVED" if action == "app" else "REJECTED"
-    
+    # 🎯 ፊክስ፦ ባክኤንዱ (users.py) ከሚጠብቀው ቃላት ጋር 100% እንዲገጥም ተደርጓል
     if tx_type == "dep":
+        backend_action = "APPROVE" if action == "app" else "REJECT"
         url = f"{BACKEND_URL}/api/deposit/admin/approve"
         payload = {
             "deposit_id": target_id, 
@@ -180,6 +178,8 @@ def handle_admin_actions(call):
             "admin_password": ADMIN_PASSWORD
         }
     else:
+        # ዊዝድሮው ሪጄክት ሲደረግ ባክኤንዱ "REJECT" ነው የሚፈልገው
+        backend_action = "APPROVE" if action == "app" else "REJECT"
         url = f"{BACKEND_URL}/api/withdraw/admin/approve"
         payload = {
             "withdraw_id": target_id, 
