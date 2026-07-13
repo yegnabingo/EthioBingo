@@ -166,25 +166,24 @@ def handle_admin_actions(call):
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
     target_id = int(action_data[2])
 
-    # 🎯 ፊክስ፦ ባክኤንዱ (users.py) ከሚጠብቀው ቃላት ጋር 100% እንዲገጥም ተደርጓል
+    # 🎯 ፊክስ፦ ፔይሎዱ "admin_id" በሚለው የባክኤንድ ስም ተስተካክሏል
     if tx_type == "dep":
         backend_action = "APPROVE" if action == "app" else "REJECT"
         url = f"{BACKEND_URL}/api/deposit/admin/approve"
         payload = {
             "deposit_id": target_id, 
             "action": backend_action,
-            "admin_telegram_id": admin_id_str,
+            "admin_id": admin_id_str,        # ✅ ተስተካከለ
             "message_id": call.message.message_id,
             "admin_password": ADMIN_PASSWORD
         }
     else:
-        # ዊዝድሮው ሪጄክት ሲደረግ ባክኤንዱ "REJECT" ነው የሚፈልገው
         backend_action = "APPROVE" if action == "app" else "REJECT"
         url = f"{BACKEND_URL}/api/withdraw/admin/approve"
         payload = {
             "withdraw_id": target_id, 
             "action": backend_action,
-            "admin_telegram_id": admin_id_str,
+            "admin_id": admin_id_str,        # ✅ ተስተካከለ
             "message_id": call.message.message_id,
             "admin_password": ADMIN_PASSWORD
         }
