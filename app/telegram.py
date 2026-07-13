@@ -8,7 +8,7 @@ from telebot import TeleBot, types
 # --------------------------------------------------------------------------
 # ⚙️ የቅንብር ክፍሎች (ቀጥተኛ እና አስተማማኝ)
 # --------------------------------------------------------------------------
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+BOT_TOKEN = os.getenv("BOT_TOKEN", os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE"))
 BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123456789")
 
