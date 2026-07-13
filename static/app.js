@@ -534,12 +534,13 @@ async function refreshUserBalance() {
             const data = await response.json();
             if (data.success && data.user) {
                 
-                // 💡 ፊክስ፦ አስተያየት መስጫው ወደ ትክክለኛው የጃቫስክሪፕት ' //' ተቀይሯል
+                // 🎯 ፊክስ፦ ጌሙ ከ wallet ይልቅ በቀጥታ balance የተባለውን ኮለም እንዲያነብ ተደርጓል
                 let walletElement = document.getElementById('wallet') || document.getElementById('walletBalance');
+                const userBalance = data.user.balance !== undefined ? data.user.balance : 0.0;
                 
                 if (walletElement) {
-                    walletElement.innerText = `${data.user.wallet} ETB`;
-                    console.log("✅ በሚኒ አፑ ስክሪን ላይ አዲሱ ባላንስ ተጭኗል፦", data.user.wallet);
+                    walletElement.innerText = `${userBalance} ETB`;
+                    console.log("✅ በሚኒ አፑ ስክሪን ላይ አዲሱ ባላንስ ተጭኗል፦", userBalance);
                 } else {
                     console.error("⚠️ ስህተት፦ በስክሪኑ ላይ የWallet ሳጥን መለያ (ID) አልተገኘም!");
                 }
@@ -632,7 +633,7 @@ async function submitDeposit() {
         }
     } catch (error) {
         console.error('Deposit Error:', error);
-        alert('⚠️ ከሰርቨር ጋር መገናኘት አልተቻለም።');
+        alert('⚠️ ከሰርቨር ጋር መገናኘት አልተቻለም。');
     }
 }
 
