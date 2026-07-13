@@ -264,7 +264,7 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
         if not user: 
             return {"success": False, "message": "ይህንን ጥያቄ የላከው ተጫዋች አልተገኘም!"}
 
-        if payload.action == "APPROVE":
+        if payload.action in ["APPROVE", "APPROVED"]:
             # 🎯 ፊክስ፦ አሁን ባለው balance ላይ አዲሱን ዲፖዚት ይደምራል
             current_balance = getattr(user, "balance", 0.0) or 0.0
             user.balance = current_balance + deposit.amount
@@ -319,7 +319,7 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
         if not user: 
             return {"success": False, "message": "ተጫዋቹ አልተገኘም!"}
 
-        if payload.action == "REJECT":
+        if payload.action in ["REJECT", "REJECTED"]:
             # 🎯 ፊክስ፦ የዊዝድሮው ጥያቄ ውድቅ ሲሆን ብሩ ወደ balance ይመለሳል (Refund)
             current_balance = getattr(user, "balance", 0.0) or 0.0
             user.balance = current_balance + withdraw.amount
