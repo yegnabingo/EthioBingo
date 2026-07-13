@@ -80,8 +80,9 @@ class GameEngine:
                 countdown_seconds = settings.countdown_seconds if settings else 30
                 draw_interval = settings.draw_interval if settings else 2.0
 
+                # 💡 መጀመሪያ ጌሙን በ 'pending' status እንፈጥረዋለን (ዳታቤዙን በባዶ ላለማጨናነቅ)
                 game = Game(
-                    status="running",
+                    status="pending",
                     started_at=datetime.now(timezone.utc),
                     taken_cards="[]",
                     drawn_balls="[]"
@@ -93,26 +94,32 @@ class GameEngine:
                 self.current_game = game
                 game_display_no = str(100000 + saved_game_id)
                 
+                # ወደ Countdown መሸጋገር
                 has_bought_cards = await self.countdown(countdown_seconds, game_display_no, saved_game_id)
 
                 if self.running and has_bought_cards:
+                    # 💡 እውነተኛ ተጫዋች ካለ ብቻ ስታተሱን ወደ 'running' እንቀይረዋለን
+                    game_record = db.query(Game).filter(Game.id == saved_game_id).first()
+                    if game_record:
+                        game_record.status = "running"
+                        db.commit()
                     await self.draw_numbers(draw_interval, game_display_no, saved_game_id)
                 else:
-                    print(f"🔄 Game {game_display_no} ላይ ምንም ካርድ አልተሸጠም። ወደ DRAW ሳይሻገር ዑደቱ እንደገና ይጀምራል።")
+                    print(f"🔄 Game {game_display_no} ላይ ምንም ካርድ አልተሸጠም። ወደ DRAW ሳይሻገር ዑደቱ ተሰርዟል።")
                     game_record = db.query(Game).filter(Game.id == saved_game_id).first()
                     if game_record:
                         game_record.status = "cancelled"
                         db.commit()
 
-                await asyncio.sleep(2)
+                await asyncio.sleep(4)  # በሚቀጥለው ዙር መካከል ትንሽ እረፍት
 
             except Exception as e:
                 print(f"❌ Error in game loop iteration: {e}")
-                await asyncio.sleep(1)
+                await asyncio.sleep(2)
             finally:
                 if db:
                     try:
-                        # ⚠️ CRITICAL FIX: Only reset cards assigned explicitly to this closed game thread loop!
+                        # 🎯 ፊክስ፦ የዚህን ዙር የጨዋታ ካርዶች ብቻ ማጽዳት
                         if saved_game_id:
                             db.query(Card).filter(Card.current_game_id == saved_game_id).update({
                                 Card.is_taken: False, 
@@ -133,7 +140,8 @@ class GameEngine:
             db: Session = None
             try:
                 db = SessionLocal()
-                taken_cards = db.query(Card.card_number).filter(Card.is_taken == True).all()
+                # 🎯 ፊክስ፦ ከአሁኑ ጨዋታ ጋር የተያያዙ ካርዶችን ብቻ መቁጠር
+                taken_cards = db.query(Card.card_number).filter(Card.current_game_id == saved_game_id, Card.is_taken == True).all()
                 current_taken_list = [c[0] for c in taken_cards]
                 
                 sold_cards_count = db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).count()
@@ -256,7 +264,8 @@ class GameEngine:
 
                 await asyncio.sleep(interval)
 
-            if not winner_detected and self.running:
+            # 💡 ፊክስ፦ እውነተኛ ተጫዋቾች ብቻ ባሉበት ሁኔታ ማንም ካላሸነፈ ብቻ ወደ House Win ይሄዳል
+            if not winner_detected and self.running and len(bought_cards) > 0:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, total_pool_money, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
 
@@ -307,13 +316,13 @@ class GameEngine:
         return False, [], ""
 
     def process_drawn_ball_and_check_winner(self, db, game_id, current_drawn_balls, total_pool_money, bought_cards, all_200_cards):
+        # 1. መጀመሪያ እውነተኛ የተሸጡ ካርዶችን ብቻ መፈተሽ
         for card_num, user_id in bought_cards.items():
             card_matrix = all_200_cards.get(str(card_num))
             if card_matrix:
                 is_win, win_nums, pattern = self.check_bingo_patterns(card_matrix, current_drawn_balls)
                 if is_win:
                     self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=user_id, winning_card=card_num)
-                    # Flatten full matrix data for frontend delivery
                     flat_card = [item for sublist in card_matrix for item in sublist]
                     return {
                         "status": "WINNER_FOUND",
@@ -325,23 +334,25 @@ class GameEngine:
                         "winning_pattern": pattern
                     }
 
-        for card_num in range(1, 201):
-            if card_num not in bought_cards:
-                card_matrix = all_200_cards.get(str(card_num))
-                if card_matrix:
-                    is_win, win_nums, pattern = self.check_bingo_patterns(card_matrix, current_drawn_balls)
-                    if is_win:
-                        self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=None, winning_card=card_num)
-                        flat_card = [item for sublist in card_matrix for item in sublist]
-                        return {           
-                            "status": "HOUSE_WIN",
-                            "message": f"🎉 ካርድ #{card_num} አሸንፏል!",
-                            "winner_id": 0,
-                            "card_number": card_num,
-                            "winning_numbers": win_nums,
-                            "card_numbers": flat_card,
-                            "winning_pattern": pattern
-                        }
+        # 💡 ፊክስ፦ እውነተኛ ተጫዋች ከሌለ በስተቀር በባዶው ወደ House Win ሉፕ አይገባም!
+        if len(bought_cards) > 0:
+            for card_num in range(1, 201):
+                if card_num not in bought_cards:
+                    card_matrix = all_200_cards.get(str(card_num))
+                    if card_matrix:
+                        is_win, win_nums, pattern = self.check_bingo_patterns(card_matrix, current_drawn_balls)
+                        if is_win:
+                            self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=None, winning_card=card_num)
+                            flat_card = [item for sublist in card_matrix for item in sublist]
+                            return {           
+                                "status": "HOUSE_WIN",
+                                "message": f"🎉 ካርድ #{card_num} አሸንፏል!",
+                                "winner_id": 0,
+                                "card_number": card_num,
+                                "winning_numbers": win_nums,
+                                "card_numbers": flat_card,
+                                "winning_pattern": pattern
+                            }
         return {"status": "CONTINUE"}
 
     def force_house_win(self, db, game_id, current_drawn_balls, total_pool_money, bought_cards, all_200_cards):
