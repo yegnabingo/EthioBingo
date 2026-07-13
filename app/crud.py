@@ -1,7 +1,5 @@
 from sqlalchemy.orm import Session
-
 from app import models
-
 
 # ==========================
 # USERS
@@ -21,11 +19,14 @@ def create_user(
     telegram_name: str,
     first_name: str
 ):
+    # 🎯 ፊክስ፦ አዲስ ሰው ሲመዘገብ balance እና wallet ሁለቱም 0 መሆናቸውን እዚህ ላይ እናረጋግጣለን
     user = models.User(
         telegram_id=telegram_id,
         telegram_name=telegram_name,
         first_name=first_name,
-        balance=0
+        balance=0.0,
+        wallet=0.0,
+        gift_coin=0.0
     )
 
     db.add(user)
