@@ -62,7 +62,6 @@ def inline_check_balance(call):
 
         if response.status_code == 200 and res_data.get("success"):
             user_obj = res_data.get("user", {})
-            # 💡 ከጌሙ ባላንስ ጋር እንዲቀናጅ ከ wallet ወደ balance ተቀይሯል
             wallet_amount = user_obj.get("balance", 0.0) 
             bot.send_message(call.message.chat.id, f"💰 ያሎት ቀሪ ሂሳብ (Balance)፦ {wallet_amount} ETB")
         else:
@@ -112,7 +111,6 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
         if response.status_code == 200 and res_data.get("success"):
             print(f"✅ Action successfully handled by backend for ID #{target_id}")
             
-            # 🎯 1. ቴሌግራም ላይ የፖፕ-አፕ (Alert) ማረጋገጫ ማሳያ 
             label = "Deposit" if tx_type == "dep" else "Withdrawal"
             alert_text = f"✅ {label} #{target_id} approved successfully!" if action == "app" else f"❌ {label} #{target_id} rejected & balance refunded"
             try:
@@ -120,7 +118,6 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
             except:
                 pass
             
-            # 🎯 2. መልዕክቱን ማሻሻልና ቁልፎቹን ማጥፋት
             status_emoji = "✅" if action == "app" else "❌"
             status_text = "APPROVED" if action == "app" else "REJECTED"
             current_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
@@ -133,23 +130,24 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
                     message_id=call.message.message_id,
                     text=new_text,
                     parse_mode="HTML",
-                    reply_markup=None  # ቁልፎቹን ሙሉ በሙሉ ያጠፋቸዋል
+                    reply_markup=None  # ቁلፎቹን ያጠፋል
                 )
             except Exception as edit_err:
                 print(f"⚠️ Telegram message edit minor issue: {edit_err}")
                 
         else:
+            # 💡 ፊክስ፦ ስህተት ቢፈጠርም እንኳ የቴሌግራምን Loading/ክብ ማሽከርከር ያቆመዋል!
             error_detail = res_data.get('message', f'HTTP Error {response.status_code}')
             try:
-                bot.answer_callback_query(call.id, text=f"❌ ስህተት፦ {error_detail}", show_alert=True)
+                bot.answer_callback_query(call.id, text=f"❌ ስህተት (ባክኤንድ)፦ {error_detail}", show_alert=True)
             except:
-                bot.send_message(call.message.chat.id, f"❌ ሰርቨሩ ጥያቄውን አልተቀበለውም፦ {error_detail}")
+                pass
     except Exception as e:
         print("Admin Action Error:", e)
         try:
             bot.answer_callback_query(call.id, text="⚠️ ከባክኤንድ ሰርቨር ጋር መገናኘት አልተቻለም።", show_alert=True)
         except:
-            bot.send_message(call.message.chat.id, f"❌ ወደ ባክኤንድ መገናኘት አልተቻለም፦ {str(e)}")
+            pass
 
 
 # 🛠️ አድሚኑ የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
@@ -166,14 +164,14 @@ def handle_admin_actions(call):
     tx_type = action_data[1]   # 'dep' ወይም 'wit'
     target_id = int(action_data[2])
 
-    # 🎯 ፊክስ፦ ፔይሎዱ "admin_id" በሚለው የባክኤንድ ስም ተስተካክሏል
+    # 🎯 ፊክስ፦ ፔይሎዱ ከባክኤንዱ 'admin_telegram_id' ጋር 100% እንዲገጣጠም ተደርጓል
     if tx_type == "dep":
         backend_action = "APPROVE" if action == "app" else "REJECT"
         url = f"{BACKEND_URL}/api/deposit/admin/approve"
         payload = {
             "deposit_id": target_id, 
             "action": backend_action,
-            "admin_id": admin_id_str,        # ✅ ተስተካከለ
+            "admin_telegram_id": admin_id_str,  # ✅ ማስተካከያ
             "message_id": call.message.message_id,
             "admin_password": ADMIN_PASSWORD
         }
@@ -183,7 +181,7 @@ def handle_admin_actions(call):
         payload = {
             "withdraw_id": target_id, 
             "action": backend_action,
-            "admin_id": admin_id_str,        # ✅ ተስተካከለ
+            "admin_telegram_id": admin_id_str,  # ✅ ማስተካከያ
             "message_id": call.message.message_id,
             "admin_password": ADMIN_PASSWORD
         }
@@ -191,7 +189,6 @@ def handle_admin_actions(call):
     headers = {"Content-Type": "application/json"}
     print(f"📡 Requesting: {url}")
     
-    # ጥያቄውን በጀርባ (Background Thread) መላክ
     threading.Thread(
         target=send_admin_action_to_backend, 
         args=(call, url, payload, headers, target_id, action, tx_type),
