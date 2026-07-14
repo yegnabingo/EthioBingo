@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.database import SessionLocal
-from app.models import User, Game, Deposit, Withdrawal
+from app.models import User, Deposit, Withdrawal, Game
 from app.schemas import DepositCreate, WithdrawCreate 
 
 router = APIRouter(
@@ -50,17 +50,18 @@ def _telegram_edit_message_sync(chat_id: str, message_id: int, text: str):
     except Exception as e:
         print(f"❌ Telegram Edit Exception: {e}")
 
-# 💡 ፊክስ፦ 'admin_telegram_id' ወይም 'admin_id' ሁለቱንም እንዲቀበል Flexible ተደርጓል
+# 💡 ፊክስ፦ ቦቱ የሚልከውን ማንኛውንም የድርጊት ፎርማት ያለምንም Validation Error እንዲቀበል የተስተካከለ ስኪማ
 class AdminAction(BaseModel):
+    id: Optional[int] = None                  # ለቀጥታ ጥያቄ ID ፍለጋ
     deposit_id: Optional[int] = None
     withdraw_id: Optional[int] = None
-    action: str
+    action: str                               # APPROVE, APPROVED, REJECT, REJECTED
     admin_telegram_id: Optional[str] = None  
     admin_id: Optional[str] = None           
     message_id: Optional[int] = None
     admin_password: Optional[str] = None
 
-# 📥 1. አዲስ ተጫዋች ሲመዘገብ
+# 📥 1. አዲስ ተጫዋች ሲመዘገብ (መነሻ ባላንስ ከ0.0 ይጀምራል)
 @router.post("/users/register")
 def register_user(telegram_id: str, telegram_name: str = None, first_name: str = None, db: Session = Depends(get_db)):
     tg_id_str = str(telegram_id).strip()
@@ -85,7 +86,7 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
         telegram_name=telegram_name, 
         first_name=first_name, 
         wallet=0.0, 
-        balance=0.0,
+        balance=0.0,   # 🎯 በትክክል ከ 0.0 ይነሳል
         gift_coin=0.0, 
         created_at=datetime.utcnow()
     )
@@ -95,7 +96,7 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
     
     return {
         "success": True, 
-        "message": "ምዝገባው በተካሄደ ሁኔታ ተጠናቋል", 
+        "message": "ምዝገባው በተሳካ ሁኔታ ተጠናቋል", 
         "user": {
             "telegram_id": new_user.telegram_id, 
             "balance": 0.0,
@@ -173,10 +174,11 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
         print(f"❌ Database Deposit Error: {e}") 
         return {"success": False, "message": f"Failed to record deposit request: {str(e)}"}
 
+    # 🎯 ፊክስ፦ Callback ዳታዎቹ ከቦቱ የጥያቄ ስም ጋር 100% እንዲገጥሙ ተደርገዋል (approve_dep_ እና reject_dep_)
     inline_keyboard = {
         "inline_keyboard": [[
-            {"text": "✅ APPROVED (አጽድቅ)", "callback_data": f"app_dep_{new_deposit.id}"},
-            {"text": "❌ REJECTED (ሰርዝ)", "callback_data": f"rej_dep_{new_deposit.id}"}
+            {"text": "✅ APPROVED (አጽድቅ)", "callback_data": f"approve_dep_{new_deposit.id}"},
+            {"text": "❌ REJECTED (ሰርዝ)", "callback_data": f"reject_dep_{new_deposit.id}"}
         ]]
     }
 
@@ -228,10 +230,11 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
         print(f"❌ Database Withdraw Error: {e}") 
         return {"success": False, "message": f"Failed to record withdrawal request: {str(e)}"}
 
+    # 🎯 ፊክስ፦ Callback ዳታዎቹ ከቦቱ የጥያቄ ስም ጋር 100% እንዲገጥሙ ተደርገዋል (approve_with_ እና reject_with_)
     inline_keyboard = {
         "inline_keyboard": [[
-            {"text": "✅ APPROVED (ከፍያለሁ)", "callback_data": f"app_wit_{new_withdraw.id}"},
-            {"text": "❌ REJECTED (ሰርዝ)", "callback_data": f"rej_wit_{new_withdraw.id}"}
+            {"text": "✅ APPROVED (ከፍያለሁ)", "callback_data": f"approve_with_{new_withdraw.id}"},
+            {"text": "❌ REJECTED (ሰርዝ)", "callback_data": f"reject_with_{new_withdraw.id}"}
         ]]
     }
 
@@ -253,21 +256,32 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
 @router.post("/deposit/admin/approve")
 def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
-        # የትኛውም የአድሚን አይዲ ቁልፍ ቢመጣ ለማንበብ ተስተካክሏል
         active_admin_id = payload.admin_telegram_id or payload.admin_id or "Admin"
+        
+        # 🎯 ፊክስ፦ የጥያቄ መለያውን ከ 'id' ወይም ከ 'deposit_id' መፈለግ
+        target_id = payload.id or payload.deposit_id
+        if not target_id:
+            return {"success": False, "message": "የዲፖዚት ID አልተላከም!"}
 
-        deposit = db.query(Deposit).filter(Deposit.id == payload.deposit_id).first()
+        deposit = db.query(Deposit).filter(Deposit.id == target_id).first()
         if not deposit: 
-            return {"success": False, "message": "የዲፖዚት ጥያቄው በዳታቤዝ ውስጥ አልተገኘም!"}
+            return {"success": False, "message": f"የዲፖዚት ጥያቄ #{target_id} በዳታቤዝ ውስጥ አልተገኘም!"}
         
         if deposit.status.lower() != "pending": 
             return {"success": False, "message": "ይህ ጥያቄ ቀድሞ ውሳኔ አግኝቷል (Pending አይደለም)!"}
 
-        user = db.query(User).filter(User.id == deposit.user_id).first()
+        # 🎯 ፊክስ፦ ተጠቃሚውን በ user_id ወይም በ telegram_id በትክክል ማጣመር
+        user = None
+        if deposit.user_id:
+            user = db.query(User).filter(User.id == deposit.user_id).first()
+        elif deposit.telegram_id:
+            user = db.query(User).filter(User.telegram_id == str(deposit.telegram_id)).first()
+
         if not user: 
             return {"success": False, "message": "ይህንን ጥያቄ የላከው ተጫዋች አልተገኘም!"}
 
-        if payload.action in ["APPROVE", "APPROVED"]:
+        action_upper = payload.action.upper()
+        if action_upper in ["APPROVE", "APPROVED"]:
             current_balance = getattr(user, "balance", 0.0) or 0.0
             user.balance = current_balance + deposit.amount
             user.wallet = user.balance
@@ -312,9 +326,13 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
     try:
         active_admin_id = payload.admin_telegram_id or payload.admin_id or "Admin"
 
-        withdraw = db.query(Withdrawal).filter(Withdrawal.id == payload.withdraw_id).first()
+        target_id = payload.id or payload.withdraw_id
+        if not target_id:
+            return {"success": False, "message": "የዊዝድሮው ID አልተላከም!"}
+
+        withdraw = db.query(Withdrawal).filter(Withdrawal.id == target_id).first()
         if not withdraw: 
-            return {"success": False, "message": "የማውጫ ጥያቄው በዳታቤዝ ውስጥ አልተገኘም!"}
+            return {"success": False, "message": f"የማውጫ ጥያቄ #{target_id} በዳታቤዝ ውስጥ አልተገኘም!"}
         
         if withdraw.status.lower() != "pending": 
             return {"success": False, "message": "ይህ ጥያቄ ቀድሞ ውሳኔ አግኝቷል!"}
@@ -323,7 +341,8 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
         if not user: 
             return {"success": False, "message": "ተጫዋቹ አልተገኘም!"}
 
-        if payload.action in ["REJECT", "REJECTED"]:
+        action_upper = payload.action.upper()
+        if action_upper in ["REJECT", "REJECTED"]:
             current_balance = getattr(user, "balance", 0.0) or 0.0
             user.balance = current_balance + withdraw.amount
             user.wallet = user.balance
