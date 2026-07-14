@@ -50,15 +50,17 @@ def _telegram_edit_message_sync(chat_id: str, message_id: int, text: str):
     except Exception as e:
         print(f"❌ Telegram Edit Exception: {e}")
 
+# 💡 ፊክስ፦ 'admin_telegram_id' ወይም 'admin_id' ሁለቱንም እንዲቀበል Flexible ተደርጓል
 class AdminAction(BaseModel):
     deposit_id: Optional[int] = None
     withdraw_id: Optional[int] = None
     action: str
-    admin_telegram_id: str
+    admin_telegram_id: Optional[str] = None  
+    admin_id: Optional[str] = None           
     message_id: Optional[int] = None
     admin_password: Optional[str] = None
 
-# 📥 1. አዲስ ተጫዋች ሲመዘገብ (ወደ balance ተስተካክሏል)
+# 📥 1. አዲስ ተጫዋች ሲመዘገብ
 @router.post("/users/register")
 def register_user(telegram_id: str, telegram_name: str = None, first_name: str = None, db: Session = Depends(get_db)):
     tg_id_str = str(telegram_id).strip()
@@ -78,7 +80,6 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
             }
         }
     
-    # አዲስ ሰው ሲመዘገብ ፍጹም 0 ሆኖ እንዲነሳ ተደርጓል
     new_user = User(
         telegram_id=tg_id_str, 
         telegram_name=telegram_name, 
@@ -103,7 +104,7 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
         }
     }
 
-# 🔍 2. የተጫዋቹን የዋሌት መረጃ መፈተሻ API (ከ balance እንዲያነብ ተደርጓል)
+# 🔍 2. የተጫዋቹን የዋሌት መረጃ መፈተሻ API
 @router.get("/users/{telegram_id}")
 def get_user(telegram_id: str, db: Session = Depends(get_db)):
     tg_id_str = str(telegram_id).strip()
@@ -162,7 +163,7 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
             created_at=datetime.utcnow(),
             telegram_id=tg_id_str,
             telegram_name=req.telegram_name if req.telegram_name else "ተጫዋች",
-            wallet=str(user.balance)  # እዚህም ከ balance ጋር እንዲያያዝ ተደርጓል
+            wallet=str(user.balance)  
         )
         db.add(new_deposit)
         db.commit()
@@ -192,7 +193,7 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
     return {"success": True, "message": "የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል!"}
 
 
-# 📤 4. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ (ከ balance ላይ እንዲቀንስ ተደርጓል)
+# 📤 4. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ
 @router.post("/users/withdraw")
 def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
@@ -208,7 +209,6 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
         return {"success": False, "message": f"ይቅርታ፣ በቂ ባላንስ የሎትም! ያሎት ባላንስ {user_balance} ETB ነው።"}
 
     try:
-        # በቀጥታ ከ balance ላይ ይቀንሳል
         user.balance = user_balance - req.amount
         user.wallet = user.balance
         
@@ -253,6 +253,9 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
 @router.post("/deposit/admin/approve")
 def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
+        # የትኛውም የአድሚን አይዲ ቁልፍ ቢመጣ ለማንበብ ተስተካክሏል
+        active_admin_id = payload.admin_telegram_id or payload.admin_id or "Admin"
+
         deposit = db.query(Deposit).filter(Deposit.id == payload.deposit_id).first()
         if not deposit: 
             return {"success": False, "message": "የዲፖዚት ጥያቄው በዳታቤዝ ውስጥ አልተገኘም!"}
@@ -265,13 +268,12 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
             return {"success": False, "message": "ይህንን ጥያቄ የላከው ተጫዋች አልተገኘም!"}
 
         if payload.action in ["APPROVE", "APPROVED"]:
-            # 🎯 ፊክስ፦ አሁን ባለው balance ላይ አዲሱን ዲፖዚት ይደምራል
             current_balance = getattr(user, "balance", 0.0) or 0.0
             user.balance = current_balance + deposit.amount
             user.wallet = user.balance
             
             deposit.status = "approved"
-            deposit.approved_by = str(payload.admin_telegram_id)
+            deposit.approved_by = str(active_admin_id)
             db.commit()
             
             if payload.message_id:
@@ -280,7 +282,7 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
                     f"💰 <b>የተጨመረው መጠን፦</b> {deposit.amount} ETB\n"
                     f"👤 <b>ተጫዋች ID፦</b> <code>{user.telegram_id}</code>\n"
                     f"🏦 <b>ባንክ፦</b> {deposit.method}\n"
-                    f"👮‍♂️ <b>ያጸደቀው አድሚን፦</b> {payload.admin_telegram_id}"
+                    f"👮‍♂️ <b>ያጸደቀው አድሚን፦</b> {active_admin_id}"
                 )
                 background_tasks.add_task(_telegram_edit_message_sync, ADMIN_TELEGRAM_ID, payload.message_id, text)
                 
@@ -288,11 +290,11 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
         
         else:
             deposit.status = "rejected"
-            deposit.approved_by = str(payload.admin_telegram_id)
+            deposit.approved_by = str(active_admin_id)
             db.commit()
             
             if payload.message_id:
-                text = f"🔴 <b>የዲፖዚት ጥያቄ #{deposit.id} ውድቅ ተደርጓል!</b>\n👮‍♂️ <b>የሰረዘው አድሚን፦</b> {payload.admin_telegram_id}"
+                text = f"🔴 <b>የዲፖዚት ጥያቄ #{deposit.id} ውድቅ ተደርጓል!</b>\n👮‍♂️ <b>የሰረዘው አድሚን፦</b> {active_admin_id}"
                 background_tasks.add_task(_telegram_edit_message_sync, ADMIN_TELEGRAM_ID, payload.message_id, text)
                 
             return {"success": True, "message": "ጥያቄው ውድቅ ተደርጓል!"}
@@ -308,6 +310,8 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
 @router.post("/withdraw/admin/approve")
 def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
+        active_admin_id = payload.admin_telegram_id or payload.admin_id or "Admin"
+
         withdraw = db.query(Withdrawal).filter(Withdrawal.id == payload.withdraw_id).first()
         if not withdraw: 
             return {"success": False, "message": "የማውጫ ጥያቄው በዳታቤዝ ውስጥ አልተገኘም!"}
@@ -320,13 +324,12 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
             return {"success": False, "message": "ተጫዋቹ አልተገኘም!"}
 
         if payload.action in ["REJECT", "REJECTED"]:
-            # 🎯 ፊክስ፦ የዊዝድሮው ጥያቄ ውድቅ ሲሆን ብሩ ወደ balance ይመለሳል (Refund)
             current_balance = getattr(user, "balance", 0.0) or 0.0
             user.balance = current_balance + withdraw.amount
             user.wallet = user.balance
             
             withdraw.status = "rejected"
-            withdraw.approved_by = str(payload.admin_telegram_id)
+            withdraw.approved_by = str(active_admin_id)
             db.commit()
                  
             if payload.message_id:
@@ -334,7 +337,7 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
                     f"🔴 <b>የማውጫ ጥያቄ #{withdraw.id} ተሰርዟል!</b>\n\n"
                     f"💰 <b>የተመለሰው መጠን፦</b> {withdraw.amount} ETB\n"
                     f"👤 <b>ተጫዋች ID፦</b> <code>{user.telegram_id}</code>\n"
-                    f"👮‍♂️ <b>የሰረዘው አድሚን፦</b> {payload.admin_telegram_id}"
+                    f"👮‍♂️ <b>የሰረዘው አድሚን፦</b> {active_admin_id}"
                 )
                 background_tasks.add_task(_telegram_edit_message_sync, ADMIN_TELEGRAM_ID, payload.message_id, text)
                 
@@ -342,7 +345,7 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
         
         else:
             withdraw.status = "approved"
-            withdraw.approved_by = str(payload.admin_telegram_id)
+            withdraw.approved_by = str(active_admin_id)
             db.commit()
             
             if payload.message_id:
@@ -351,7 +354,7 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
                     f"💰 <b>የወጣው መጠን፦</b> {withdraw.amount} ETB\n"
                     f"🏦 <b>ባንክ፦</b> {withdraw.method}\n"
                     f"💳 <b>አካውንት፦</b> <code>{withdraw.wallet}</code>\n"
-                    f"👮‍♂️ <b>ያጸደቀው አድሚን፦</b> {payload.admin_telegram_id}"
+                    f"👮‍♂️ <b>ያጸደቀው አድሚን፦</b> {active_admin_id}"
                 )
                 background_tasks.add_task(_telegram_edit_message_sync, ADMIN_TELEGRAM_ID, payload.message_id, text)
             
