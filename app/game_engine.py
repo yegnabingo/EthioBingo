@@ -1,4 +1,4 @@
-Import random
+import random
 import asyncio
 import json
 import inspect
