@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 🔄 ገጹ ሲጫን ባላንስ ወዲያውኑ ይጠራል
+    // 🔄 ገጹ ሲጫን የተጫዋች ባላንስ ወዲያውኑ ይጠራል
     refreshUserBalance();
     setInterval(refreshUserBalance, 10000);
 });
@@ -524,7 +524,7 @@ function handleManualCellClick(cellElement, cellNumber) {
 // 💳 የኪስ ቦርሳ ፍሰት መቆጣጠሪያ (Wallet Flow - Deposit & Withdraw)
 // ==========================================================================
 
-// 🔄 የተጫዋቹን ባላንስ ማደሻ ፈንክሽን (በትክክል ወደ ስክሪኑ የሚያስተላልፍ)
+// 🔄 የተጫዋቹን ባላንስ ብቻ ማደሻ ፈንክሽን (Wallet እና Gift እንዲጠፉ ተደርጓል)
 async function refreshUserBalance() {
     if (!myTelegramId || myTelegramId === "TG-GUEST") return; 
     try {
@@ -534,22 +534,15 @@ async function refreshUserBalance() {
             const data = await response.json();
             if (data.success && data.user) {
                 
-                // 🎯 ፊክስ፦ ጌሙ ከ wallet ይልቅ በቀጥታ balance የተባለውን ኮለም እንዲያነብ ተደርጓል
-                let walletElement = document.getElementById('wallet') || document.getElementById('walletBalance');
+                // 🎯 ፊክስ፦ ጌሙ ከ wallet ወይም gift ይልቅ በቀጥታ የአዲሱን balance መለያ ብቻ ያነባል
+                let balanceElement = document.getElementById('playerBalance') || document.getElementById('balanceDisplay');
                 const userBalance = data.user.balance !== undefined ? data.user.balance : 0.0;
                 
-                if (walletElement) {
-                    walletElement.innerText = `${userBalance} ETB`;
+                if (balanceElement) {
+                    balanceElement.innerText = `${userBalance} ETB`;
                     console.log("✅ በሚኒ አፑ ስክሪን ላይ አዲሱ ባላንስ ተጭኗል፦", userBalance);
                 } else {
-                    console.error("⚠️ ስህተት፦ በስክሪኑ ላይ የWallet ሳጥን መለያ (ID) አልተገኘም!");
-                }
-                
-                // 🪙 የጊፍት ኮይን ማደሻ
-                const giftElement = document.getElementById('giftBalance') || document.getElementById('gift');
-                if (giftElement) {
-                    const coinAmount = data.user.gift_coin !== undefined ? data.user.gift_coin : 0.00;
-                    giftElement.innerText = `${coinAmount} Coin`;
+                    console.error("⚠️ ስህተት፦ በስክሪኑ ላይ የባላንስ መለያ (ID) አልተገኘም!");
                 }
             }
         }
@@ -633,7 +626,7 @@ async function submitDeposit() {
         }
     } catch (error) {
         console.error('Deposit Error:', error);
-        alert('⚠️ ከሰርቨር ጋር መገናኘት አልተቻለም。');
+        alert('⚠️ ከሰርቨር ጋር መገናኘት አልተቻለም።');
     }
 }
 
