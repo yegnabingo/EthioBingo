@@ -112,14 +112,14 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
             print(f"✅ Action successfully handled by backend for ID #{target_id}")
             
             label = "Deposit" if tx_type == "dep" else "Withdrawal"
-            alert_text = f"✅ {label} #{target_id} approved successfully!" if action == "app" else f"❌ {label} #{target_id} rejected & balance refunded"
+            alert_text = f"✅ {label} #{target_id} approved successfully!" if action == "approve" else f"❌ {label} #{target_id} rejected & balance refunded"
             try:
                 bot.answer_callback_query(call.id, text=alert_text, show_alert=True)
             except:
                 pass
             
-            status_emoji = "✅" if action == "app" else "❌"
-            status_text = "APPROVED" if action == "app" else "REJECTED"
+            status_emoji = "✅" if action == "approve" else "❌"
+            status_text = "APPROVED" if action == "approve" else "REJECTED"
             current_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
             
             new_text = f"{call.message.text}\n\n{status_emoji} <b>{status_text} at {current_time} UTC</b>"
@@ -130,13 +130,12 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
                     message_id=call.message.message_id,
                     text=new_text,
                     parse_mode="HTML",
-                    reply_markup=None  # ቁلፎቹን ያጠፋል
+                    reply_markup=None  # ቁልፎቹን ያጠፋል
                 )
             except Exception as edit_err:
                 print(f"⚠️ Telegram message edit minor issue: {edit_err}")
                 
         else:
-            # 💡 ፊክስ፦ ስህተት ቢፈጠርም እንኳ የቴሌግራምን Loading/ክብ ማሽከርከር ያቆመዋል!
             error_detail = res_data.get('message', f'HTTP Error {response.status_code}')
             try:
                 bot.answer_callback_query(call.id, text=f"❌ ስህተት (ባክኤንድ)፦ {error_detail}", show_alert=True)
@@ -150,38 +149,38 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
             pass
 
 
-# 🛠️ አድሚኑ የቴሌግራም ላይ Approved/Reject ቁልፍ ሲጫን
-@bot.callback_query_handler(func=lambda call: call.data.startswith(('app_dep_', 'rej_dep_', 'app_wit_', 'rej_wit_')))
+# 🛠️ ፊክስ፦ አድሚኑ ቁልፍ ሲጫን (ከባክኤንዱ 'approve_dep_' እና 'reject_dep_' Callback መረጃ ጋር እንዲገጣጠም የተደረገ)
+@bot.callback_query_handler(func=lambda call: call.data.startswith(('approve_dep_', 'reject_dep_', 'approve_with_', 'reject_with_')))
 def handle_admin_actions(call):
     try:
+        # Loading... ክብ ማሽከርከሩን ወዲያውኑ ያጠፋዋል
         bot.answer_callback_query(callback_query_id=call.id, text="⏳ ውሳኔዎ በሂደት ላይ ነው...")
     except:
         pass
     
     admin_id_str = str(call.from_user.id).strip()
     action_data = call.data.split('_')
-    action = action_data[0]    # 'app' ወይም 'rej'
-    tx_type = action_data[1]   # 'dep' ወይም 'wit'
+    action = action_data[0]    # 'approve' ወይም 'reject'
+    tx_type = action_data[1]   # 'dep' (deposit) ወይም 'with' (withdraw)
     target_id = int(action_data[2])
 
-    # 🎯 ፊክስ፦ ፔይሎዱ ከባክኤንዱ 'admin_telegram_id' ጋር 100% እንዲገጣጠም ተደርጓል
     if tx_type == "dep":
-        backend_action = "APPROVE" if action == "app" else "REJECT"
+        backend_action = "APPROVE" if action == "approve" else "REJECT"
         url = f"{BACKEND_URL}/api/deposit/admin/approve"
         payload = {
             "deposit_id": target_id, 
             "action": backend_action,
-            "admin_telegram_id": admin_id_str,  # ✅ ማስተካከያ
+            "admin_telegram_id": admin_id_str,
             "message_id": call.message.message_id,
             "admin_password": ADMIN_PASSWORD
         }
     else:
-        backend_action = "APPROVE" if action == "app" else "REJECT"
+        backend_action = "APPROVE" if action == "approve" else "REJECT"
         url = f"{BACKEND_URL}/api/withdraw/admin/approve"
         payload = {
             "withdraw_id": target_id, 
             "action": backend_action,
-            "admin_telegram_id": admin_id_str,  # ✅ ማስተካከያ
+            "admin_telegram_id": admin_id_str,
             "message_id": call.message.message_id,
             "admin_password": ADMIN_PASSWORD
         }
