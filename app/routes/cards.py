@@ -24,9 +24,10 @@ def get_db():
 # --------------------------------------------------------------------------
 # 📦 የፒዳንቲክ (Pydantic) ስኪማዎች
 # --------------------------------------------------------------------------
+# 🎯 ፊክስ፦ ከሚኒ አፑ ከሚላከው 'card_number' ጋር እንዲጣጣም ተደርጓል
 class CardSelectionRequest(BaseModel):
     telegram_id: str
-    card_index: int       # የካርቴላው ቁጥር (0, 1, 2, 3...)
+    card_number: int      # በሚኒ አፑ የሚላከው የካርድ ቁጥር (1-200)
     bet_amount: float     # የተወራረደበት የብር መጠን
 
 class GameResultRequest(BaseModel):
@@ -39,12 +40,15 @@ class GameResultRequest(BaseModel):
 # --------------------------------------------------------------------------
 # 🧮 የቢንጎ ካርቴላ ማመንጫ ሎጂክ (75-Ball Bingo Standard)
 # --------------------------------------------------------------------------
-def generate_bingo_card() -> List[List[int]]:
+def generate_bingo_card(seed_num: Optional[int] = None) -> List[List[int]]:
     """
     ለተጫዋቾች መደበኛ 5x5 የቢንጎ ካርቴላ ያመነጫል።
-    B: 1-15, I: 16-30, N: 31-45 (መካከሉ 0/FREE), G: 46-60, O: 61-75
+    B: 1-15, I: 16-30, N: 31-45 (መካከሉ FREE), G: 46-60, O: 61-75
+    💡 seed_num ከተሰጠ ለእያንዳንዱ የካርድ ቁጥር ሁልጊዜ አንድ አይነት ካርድ ያመነጫል!
     """
-    card = []
+    if seed_num is not None:
+        random.seed(seed_num)
+        
     ranges = [
         (1, 15),   # B
         (16, 30),  # I
@@ -59,12 +63,18 @@ def generate_bingo_card() -> List[List[int]]:
         columns.append(col)
     
     # መካከለኛውን አምድ (N) FREE SPACE (0) ማድረግ
+    # በሚኒ አፑ ላይ 'FREE' ተብሎ እንዲነበብ በ 0 እንወክለዋለን
     columns[2][2] = 0
     
     # አምዶቹን ወደ ረድፍ (Rows) መቀየር
+    card = []
     for i in range(5):
         row = [columns[j][i] for j in range(5)]
         card.append(row)
+        
+    # የዘፈቀደ ማመንጫውን ለሌላው ክፍል ዳግም ሪሴት ማድረግ
+    if seed_num is not None:
+        random.seed()
         
     return card
 
@@ -72,48 +82,58 @@ def generate_bingo_card() -> List[List[int]]:
 # 🚀 የኤፒአይ (API) ክፍሎች
 # --------------------------------------------------------------------------
 
-# 1. 🎴 ተጫዋቹ የሚመርጣቸውን የካርቴላ አማራጮች ማመንጫ
-@router.get("/cards/generate-options")
-def get_card_options(count: int = 6):
+# 1. 🎴 በሚኒ አፑ ላይ የተገዛውን ካርድ ማትሪክስ (ቁጥሮች) ለማምጣት የሚጠራው ኤፒአይ
+@router.get("/cards/get_matrix")
+def get_card_matrix(card_number: int):
     """
-    ተጫዋቹ ሚኒ አፑን ሲከፍት የሚመርጣቸውን ስድስት (ወይም የተፈለገውን ያህል) 
-    የተለያዩ የካርቴላ አማራጮች ያመነጫል።
+    ከ 1 እስከ 200 ባለው የካርድ ቁጥር መሠረት ቋሚ ማትሪክስ ያመነጫል
     """
-    options = []
-    for i in range(count):
-        options.append({
-            "card_index": i,
-            "matrix": generate_bingo_card()
-        })
-    return {"success": True, "cards": options}
+    if card_number < 1 or card_number > 200:
+        raise HTTPException(status_code=400, detail="❌ ልክ ያልሆነ የካርድ ቁጥር!")
+        
+    matrix = generate_bingo_card(seed_num=card_number)
+    
+    # 0 የነበረውን ወደ "FREE" መለወጥ (ከሚኒ አፑ ጋር እንዲገጥም)
+    formatted_matrix = []
+    for row in matrix:
+        formatted_row = []
+        for val in row:
+            formatted_row.append("FREE" if val == 0 else val)
+        formatted_matrix.append(formatted_row)
+        
+    return {"success": True, "card_number": card_number, "matrix": formatted_matrix}
 
 
-# 2. 💸 ተጫዋቹ ካርቴላ መርጦ ውርርድ ሲያስይዝ (Bet / Deduct Balance)
-@router.post("/cards/select")
+# 2. 💸 ተጫዋቹ ካርቴላ ሲገዛ (Confirm Pick / Deduct Balance)
+# 🎯 ፊክስ፦ አድራሻው በሚኒ አፑ ወደሚጠራው '/cards/pick' ተቀይሯል
+@router.post("/cards/pick")
 def select_card_and_bet(req: CardSelectionRequest, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
     
     # ተጠቃሚውን ከዳታቤዝ መፈለግ
     user = db.query(User).filter(User.telegram_id == tg_id_str).first()
     if not user:
-        raise HTTPException(
-            status_code=404, 
-            detail="❌ ተጠቃሚው አልተመዘገበም! እባክዎ መጀመሪያ በቴሌግራም ቦቱ በኩል ይግቡ።"
-        )
+        return {
+            "success": False,
+            "message": "❌ ተጠቃሚው አልተመዘገበም! እባክዎ መጀመሪያ ሚኒ አፑን ይክፈቱ።"
+        }
     
     # የሳንቲም/የብር መጠን መፈተሽ
     user_balance = getattr(user, "balance", 0.0) or 0.0
     if user_balance < req.bet_amount:
         return {
             "success": False, 
-            "message": f"❌ ይቅርታ፣ ለመጫወት በቂ ባላንስ የሎትም! ያሎት ቀሪ ሂሳብ {user_balance} ETB ነው።",
+            "message": f"ይቅርታ፣ ለመጫወት በቂ ባላንስ የሎትም! ያሎት ቀሪ ሂሳብ {user_balance} ETB ነው።",
             "current_balance": user_balance
         }
     
-    # 📉 እውነተኛውን ባላንስ መቀነስ (ከውሸት 500 ብር ነፃ ስጦታ የጸዳ)
+    # 📉 እውነተኛውን ባላንስ መቀነስ
     try:
         user.balance = user_balance - req.bet_amount
-        user.wallet = user.balance  # ሁለቱንም ተናባቢ ማድረግ
+        # wallet ካለህ እሱንም አብረህ አስተካክለው
+        if hasattr(user, "wallet"):
+            user.wallet = user.balance
+            
         db.commit()
         db.refresh(user)
     except Exception as e:
@@ -122,9 +142,9 @@ def select_card_and_bet(req: CardSelectionRequest, db: Session = Depends(get_db)
     
     return {
         "success": True,
-        "message": f"🎰 ውርርድ በተሳካ ሁኔታ ተይዟል! {req.bet_amount} ETB ተቀንሷል።",
-        "card_index": req.card_index,
-        "remaining_balance": user.balance
+        "message": f"🎰 ካርድ #{req.card_number} በተሳካ ሁኔታ ተገዝቷል!",
+        "card_number": req.card_number,
+        "current_balance": user.balance
     }
 
 
@@ -143,15 +163,15 @@ def process_game_result(req: GameResultRequest, db: Session = Depends(get_db)):
     if req.won and req.win_amount > 0:
         new_balance = current_balance + req.win_amount
         user.balance = new_balance
-        user.wallet = new_balance
+        if hasattr(user, "wallet"):
+            user.wallet = new_balance
         message_detail = f"🎉 እንኳን ደስ የአሎት! {req.win_amount} ETB አሸንፈው ወደ አካውንቶ ተጨምሯል።"
     else:
-        # ከተሸነፈ አስቀድሞ በ `/cards/select` ላይ ስለተቀነሰ እዚህ ተጨማሪ ብር አንቀንስም
         new_balance = current_balance
         message_detail = "😢 በዚህ ዙር አልተሳካም፣ መልካም እድል ለቀጣይ ዙር!"
         
     try:
-        # የጨዋታ ታሪክ መዝገብ (Game History) ካለህ ለማስቀመጥ
+        # የጨዋታ ታሪክ መዝገብ ማስቀመጥ
         new_game_record = Game(
             user_id=user.id,
             bet_amount=req.bet_amount,
