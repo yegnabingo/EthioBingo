@@ -1,4 +1,3 @@
-
 import json
 import random
 from fastapi import APIRouter, HTTPException, Query
