@@ -1,5 +1,6 @@
 import os
 import random
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -7,7 +8,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from app.database import SessionLocal
-from app.models import User, Game  # 💡 ከባክኤንድህ ሞዴሎች ጋር መናበቡን ያረጋግጣል
+from app.models import User, Game, PlayerCard, Card  # 💡 ካሉህ ሞዴሎች ጋር እንዲስማማ ተደርጓል
 
 router = APIRouter(
     prefix="/api",
@@ -24,7 +25,6 @@ def get_db():
 # --------------------------------------------------------------------------
 # 📦 የፒዳንቲክ (Pydantic) ስኪማዎች
 # --------------------------------------------------------------------------
-# 🎯 ፊክስ፦ ከሚኒ አፑ ከሚላከው 'card_number' ጋር እንዲጣጣም ተደርጓል
 class CardSelectionRequest(BaseModel):
     telegram_id: str
     card_number: int      # በሚኒ አፑ የሚላከው የካርድ ቁጥር (1-200)
@@ -38,41 +38,25 @@ class GameResultRequest(BaseModel):
     bet_amount: float     # ለመጫወት ያስያዘው የብር መጠን
 
 # --------------------------------------------------------------------------
-# 🧮 የቢንጎ ካርቴላ ማመንጫ ሎጂክ (75-Ball Bingo Standard)
+# 🧮 የቢንጎ ካርቴላ ማመንጫ ሎጂክ
 # --------------------------------------------------------------------------
 def generate_bingo_card(seed_num: Optional[int] = None) -> List[List[int]]:
-    """
-    ለተጫዋቾች መደበኛ 5x5 የቢንጎ ካርቴላ ያመነጫል።
-    B: 1-15, I: 16-30, N: 31-45 (መካከሉ FREE), G: 46-60, O: 61-75
-    💡 seed_num ከተሰጠ ለእያንዳንዱ የካርድ ቁጥር ሁልጊዜ አንድ አይነት ካርድ ያመነጫል!
-    """
     if seed_num is not None:
         random.seed(seed_num)
         
-    ranges = [
-        (1, 15),   # B
-        (16, 30),  # I
-        (31, 45),  # N
-        (46, 60),  # G
-        (61, 75)   # O
-    ]
-    
+    ranges = [(1, 15), (16, 30), (31, 45), (46, 60), (61, 75)]
     columns = []
     for start, end in ranges:
         col = random.sample(range(start, end + 1), 5)
         columns.append(col)
     
-    # መካከለኛውን አምድ (N) FREE SPACE (0) ማድረግ
-    # በሚኒ አፑ ላይ 'FREE' ተብሎ እንዲነበብ በ 0 እንወክለዋለን
-    columns[2][2] = 0
+    columns[2][2] = 0  # መካከለኛው FREE SPACE
     
-    # አምዶቹን ወደ ረድፍ (Rows) መቀየር
     card = []
     for i in range(5):
         row = [columns[j][i] for j in range(5)]
         card.append(row)
         
-    # የዘፈቀደ ማመንጫውን ለሌላው ክፍል ዳግም ሪሴት ማድረግ
     if seed_num is not None:
         random.seed()
         
@@ -82,18 +66,14 @@ def generate_bingo_card(seed_num: Optional[int] = None) -> List[List[int]]:
 # 🚀 የኤፒአይ (API) ክፍሎች
 # --------------------------------------------------------------------------
 
-# 1. 🎴 በሚኒ አፑ ላይ የተገዛውን ካርድ ማትሪክስ (ቁጥሮች) ለማምጣት የሚጠራው ኤፒአይ
+# 1. 🎴 የተገዛውን ካርድ ማትሪክስ (ቁጥሮች) ለማምጣት
 @router.get("/cards/get_matrix")
 def get_card_matrix(card_number: int):
-    """
-    ከ 1 እስከ 200 ባለው የካርድ ቁጥር መሠረት ቋሚ ማትሪክስ ያመነጫል
-    """
     if card_number < 1 or card_number > 200:
         raise HTTPException(status_code=400, detail="❌ ልክ ያልሆነ የካርድ ቁጥር!")
         
     matrix = generate_bingo_card(seed_num=card_number)
     
-    # 0 የነበረውን ወደ "FREE" መለወጥ (ከሚኒ አፑ ጋር እንዲገጥም)
     formatted_matrix = []
     for row in matrix:
         formatted_row = []
@@ -104,13 +84,12 @@ def get_card_matrix(card_number: int):
     return {"success": True, "card_number": card_number, "matrix": formatted_matrix}
 
 
-# 2. 💸 ተጫዋቹ ካርቴላ ሲገዛ (Confirm Pick / Deduct Balance)
-# 🎯 ፊክስ፦ አድራሻው በሚኒ አፑ ወደሚጠራው '/cards/pick' ተቀይሯል
+# 2. 💸 ተጫዋቹ ካርቴላ ሲገዛ (Confirm Pick እና በዳታቤዝ መመዝገቢያ)
 @router.post("/cards/pick")
 def select_card_and_bet(req: CardSelectionRequest, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
     
-    # ተጠቃሚውን ከዳታቤዝ መፈለግ
+    # 1️⃣ ተጠቃሚውን መፈለግ
     user = db.query(User).filter(User.telegram_id == tg_id_str).first()
     if not user:
         return {
@@ -118,7 +97,29 @@ def select_card_and_bet(req: CardSelectionRequest, db: Session = Depends(get_db)
             "message": "❌ ተጠቃሚው አልተመዘገበም! እባክዎ መጀመሪያ ሚኒ አፑን ይክፈቱ።"
         }
     
-    # የሳንቲም/የብር መጠን መፈተሽ
+    # 2️⃣ በአሁኑ ሰዓት ያለውን ንቁ ጨዋታ (Active Game) መፈለግ
+    # 'waiting' ወይም 'PICK' ስታተስ ላይ ያለውን ጨዋታ እንወስዳለን
+    active_game = db.query(Game).filter(Game.status.in_(["waiting", "PICK", "pick"])).first()
+    if not active_game:
+        # ንቁ ጨዋታ ከሌለ አዲስ እንፈጥራለን
+        active_game = Game(status="waiting", total_players=0, total_pool=0.0)
+        db.add(active_game)
+        db.commit()
+        db.refresh(active_game)
+    
+    # 3️⃣ ካርዱ ቀድሞ መወሰዱን መፈተሽ
+    existing_purchase = db.query(PlayerCard).filter(
+        PlayerCard.game_id == active_game.id,
+        PlayerCard.card_number == req.card_number
+    ).first()
+    
+    if existing_purchase:
+        return {
+            "success": False,
+            "message": f"⚠️ ይቅርታ፣ ካርድ #{req.card_number} ቀደም ብሎ በሌላ ተጫዋች ተገዝቷል!"
+        }
+        
+    # 4️⃣ ባላንስ መፈተሽ
     user_balance = getattr(user, "balance", 0.0) or 0.0
     if user_balance < req.bet_amount:
         return {
@@ -127,17 +128,58 @@ def select_card_and_bet(req: CardSelectionRequest, db: Session = Depends(get_db)
             "current_balance": user_balance
         }
     
-    # 📉 እውነተኛውን ባላንስ መቀነስ
+    # 5️⃣ ባላንስ መቀነስ እና ግዢውን መመዝገብ
     try:
+        # ሀ. ባላንስ መቀነስ
         user.balance = user_balance - req.bet_amount
-        # wallet ካለህ እሱንም አብረህ አስተካክለው
         if hasattr(user, "wallet"):
             user.wallet = user.balance
             
+        # ለ. የካርድ ግዢውን በ 'player_cards' ሰንጠረዥ ላይ መመዝገብ (የሞተሩ ዋነኛ ምንጭ)
+        new_player_card = PlayerCard(
+            game_id=active_game.id,
+            user_id=user.id,
+            card_number=req.card_number,
+            bet_amount=req.bet_amount,
+            is_winner=False
+        )
+        db.add(new_player_card)
+        
+        # ሐ. በ 'cards' ሰንጠረዥ ላይ ካርዱ መወሰዱን መመዝገብ
+        db_card = db.query(Card).filter(Card.card_number == req.card_number).first()
+        if db_card:
+            db_card.is_taken = True
+            db_card.current_game_id = active_game.id
+            db_card.reserved_by = user.id
+        else:
+            # ካርዱ በሰንጠረዡ ውስጥ ከሌለ አዲስ ፈጥረን እንመዘግበዋለን
+            new_card_entry = Card(
+                card_number=req.card_number,
+                data=json.dumps(generate_bingo_card(seed_num=req.card_number)),
+                is_taken=True,
+                current_game_id=active_game.id,
+                reserved_by=user.id
+            )
+            db.add(new_card_entry)
+            
+        # መ. የጨዋታውን ጠቅላላ ተጫዋች እና የገንዘብ መጠን (pool) ማሳደግ
+        active_game.total_players += 1
+        active_game.total_pool += req.bet_amount
+        
+        # የወሰዱትን የካርዶች ዝርዝር በጌሙ ላይ ማደስ (JSON array string)
+        try:
+            taken_list = json.loads(active_game.taken_cards or "[]")
+        except:
+            taken_list = []
+        if req.card_number not in taken_list:
+            taken_list.append(req.card_number)
+        active_game.taken_cards = json.dumps(taken_list)
+
         db.commit()
         db.refresh(user)
     except Exception as e:
         db.rollback()
+        print(f"❌ DATABASE ERROR: {str(e)}")
         return {"success": False, "message": f"የዳታቤዝ ስህተት አጋጥሟል፦ {str(e)}"}
     
     return {
@@ -147,8 +189,7 @@ def select_card_and_bet(req: CardSelectionRequest, db: Session = Depends(get_db)
         "current_balance": user.balance
     }
 
-
-# 3. 🏆 የጨዋታው ውጤት ሲታወቅ (Win / Lose handler)
+# 3. 🏆 የጨዋታው ውጤት ሲታወቅ
 @router.post("/cards/result")
 def process_game_result(req: GameResultRequest, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
@@ -159,7 +200,6 @@ def process_game_result(req: GameResultRequest, db: Session = Depends(get_db)):
     
     current_balance = getattr(user, "balance", 0.0) or 0.0
     
-    # 💰 ተጫዋቹ ካሸነፈ ያሸነፈውን ብር በትክክል መደመር
     if req.won and req.win_amount > 0:
         new_balance = current_balance + req.win_amount
         user.balance = new_balance
@@ -171,21 +211,20 @@ def process_game_result(req: GameResultRequest, db: Session = Depends(get_db)):
         message_detail = "😢 በዚህ ዙር አልተሳካም፣ መልካም እድል ለቀጣይ ዙር!"
         
     try:
-        # የጨዋታ ታሪክ መዝገብ ማስቀመጥ
         new_game_record = Game(
-            user_id=user.id,
-            bet_amount=req.bet_amount,
-            win_amount=req.win_amount if req.won else 0.0,
-            status="won" if req.won else "lost",
-            created_at=datetime.utcnow()
+            status="finished",
+            winner_id=user.id,
+            prize=req.win_amount if req.won else 0.0,
+            started_at=datetime.utcnow(),
+            finished_at=datetime.utcnow()
         )
         db.add(new_game_record)
         db.commit()
         db.refresh(user)
     except Exception as e:
         db.rollback()
-        print(f"⚠️ የጨዋታ መዝገብ ማስቀመጥ አልተቻለም (ግን ባላንሱ ተስተካክሏል)፦ {e}")
-        db.commit() # የተጫዋቹን ባላንስ ለማዳን
+        print(f"⚠️ ስህተት፦ {e}")
+        db.commit()
         
     return {
         "success": True,
