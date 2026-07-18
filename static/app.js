@@ -593,13 +593,13 @@ async function submitDeposit() {
         return;
     }
     
-    const payload = {
-        telegram_id: String(myTelegramId), 
-        telegram_name: String(myTelegramName),
-        amount: amount,
-        bank_name: bankName,
-        sms_data: smsText
-    };
+    Const payload = {
+    telegram_id: String(myTelegramId),
+    telegram_name: String(myTelegramName),
+    amount: amount,
+    method: bankName,
+    sms_text: smsText
+};
     
     try {
         const response = await fetch('/api/users/deposit', {
@@ -649,11 +649,11 @@ async function submitWithdraw() {
     }
     
     const payload = {
-        telegram_id: String(myTelegramId),
-        amount: amount,
-        bank_name: bankName,
-        account_number: accNumber
-    };
+    telegram_id: String(myTelegramId),
+    amount: amount,
+    method: bankName,
+    wallet: accNumber
+};
     
     try {
         const response = await fetch('/api/users/withdraw', {
