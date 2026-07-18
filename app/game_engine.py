@@ -9,11 +9,15 @@ from app.websocket_manager import manager
 from app.database import SessionLocal
 from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
+# 🛠️ ማሻሻያ፡ የእውነተኛ ቴሌግራም ዩዘርኔም እንዲመስሉ የተደረጉ የቦቶች ስም ዝርዝር
 BOT_NAMES = [
     "@Bura1655", "@Nati2030", "@Dagidi66", "@Deve33", "@Faya6688", 
     "@wesen48", "@Benata777", "@Eyob_king", "@Telahun2121", "@Nati_Man", 
     "@Dawed56", "@Tedy888", "@Robel19", "@Sami_Addis", "@Husen0911"
 ]
+
+# በሲስተሙ ውስጥ የሚፈቀዱ የክፍያ አማራጮች (Rooms)
+SUPPORTED_FEES = [10.0, 20.0, 50.0]
 
 class GameEngine:
 
@@ -79,9 +83,6 @@ class GameEngine:
 
                 countdown_seconds = settings.countdown_seconds if settings else 30
                 draw_interval = settings.draw_interval if settings else 2.0
-                
-                # 🛠️ ማሻሻያ 1፡ የጨዋታ መግቢያ ዋጋ (20, 50) ከ Settings ዳይናሚክ እንዲያነብ ማድረግ
-                current_bet_amount = settings.default_bet_amount if (settings and hasattr(settings, 'default_bet_amount')) else 20.0
 
                 game = Game(
                     status="running",
@@ -97,12 +98,12 @@ class GameEngine:
                 self.current_game = game
                 game_display_no = str(100000 + saved_game_id)
                 
-                has_bought_cards = await self.countdown(countdown_seconds, game_display_no, saved_game_id, current_bet_amount)
+                has_bought_cards = await self.countdown(countdown_seconds, game_display_no, saved_game_id)
 
                 if self.running and has_bought_cards:
-                    await self.draw_numbers(draw_interval, game_display_no, saved_game_id, current_bet_amount)
+                    await self.draw_numbers(draw_interval, game_display_no, saved_game_id)
                 else:
-                    print(f"🔄 Game {game_display_no} ላይ ምንም ካርድ አልተሸጠም። ወደ DRAW ሳይሻገር ዑደቱ እንደገና ይጀምራል።")
+                    print(f"🔄 Game {game_display_no} ላይ በማንኛውም ክፍል ምንም ካርድ አልተሸጠም። ዑደቱ እንደገና ይጀምራል።")
                     game_record = db.query(Game).filter(Game.id == saved_game_id).first()
                     if game_record:
                         game_record.status = "cancelled"
@@ -128,18 +129,29 @@ class GameEngine:
                     except Exception as e:
                         print(f"❌ Error resetting context assets: {e}")
 
-    async def countdown(self, seconds, game_display_no, saved_game_id, game_fee):
+    async def countdown(self, seconds, game_display_no, saved_game_id):
         has_bought_cards = False
         while seconds >= 0 and self.running:
             current_taken_list = []
-            sold_cards_count = 0
+            comm_percent = 20.0
+            player_counts = {fee: 0 for fee in SUPPORTED_FEES}
+            
             db: Session = None
             try:
                 db = SessionLocal()
                 taken_cards = db.query(Card.card_number).filter(Card.is_taken == True).all()
                 current_taken_list = [c[0] for c in taken_cards]
                 
-                sold_cards_count = db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).count()
+                settings = db.query(Setting).first()
+                if settings and hasattr(settings, 'game_commission_percent'):
+                    comm_percent = settings.game_commission_percent
+
+                for fee in SUPPORTED_FEES:
+                    count = db.query(PlayerCard).filter(
+                        PlayerCard.game_id == saved_game_id, 
+                        PlayerCard.bet_amount == fee
+                    ).count()
+                    player_counts[fee] = count
 
                 if saved_game_id:
                     game_record = db.query(Game).filter(Game.id == saved_game_id).first()
@@ -152,11 +164,15 @@ class GameEngine:
                 if db:
                     db.close()
 
-            # 🛠️ ማሻሻያ 1 (ቀጣይ)፦ በገባው game_fee መሰረት ገንዳውን ማስላት
-            total_pool = sold_cards_count * game_fee
-            derash_amount = int(total_pool * 0.80) if sold_cards_count > 0 else 0
+            derash_amounts = {}
+            total_players_all_rooms = 0
+            for fee, count in player_counts.items():
+                total_players_all_rooms += count
+                total_pool = count * fee
+                derash_ratio = (100.0 - comm_percent) / 100.0
+                derash_amounts[str(int(fee))] = int(total_pool * derash_ratio)
 
-            if sold_cards_count > 0:
+            if total_players_all_rooms > 0:
                 has_bought_cards = True
 
             payload = {
@@ -167,8 +183,9 @@ class GameEngine:
                 "game_no": game_display_no,
                 "game_id": saved_game_id,
                 "taken_cards": current_taken_list,
-                "derash": derash_amount,
-                "player_count": sold_cards_count
+                "derash_rooms": derash_amounts, 
+                "player_counts": player_counts,
+                "player_count": total_players_all_rooms
             }
             await self.safe_broadcast(payload)
             await asyncio.sleep(1)
@@ -176,7 +193,7 @@ class GameEngine:
             
         return has_bought_cards
 
-    async def draw_numbers(self, interval, game_display_no, saved_game_id, game_fee):
+    async def draw_numbers(self, interval, game_display_no, saved_game_id):
         if not saved_game_id:
             return
 
@@ -187,22 +204,29 @@ class GameEngine:
         db: Session = None
         try:
             db = SessionLocal()
-            bought_cards = {pc.card_number: pc.user_id for pc in db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).all()}
+            bought_cards = {}
+            for pc in db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).all():
+                bought_cards[pc.card_number] = {"user_id": pc.user_id, "bet_amount": pc.bet_amount}
+
             all_200_cards = {str(c.card_number): json.loads(c.data) if isinstance(c.data, str) else c.data for c in db.query(Card).all()}
 
-            total_pool_money = len(bought_cards) * game_fee
-            
             settings = db.query(Setting).first()
             comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
             
-            derash_amount = int(total_pool_money * ((100.0 - comm_percent) / 100.0))
+            pools_by_fee = {}
+            derash_by_fee = {}
+            for fee in SUPPORTED_FEES:
+                count = sum(1 for c in bought_cards.values() if c["bet_amount"] == fee)
+                pools_by_fee[fee] = count * fee
+                derash_by_fee[str(int(fee))] = int(pools_by_fee[fee] * ((100.0 - comm_percent) / 100.0))
+
             winner_detected = False
 
             await self.safe_broadcast({
                 "type": "phase_change",
                 "phase": "DRAW",
                 "game_no": game_display_no,
-                "derash": derash_amount
+                "derash_rooms": derash_by_fee
             })
 
             call_count = 0
@@ -227,23 +251,18 @@ class GameEngine:
                    "label": f"{letter}{number}",
                    "call_count": call_count,
                    "game_no": game_display_no,
-                   "derash": derash_amount
+                   "derash_rooms": derash_by_fee
                 })
 
-                # 🛠️ ማሻሻያ 3፦ call_count መለኪያን ወደ አሸናፊ መመርመሪያው መላክ
                 result = self.process_drawn_ball_and_check_winner(
-                    db, saved_game_id, self.called_numbers, total_pool_money, bought_cards, all_200_cards, call_count
+                    db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards
                 )
 
-                if result["status"] in ["WINNER_FOUND", "HOUSE_WIN"]:
-                    # 🛠️ ማሻሻያ 2፦ በ House Win እና በእውነተኛ ተጫዋች መካከል ያለውን የሽልማት ማሳያ መለየት
-                    prize_display = derash_amount if result["status"] == "WINNER_FOUND" and result["winner_id"] != 0 else total_pool_money
-                    
-                    if result["status"] == "WINNER_FOUND" and result["winner_id"] != 0:
-                        user_record = db.query(User).filter(User.id == result["winner_id"]).first()
-                        winner_name = user_record.telegram_name if user_record and user_record.telegram_name else f"ተጫዋች {result['winner_id']}"
-                    else:
-                        winner_name = random.choice(BOT_NAMES)
+                if result["status"] == "WINNER_FOUND":
+                    winning_fee = result.get("bet_amount", 10.0)
+                    user_record = db.query(User).filter(User.id == result["winner_id"]).first()
+                    winner_name = user_record.telegram_name if user_record and user_record.telegram_name else f"ተጫዋች {result['winner_id']}"
+                    prize_display = derash_by_fee.get(str(int(winning_fee)), 0)
 
                     await self.safe_broadcast({
                         "type": "game_over",
@@ -252,6 +271,7 @@ class GameEngine:
                         "winner_name": winner_name,
                         "winning_card": result["card_number"],
                         "prize": round(prize_display, 2),
+                        "room_fee": winning_fee,
                         "message": result["message"],
                         "card_number": result["card_number"],
                         "winner_id": result["winner_id"],
@@ -262,10 +282,16 @@ class GameEngine:
                     winner_detected = True
                     break
 
+                # 60 ኳሶች ተጠርተው እውነተኛ አሸናፊ ካልተገኘ ዑደቱ ይቆማል
+                if call_count >= 60:
+                    print(f"⏰ 60 ኳሶች ተጠርተው እውነተኛ አሸናፊ አልተገኘም። ጨዋታው በ House Win ይዘጋል።")
+                    break
+
                 await asyncio.sleep(interval)
 
+            # 60 ኳስ ሞልቶ ማንም እውነተኛ ሰው ካላሸነፈ የቤት አሸናፊነት (House Win) ይከናወናል
             if not winner_detected and self.running:
-                result = self.force_house_win(db, saved_game_id, self.called_numbers, total_pool_money, bought_cards, all_200_cards)
+                result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
 
                 await self.safe_broadcast({
@@ -274,7 +300,7 @@ class GameEngine:
                     "result": "BINGO",
                     "winner_name": winner_name,
                     "winning_card": result["card_number"],
-                    "prize": round(total_pool_money, 2),
+                    "prize": round(sum(pools_by_fee.values()), 2), 
                     "message": result["message"],
                     "card_number": result["card_number"],
                     "winner_id": result["winner_id"],
@@ -293,68 +319,47 @@ class GameEngine:
         drawn_set.add("FREE")
         drawn_set.add(None)
 
-        # Horizontal Check
         for r in range(5):
             if all(matrix[r][c] in drawn_set for c in range(5)):
                 return True, [matrix[r][c] for c in range(5)], "Horizontal Row"
-        # Vertical Check
         for c in range(5):
             if all(matrix[r][c] in drawn_set for r in range(5)):
                 return True, [matrix[r][c] for r in range(5)], "Vertical Column"
-        # Diagonal Down Check
         if all(matrix[i][i] in drawn_set for i in range(5)):
             return True, [matrix[i][i] for i in range(5)], "Diagonal Down"
-        # Diagonal Up Check
         if all(matrix[i][4 - i] in drawn_set for i in range(5)):
             return True, [matrix[i][4 - i] for i in range(5)], "Diagonal Up"
-        # 4 Corners Check
         corners = [(0, 0), (0, 4), (4, 0), (4, 4)]
         if all(matrix[r][c] in drawn_set for r, c in corners):
             return True, [matrix[r][c] for r, c in corners], "4 Corners"
 
         return False, [], ""
 
-    def process_drawn_ball_and_check_winner(self, db, game_id, current_drawn_balls, total_pool_money, bought_cards, all_200_cards, call_count):
-        # 1. መጀመሪያ ሁልጊዜም እውነተኛ ተጫዋቾችን እንፈትሻለን (ከ 1ኛ ኳስ ጀምሮ ማሸነፍ ይችላሉ)
-        for card_num, user_id in bought_cards.items():
+    def process_drawn_ball_and_check_winner(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards):
+        for card_num, card_info in bought_cards.items():
             card_matrix = all_200_cards.get(str(card_num))
             if card_matrix:
                 is_win, win_nums, pattern = self.check_bingo_patterns(card_matrix, current_drawn_balls)
                 if is_win:
-                    self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=user_id, winning_card=card_num)
+                    user_id = card_info["user_id"]
+                    fee = card_info["bet_amount"]
+                    
+                    self.distribute_multi_room_prize(db, game_id, pools_by_fee, winner_user_id=user_id, winning_card=card_num, winning_fee=fee)
+                    
                     flat_card = [item for sublist in card_matrix for item in sublist]
                     return {
                         "status": "WINNER_FOUND",
-                        "message": f"🎉 ካርድ #{card_num} አሸንፏል!",
+                        "message": f"🎉 ካርድ #{card_num} በ {int(fee)} ብር ክፍል አሸንፏል!",
                         "winner_id": user_id,
                         "card_number": card_num,
+                        "bet_amount": fee,
                         "winning_numbers": win_nums,
                         "card_numbers": flat_card,
                         "winning_pattern": pattern
                     }
-
-        # 2. 🛠️ ማሻሻያ 3፦ ያልተሸጡ ካርዶች (House/Bot) ሊያሸንፉ የሚችሉት ቢያንስ 60 ኳስ እና ከዚያ በላይ ሲጠራ ብቻ ነው
-        if call_count >= 60:
-            for card_num in range(1, 201):
-                if card_num not in bought_cards:
-                    card_matrix = all_200_cards.get(str(card_num))
-                    if card_matrix:
-                        is_win, win_nums, pattern = self.check_bingo_patterns(card_matrix, current_drawn_balls)
-                        if is_win:
-                            self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=None, winning_card=card_num)
-                            flat_card = [item for sublist in card_matrix for item in sublist]
-                            return {           
-                                "status": "HOUSE_WIN",
-                                "message": f"🎉 ካርድ #{card_num} አሸንፏል!",
-                                "winner_id": 0,
-                                "card_number": card_num,
-                                "winning_numbers": win_nums,
-                                "card_numbers": flat_card,
-                                "winning_pattern": pattern
-                            }
         return {"status": "CONTINUE"}
 
-    def force_house_win(self, db, game_id, current_drawn_balls, total_pool_money, bought_cards, all_200_cards):
+    def force_house_win(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards):
         winning_card_num = None
         win_nums, pattern = [], "Forced House Win"
         
@@ -375,11 +380,11 @@ class GameEngine:
         card_matrix = all_200_cards.get(str(winning_card_num), [[0]*5]*5)
         flat_card = [item for sublist in card_matrix for item in sublist]
         
-        self.distribute_game_prize(db, game_id, total_pool_money, winner_user_id=None, winning_card=winning_card_num)
+        self.distribute_multi_room_prize(db, game_id, pools_by_fee, winner_user_id=None, winning_card=winning_card_num)
 
         return {     
             "status": "HOUSE_WIN",
-            "message": f"🎉 ካርድ #{winning_card_num} አሸንፏል!",
+            "message": f"🎉 ካርድ #{winning_card_num} (የሲስተም ቦት) አሸንፏል!",
             "winner_id": 0,
             "card_number": winning_card_num,
             "winning_numbers": win_nums,
@@ -387,12 +392,9 @@ class GameEngine:
             "winning_pattern": pattern
         }
 
-    def distribute_game_prize(self, db, game_id, total_pool_money, winner_user_id=None, winning_card=None):
+    def distribute_multi_room_prize(self, db, game_id, pools_by_fee, winner_user_id=None, winning_card=None, winning_fee=None):
         settings = db.query(Setting).first()
         comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
-
-        admin_commission = total_pool_money * (comm_percent / 100.0)
-        player_prize = total_pool_money - admin_commission
 
         admin_stats = db.query(AdminStats).first()
         if not admin_stats:
@@ -405,20 +407,28 @@ class GameEngine:
             game.winning_card = winning_card
             game.finished_at = datetime.now(timezone.utc)
 
-        # 🛠️ ማሻሻያ 2 (ቀጣይ)፦ የሂሳብ ክፍፍል አስተማማኝ መሆኑን ማረጋገጥና በስተመጨረሻ db.rollback() ማካተት
-        if winner_user_id:
-            admin_stats.total_commission += admin_commission
-            user = db.query(User).filter(User.id == winner_user_id).first()
-            if user:
-                user.balance += player_prize
-            if game:
-                game.winner_id = winner_user_id
-                game.prize = player_prize
-        else:
-            admin_stats.house_balance += total_pool_money
-            if game:
-                game.winner_id = 0
-                game.prize = total_pool_money
+        for fee, total_pool_money in pools_by_fee.items():
+            if total_pool_money <= 0:
+                continue
+
+            if winner_user_id and fee == winning_fee:
+                admin_commission = total_pool_money * (comm_percent / 100.0)
+                player_prize = total_pool_money - admin_commission
+
+                admin_stats.total_commission += admin_commission
+                user = db.query(User).filter(User.id == winner_user_id).first()
+                if user:
+                    user.balance += player_prize
+                
+                if game:
+                    game.winner_id = winner_user_id
+                    game.prize = player_prize
+            else:
+                admin_stats.house_balance += total_pool_money
+                
+                if not winner_user_id and game:
+                    game.winner_id = 0
+                    game.prize = sum(pools_by_fee.values())
 
         try:
             db.commit()
