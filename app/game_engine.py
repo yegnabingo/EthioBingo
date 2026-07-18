@@ -10,9 +10,9 @@ from app.database import SessionLocal
 from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
 BOT_NAMES = [
-    "አቤል_99", "ዮናስ_ቢንጎ", "ሰላም_K", "ሄለን_ፈጣኑ", "ዳዊት_ዘ_ኪንግ", 
-    "ማሂ_ባቲ", "ቲጂ_አዲስ", "በርናባስ", "ፋሲካ_ወሎ", "ናቲ_ማን", 
-    "ኤልሳ_አልማዝ", "ኬነዲ_ጂ", "ሮቤል_ቶፕ", "ሳሚ_ዲ", "ሊዲያ_የስ"
+    "@Bura1655", "@Nati2030", "@Dagidi66", "@Deve33", "@Faya6688", 
+    "@wesen48", "@Benata777", "@Eyob_king", "@Telahun2121", "@Nati_Man", 
+    "@Dawed56", "@Tedy888", "@Robel19", "@Sami_Addis", "@Husen0911"
 ]
 
 class GameEngine:
