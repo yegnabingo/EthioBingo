@@ -27,6 +27,8 @@ async def lifespan(app: FastAPI):
     print("=" * 40)
     print(" 🎯 Pick & Win V3 Startup: Running DB Init & Game Engine...")
     print("=" * 40)
+
+    print("MAIN STARTED")
     
     # 1. መጀመሪያ ዳታቤዙን በእዚህ ያነሳል
     try:
