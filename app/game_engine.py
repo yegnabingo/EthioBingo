@@ -9,7 +9,7 @@ from app.websocket_manager import manager
 from app.database import SessionLocal
 from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
-# 🛠️ ማሻሻያ፡ የእውነተኛ ቴሌግራም ዩዘርኔም እንዲመስሉ የተደረጉ የቦቶች ስም ዝርዝር
+# የእውነተኛ ቴሌግራም ዩዘርኔም እንዲመስሉ የተደረጉ የቦቶች ስም ዝርዝር
 BOT_NAMES = [
     "@Bura1655", "@Nati2030", "@Dagidi66", "@Deve33", "@Faya6688", 
     "@wesen48", "@Benata777", "@Eyob_king", "@Telahun2121", "@Nati_Man", 
@@ -258,6 +258,7 @@ class GameEngine:
                     db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards
                 )
 
+                # 🛠️ ፊክስ፦ እውነተኛ ተጫዋች ካሸነፈ ወዲያውኑ ዑደቱን ሰብሮ (break) እንዲወጣ ተደርጓል!
                 if result["status"] == "WINNER_FOUND":
                     winning_fee = result.get("bet_amount", 10.0)
                     user_record = db.query(User).filter(User.id == result["winner_id"]).first()
@@ -282,7 +283,7 @@ class GameEngine:
                     winner_detected = True
                     break
 
-                # 60 ኳሶች ተጠርተው እውነተኛ አሸናፊ ካልተገኘ ዑደቱ ይቆማል
+                # 60 ኳሶች ተጠርተው እውነተኛ አሸናፊ ካልተገኘ ዑደቱ ይቆማል (ወደ House Win ይሄዳል)
                 if call_count >= 60:
                     print(f"⏰ 60 ኳሶች ተጠርተው እውነተኛ አሸናፊ አልተገኘም። ጨዋታው በ House Win ይዘጋል።")
                     break
