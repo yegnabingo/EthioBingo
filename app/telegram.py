@@ -196,10 +196,3 @@ def handle_admin_actions(call):
         args=(call, url, payload, headers, target_id, action, tx_type),
         daemon=True
     ).start()
-
-
-if __name__ == "__main__":
-    bot.infinity_polling(
-        skip_pending=True,
-        timeout=60
-    )
