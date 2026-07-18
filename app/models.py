@@ -26,18 +26,18 @@ class Deposit(Base):
     __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # ከUser ቴብል ጋር ለማገናኘት
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) 
     amount = Column(Float)
     
-    method = Column(String, nullable=True)        # የባንክ ስም (ለምሳሌ Telebirr)
+    method = Column(String, nullable=True)        
     phone_or_acc = Column(String, nullable=True) 
-    sms_text = Column(Text, nullable=True)         # የባንክ SMS ዳታ
+    sms_text = Column(Text, nullable=True)         
     tx_hash = Column(String, nullable=True) 
-    status = Column(String, default="Pending")    # Pending, Approved, Rejected
+    # 🛠 ማስተካከያ፡ status ወደ 'pending' ተቀይሯል
+    status = Column(String, default="pending")    
     approved_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # 🔗 በ Railway ዳታቤዝህ ላይ ካሉት አምዶች ጋር 100% እንዲገጥም፦
     telegram_id = Column(String, nullable=True)
     wallet = Column(String, nullable=True)
     telegram_name = Column(String, nullable=True)
@@ -52,8 +52,9 @@ class Withdrawal(Base):
     amount = Column(Float)
     
     method = Column(String, nullable=True, default="Bank") 
-    wallet = Column(String, nullable=True)        # የሂሳብ ቁጥር (Account Number)
-    status = Column(String, default="Pending") 
+    wallet = Column(String, nullable=True)        
+    # 🛠 ማስተካከያ፡ status ወደ 'pending' ተቀይሯል
+    status = Column(String, default="pending") 
     approved_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -172,4 +173,4 @@ class AdminStats(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     house_balance = Column(Float, default=0.0) 
-    total_commission = Column(Float, default=0.0) 
+    total_commission = Column(Float, default=0.0)
