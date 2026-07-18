@@ -19,10 +19,8 @@ MINI_APP_URL = SERVER_URL
 
 bot = TeleBot(BOT_TOKEN)
 
-print("🔥 CALLBACK RECEIVED")
-print(call.data)
 print(f"🎰 የYegnaኛ Bingo ቦት (@{BOT_USERNAME}) በሰላም ስራ ጀምሯል...")
-print("TELEGRAM STARTED")
+print("TELEGRAM MODULE LOADED")
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -196,3 +194,6 @@ def handle_admin_actions(call):
         args=(call, url, payload, headers, target_id, action, tx_type),
         daemon=True
     ).start()
+
+if __name__ == "__main__":
+    bot.infinity_polling(skip_pending=True)
