@@ -254,43 +254,60 @@ class GameEngine:
                    "derash_rooms": derash_by_fee
                 })
 
+                # ማሻሻያ፦ በዚች ኳስ ላይ ያሸነፉ ሁሉንም ተጫዋቾች በዝርዝር እንቀበላለን
                 result = self.process_drawn_ball_and_check_winner(
                     db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards
                 )
 
-                # 🛠️ ፊክስ፦ እውነተኛ ተጫዋች ካሸነፈ ወዲያውኑ ዑደቱን ሰብሮ (break) እንዲወጣ ተደርጓል!
                 if result["status"] == "WINNER_FOUND":
-                    winning_fee = result.get("bet_amount", 10.0)
-                    user_record = db.query(User).filter(User.id == result["winner_id"]).first()
-                    winner_name = user_record.telegram_name if user_record and user_record.telegram_name else f"ተጫዋች {result['winner_id']}"
-                    prize_display = derash_by_fee.get(str(int(winning_fee)), 0)
+                    winners_list = result["winners"]  # ከአንድ በላይ አሸናፊዎችን የያዘ ሊስት
+                    
+                    # የፊት ለፊት (Frontend) ኤፒአይ በቀላሉ እንዲረዳው የአሸናፊዎችን ዳታ ማዘጋጀት
+                    winners_data = []
+                    for w in winners_list:
+                        user_record = db.query(User).filter(User.id == w["winner_id"]).first()
+                        # እውነተኛ የቴሌግራም ስም ካለው እሱን ካልሆነ ግን ዩዘር አይዲውን ማሳያ ማድረግ
+                        telegram_name = user_record.telegram_name if user_record and user_record.telegram_name else f"User_{w['winner_id']}"
+                        
+                        winners_data.append({
+                            "winner_id": w["winner_id"],
+                            "telegram_name": telegram_name,
+                            "card_number": w["card_number"],
+                            "room_fee": w["bet_amount"],
+                            "prize": round(w["prize_share"], 2),
+                            "winning_numbers": w["winning_numbers"],
+                            "card_numbers": w["card_numbers"],
+                            "winning_reason": w["winning_pattern"]
+                        })
+
+                    # የመጀመሪያውን አሸናፊ ዳታ ለ compatibility ሲባል ዋናው payload ላይ ማስቀመጥ
+                    primary_winner = winners_data[0]
 
                     await self.safe_broadcast({
                         "type": "game_over",
                         "status": "WINNER_FOUND",
                         "result": "BINGO",
-                        "winner_name": winner_name,
-                        "winning_card": result["card_number"],
-                        "prize": round(prize_display, 2),
-                        "room_fee": winning_fee,
-                        "message": result["message"],
-                        "card_number": result["card_number"],
-                        "winner_id": result["winner_id"],
-                        "winning_numbers": result.get("winning_numbers", []), 
-                        "card_numbers": result.get("card_numbers", []),       
-                        "winning_reason": result.get("winning_pattern", "ቢንጎ")
+                        "winner_name": primary_winner["telegram_name"],  # ለአንድ አሸናፊ ብቻ ለተሰሩ UIዎች
+                        "winning_card": primary_winner["card_number"],
+                        "prize": primary_winner["prize"],
+                        "room_fee": primary_winner["room_fee"],
+                        "message": f"🎉 በዙሩ {len(winners_data)} አሸናፊዎች ተገኝተው ሽልማቱን ተካፍለዋል!",
+                        "card_number": primary_winner["card_number"],
+                        "winner_id": primary_winner["winner_id"],
+                        "winning_numbers": primary_winner["winning_numbers"], 
+                        "card_numbers": primary_winner["card_numbers"],       
+                        "winning_reason": primary_winner["winning_reason"],
+                        "winners": winners_data  # 🌟 አዲሱ ከአንድ በላይ አሸናፊዎችን በሊስት የሚልከው ዳታ
                     })
                     winner_detected = True
                     break
 
-                # 60 ኳሶች ተጠርተው እውነተኛ አሸናፊ ካልተገኘ ዑደቱ ይቆማል (ወደ House Win ይሄዳል)
                 if call_count >= 60:
                     print(f"⏰ 60 ኳሶች ተጠርተው እውነተኛ አሸናፊ አልተገኘም። ጨዋታው በ House Win ይዘጋል።")
                     break
 
                 await asyncio.sleep(interval)
 
-            # 60 ኳስ ሞልቶ ማንም እውነተኛ ሰው ካላሸነፈ የቤት አሸናፊነት (House Win) ይከናወናል
             if not winner_detected and self.running:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
@@ -307,7 +324,17 @@ class GameEngine:
                     "winner_id": result["winner_id"],
                     "winning_numbers": result.get("winning_numbers", []),
                     "card_numbers": result.get("card_numbers", []),
-                    "winning_reason": result.get("winning_pattern", "ቢንጎ")
+                    "winning_reason": result.get("winning_pattern", "ቢንጎ"),
+                    "winners": [{
+                        "winner_id": result["winner_id"],
+                        "telegram_name": winner_name,
+                        "card_number": result["card_number"],
+                        "room_fee": 0.0,
+                        "prize": round(sum(pools_by_fee.values()), 2),
+                        "winning_numbers": result.get("winning_numbers", []),
+                        "card_numbers": result.get("card_numbers", []),
+                        "winning_reason": result.get("winning_pattern", "ቢንጎ")
+                    }]
                 })
         except Exception as e:
             print(f"❌ Error in draw_numbers execution tracking: {e}")
@@ -336,29 +363,103 @@ class GameEngine:
 
         return False, [], ""
 
+    # 🛠️ ማሻሻያ፦ በአንድ ኳስ ላይ ያሸነፉ ሁሉንም ካርዶች መዝግቦ ይይዛል
     def process_drawn_ball_and_check_winner(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards):
+        detected_winners = []
+        
         for card_num, card_info in bought_cards.items():
             card_matrix = all_200_cards.get(str(card_num))
             if card_matrix:
                 is_win, win_nums, pattern = self.check_bingo_patterns(card_matrix, current_drawn_balls)
                 if is_win:
-                    user_id = card_info["user_id"]
-                    fee = card_info["bet_amount"]
-                    
-                    self.distribute_multi_room_prize(db, game_id, pools_by_fee, winner_user_id=user_id, winning_card=card_num, winning_fee=fee)
-                    
                     flat_card = [item for sublist in card_matrix for item in sublist]
-                    return {
-                        "status": "WINNER_FOUND",
-                        "message": f"🎉 ካርድ #{card_num} በ {int(fee)} ብር ክፍል አሸንፏል!",
-                        "winner_id": user_id,
+                    detected_winners.append({
+                        "winner_id": card_info["user_id"],
                         "card_number": card_num,
-                        "bet_amount": fee,
+                        "bet_amount": card_info["bet_amount"],
                         "winning_numbers": win_nums,
                         "card_numbers": flat_card,
                         "winning_pattern": pattern
-                    }
+                    })
+        
+        # አሸናፊዎች ከተገኙ የገንዘብ ክፍፍሉን እዚህ እንሰራለን
+        if detected_winners:
+            # 1. መጀመሪያ በእያንዳንዱ ሩም ውስጥ ስንት አሸናፊ እንዳለ በግሩፕ እንለያለን
+            room_winner_counts = {}
+            for w in detected_winners:
+                fee = w["bet_amount"]
+                room_winner_counts[fee] = room_winner_counts.get(fee, 0) + 1
+            
+            # 2. ለእያንዳንዱ አሸናፊ የደረሰውን የተካፈለ የሽልማት መጠን ማስላት
+            settings = db.query(Setting).first()
+            comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
+            
+            for w in detected_winners:
+                fee = w["bet_amount"]
+                total_pool_money = pools_by_fee.get(fee, 0)
+                admin_commission = total_pool_money * (comm_percent / 100.0)
+                total_player_prize = total_pool_money - admin_commission
+                
+                # የዚህ ክፍል አሸናፊዎች ብዛት
+                winners_in_this_room = room_winner_counts[fee]
+                # እኩል ማካፈል
+                w["prize_share"] = total_player_prize / winners_in_this_room
+
+            # 3. አዲሱን የተሻሻለ የሽልማት ማከፋፈያ ፈንክሽን መጥራት
+            self.distribute_multi_room_prize_v2(db, game_id, pools_by_fee, detected_winners)
+            
+            return {
+                "status": "WINNER_FOUND",
+                "winners": detected_winners
+            }
+            
         return {"status": "CONTINUE"}
+
+    # 🛠️ አዲስ ፈንክሽን፦ ከአንድ በላይ አሸናፊዎችን ተቀብሎ በዳታቤዝ ውስጥ ሂሳብ የሚያስተካክል
+    def distribute_multi_room_prize_v2(self, db, game_id, pools_by_fee, detected_winners):
+        settings = db.query(Setting).first()
+        comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
+
+        admin_stats = db.query(AdminStats).first()
+        if not admin_stats:
+            admin_stats = AdminStats(house_balance=0.0, total_commission=0.0)
+            db.add(admin_stats)
+
+        game = db.query(Game).filter(Game.id == game_id).first()
+        if game:
+            game.status = "finished"
+            # የበርካታ አሸናፊዎችን ካርድ በኮማ ለይቶ መመዝገብ
+            game.winning_card = ",".join([str(w["card_number"]) for w in detected_winners])
+            game.finished_at = datetime.now(timezone.utc)
+            # የዋናውን/የመጀመሪያውን አሸናፊ መረጃ ለታሪክ ማስቀመጥ
+            game.winner_id = detected_winners[0]["winner_id"]
+            game.prize = sum([w["prize_share"] for w in detected_winners])
+
+        # አሸናፊ ለተገኘባቸው ሩሞች (Rooms) ኮሚሽንና የሂሳብ አሰራር
+        winning_fees = set([w["bet_amount"] for w in detected_winners])
+        
+        # 1. ኮሚሽኑንና የተጫዋቾችን ሂሳብ መጨመር
+        for w in detected_winners:
+            user = db.query(User).filter(User.id == w["winner_id"]).first()
+            if user:
+                user.balance += w["prize_share"]
+                
+        # 2. ለአስተዳዳሪው (Admin) የሚገባውን ጠቅላላ ኮሚሽን በአንድ ጊዜ መደመር
+        for fee in winning_fees:
+            total_pool_money = pools_by_fee.get(fee, 0)
+            admin_commission = total_pool_money * (comm_percent / 100.0)
+            admin_stats.total_commission += admin_commission
+
+        # 3. አሸናፊ ላልተገኘባቸው ክፍሎች ሙሉው ገንዘብ ወደ House Balance ይገባል
+        for fee, total_pool_money in pools_by_fee.items():
+            if fee not in winning_fees and total_pool_money > 0:
+                admin_stats.house_balance += total_pool_money
+
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"❌ Error committing prize distribution: {e}")
 
     def force_house_win(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards):
         winning_card_num = None
@@ -381,6 +482,7 @@ class GameEngine:
         card_matrix = all_200_cards.get(str(winning_card_num), [[0]*5]*5)
         flat_card = [item for sublist in card_matrix for item in sublist]
         
+        # ሲስተም ሲያሸንፍ የቆየውን የነጠላ ፈንክሽን መጠቀም ይቻላል (winner_user_id=None ስለሚሆን)
         self.distribute_multi_room_prize(db, game_id, pools_by_fee, winner_user_id=None, winning_card=winning_card_num)
 
         return {     
@@ -393,6 +495,7 @@ class GameEngine:
             "winning_pattern": pattern
         }
 
+    # ይህ ፈንክሽን ለ House win እና backward compatibility እንዲያገለግል እንዳለ ተቀምጧል
     def distribute_multi_room_prize(self, db, game_id, pools_by_fee, winner_user_id=None, winning_card=None, winning_fee=None):
         settings = db.query(Setting).first()
         comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
@@ -405,7 +508,7 @@ class GameEngine:
         game = db.query(Game).filter(Game.id == game_id).first()
         if game:
             game.status = "finished"
-            game.winning_card = winning_card
+            game.winning_card = str(winning_card)
             game.finished_at = datetime.now(timezone.utc)
 
         for fee, total_pool_money in pools_by_fee.items():
