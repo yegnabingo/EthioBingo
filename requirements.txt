@@ -7,5 +7,5 @@ python-multipart
 jinja2
 websockets
 httpx
-python-telegram-bot
 requests
+pyTelegramBotAPI
