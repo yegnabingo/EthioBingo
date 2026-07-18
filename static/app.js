@@ -237,6 +237,7 @@ function connectWebSocket() {
 
             if (winnersList.length > 0) {
                 winnersList.forEach((winner) => {
+                    winnersList.forEach ውስጥ)
                     const wName = winner.telegram_name || `User_${winner.winner_id}`;
                     const cNum = winner.card_number || "N/A";
                     const pAmt = winner.prize || 0;
@@ -276,7 +277,7 @@ function connectWebSocket() {
                     `;
                 });
             } else {
-                const winnerName = data.winner_name || "ተጫዋች";
+                const winnerName = data.telegram_name || data.winner_name || "ተጫዋች";
                 const cardNum = data.card_number || "N/A";
                 const prize = data.prize || 0;
                 const cardMatrixNumbers = data.card_numbers || []; 
