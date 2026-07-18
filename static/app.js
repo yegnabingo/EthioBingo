@@ -237,7 +237,6 @@ function connectWebSocket() {
 
             if (winnersList.length > 0) {
                 winnersList.forEach((winner) => {
-                    winnersList.forEach ውስጥ)
                     const wName = winner.telegram_name || `User_${winner.winner_id}`;
                     const cNum = winner.card_number || "N/A";
                     const pAmt = winner.prize || 0;
