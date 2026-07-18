@@ -19,6 +19,8 @@ MINI_APP_URL = SERVER_URL
 
 bot = TeleBot(BOT_TOKEN)
 
+print("🔥 CALLBACK RECEIVED")
+print(call.data)
 print(f"🎰 የYegnaኛ Bingo ቦት (@{BOT_USERNAME}) በሰላም ስራ ጀምሯል...")
 
 @bot.message_handler(commands=['start'])
