@@ -2,7 +2,8 @@
 let ws;
 let temporarilySelectedCards = []; 
 let selectedCards = []; 
-let currentBetAmount = 10; 
+let currentBetAmount = 10; // 🛠️ ማሻሻያ፦ ተጫዋቹ የሚመርጠው ተለዋዋጭ ክፍል (10, 20, 50)
+let latestDerashRooms = {"10": 0, "20": 0, "50": 0}; // 🛠️ ማሻሻያ፦ የየክፍሉን ደራሽ መያዣ
 let myTelegramId = "TG-GUEST"; 
 let myTelegramName = "ተጫዋች";
 let tgUser = { id: "12345678", first_name: "የይለፍ ተጫዋች" }; 
@@ -59,6 +60,56 @@ function getBingoColor(letter) {
     }
 }
 
+// 🛠️ ማሻሻያ፦ ተጫዋቹ የ 10, 20, 50 ብር ቁልፍ ሲጫን የሚሰራ አዲስ ፈንክሽን
+function changeBetRoom(betAmount) {
+    currentBetAmount = betAmount;
+    
+    // የ UI በተኖቹን አክቲቭ/ኢንአክቲቭ ቀለማት ማስተካከል
+    document.querySelectorAll('.bet-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (parseInt(btn.innerText) === betAmount) {
+            btn.classList.add('active');
+        }
+    });
+
+    // የተመረጡ ጊዜያዊ ካርዶችን ማጽዳት (ክፍል ሲቀየር Overlap እንዳይኖር)
+    temporarilySelectedCards = [];
+    
+    // በክፍሉ መሰረት የደራሽ UI ማሳያውን ወዲያውኑ ማደስ
+    updateDerashUI();
+    
+    // በዚህ ክፍል የተሸጡ ካርዶችን ከኤፒአይ ጠርቶ ማደስ
+    refreshTakenCards();
+}
+
+// 🛠️ ማሻሻያ፦ የተመረጠውን ክፍል ደራሽ መጠን በ UI ላይ ማደሻ ፈንክሽን
+function updateDerashUI() {
+    let amt = latestDerashRooms[currentBetAmount.toString()] || 0;
+    
+    const derashBadge = document.getElementById('derashBadge');
+    if (derashBadge) {
+        derashBadge.innerText = `Derash: ${amt} ETB 📋`;
+    }
+    
+    const drawAmtEl = document.getElementById('derashAmt');
+    if (drawAmtEl) {
+        drawAmtEl.innerText = amt;
+    }
+}
+
+// 🛠️ ማሻሻያ፦ ከተመረጠው ክፍል (Bet Amount) አንጻር የተገዙ ካርዶችን ለይቶ መጥሪያ ፈንክሽን
+async function refreshTakenCards() {
+    try {
+        const response = await fetch(`/api/cards/status?bet_amount=${currentBetAmount}`);
+        if (response.ok) {
+            const takenCards = await response.json();
+            update200CardsColors(takenCards);
+        }
+    } catch (e) {
+        console.error("⚠️ የተሸጡ ካርዶችን ማደስ አልተቻለም፦", e);
+    }
+}
+
 function connectWebSocket() {
     const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
     ws = new WebSocket(protocol + window.location.host + "/ws");
@@ -66,13 +117,17 @@ function connectWebSocket() {
     ws.onopen = () => {
         console.log("✅ ከቢንጎ ሞተር ጋር ተገናኘን!");
         generate200Cards(); 
+        refreshTakenCards(); 
     };
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
+        // 🛠️ ማሻሻያ፦ ካርድ ሲገዛ የመጣው መልዕክት ከአሁኑ ክፍል ጋር እኩል ከሆነ ብቻ UI ማደስ
         if (data.type === "taken_cards_update") {
-            update200CardsColors(data.taken_cards);
+            if (data.bet_amount === undefined || data.bet_amount === currentBetAmount) {
+                update200CardsColors(data.taken_cards);
+            }
         }
 
         // 1️⃣ PICK PHASE
@@ -89,12 +144,12 @@ function connectWebSocket() {
             const statsBoxes = document.querySelectorAll(".stats-grid .stat-box strong");
             if (statsBoxes.length >= 3) {
                 if (data.game_no) statsBoxes[0].innerText = data.game_no;
-                if (data.player_count !== undefined) statsBoxes[2].innerText = data.player_count;
+                if (data.player_count !== undefined) statsBoxes[1].innerText = data.player_count; 
             }
 
-            const liveDerashBadge = document.querySelector(".derash-badge, #liveDerashBadge");
-            if (liveDerashBadge && data.derash !== undefined) {
-                liveDerashBadge.innerText = "Derash " + data.derash;
+            if (data.derash_rooms) {
+                latestDerashRooms = data.derash_rooms;
+                updateDerashUI();
             }
             
             const oldPopup = document.getElementById("winner-popup");
@@ -106,18 +161,14 @@ function connectWebSocket() {
         if (data.type === "phase_change" && data.phase === "DRAW") {
             document.getElementById("pickScreen").style.display = "none";
             document.getElementById("drawScreen").style.display = "block";
-
-            const currentStatsBoxes = document.querySelectorAll(".stats-grid .stat-box strong");
-            if (currentStatsBoxes.length >= 3 && data.player_count !== undefined) {
-                currentStatsBoxes[2].innerText = data.player_count;
-            }
          
             const gameMetaSpan = document.querySelector(".game-meta span");
             if (gameMetaSpan) gameMetaSpan.innerText = "Game " + data.game_no;
             
-            const actualDerash = data.derash !== undefined ? data.derash : 0;
-            if(document.getElementById("stakeAmt")) document.getElementById("stakeAmt").innerText = currentBetAmount;
-            if(document.getElementById("derashAmt")) document.getElementById("derashAmt").innerText = actualDerash;
+            if (data.derash_rooms) {
+                latestDerashRooms = data.derash_rooms;
+                updateDerashUI();
+            }
             
             clear75Board();
             currentCardIndex = 0; 
@@ -125,14 +176,10 @@ function connectWebSocket() {
             updateRecentBallsUI(); 
         }
 
-        // 3️⃣ BALL PHASE (ኳስ ሲወድቅ)
+                // 3️⃣ BALL PHASE (ኳስ ሲወድቅ)
         if (data.type === "ball") {
             document.getElementById("pickScreen").style.display = "none";
             document.getElementById("drawScreen").style.display = "block";
-
-            if (document.getElementById("playerCount") && data.player_count !== undefined) {
-                document.getElementById("playerCount").innerText = data.player_count;
-            }
             
             const ballElement = document.getElementById(`ball-${data.number}`);
             const letter = data.label.charAt(0);
@@ -145,8 +192,9 @@ function connectWebSocket() {
                 ballElement.style.boxShadow = `0 0 10px ${color}`;
             }
 
-            if (document.getElementById("derashAmt") && data.derash !== undefined) {
-                document.getElementById("derashAmt").innerText = data.derash;
+            if (data.derash_rooms) {
+                latestDerashRooms = data.derash_rooms;
+                updateDerashUI();
             }
             
             if (soundEnabled) {
@@ -234,6 +282,7 @@ function connectWebSocket() {
                 btn.style.color = "#000000";
                 btn.classList.remove("bought", "selected-temp");
             });
+            refreshTakenCards(); 
         }
     };
 
@@ -345,9 +394,9 @@ async function confirmAllSelectedPicks() {
                     btn.style.color = "#000000";
                 }
 
-                const statsBoxes = document.querySelectorAll(".stats-grid .stat-box strong");
-                if (statsBoxes.length >= 4) {
-                    statsBoxes[3].innerText = result.current_balance + " ETB";
+                const walletBalanceEl = document.getElementById("walletBalance");
+                if (walletBalanceEl) {
+                    walletBalanceEl.innerText = result.current_balance + " ETB";
                 }
                 
                 showToastMessage("🎉 ካርዱ በተሳካ ሁኔታ ተገዝቷል!", "success");
@@ -524,7 +573,6 @@ function handleManualCellClick(cellElement, cellNumber) {
 // 💳 የኪስ ቦርሳ ፍሰት መቆጣጠሪያ (Wallet Flow - Deposit & Withdraw)
 // ==========================================================================
 
-// 🔄 የተጫዋቹን ባላንስ ብቻ ማደሻ ፈንክሽን (Wallet እና Gift እንዲጠፉ ተደርጓል)
 async function refreshUserBalance() {
     if (!myTelegramId || myTelegramId === "TG-GUEST") return; 
     try {
@@ -533,16 +581,16 @@ async function refreshUserBalance() {
         if (response.ok) {
             const data = await response.json();
             if (data.success && data.user) {
-                
-                // 🎯 ፊክስ፦ ጌሙ ከ wallet ወይም gift ይልቅ በቀጥታ የአዲሱን balance መለያ ብቻ ያነባል
-                let balanceElement = document.getElementById('playerBalance') || document.getElementById('balanceDisplay');
+                let balanceElement = document.getElementById('walletBalance');
                 const userBalance = data.user.balance !== undefined ? data.user.balance : 0.0;
+                const giftBalance = data.user.gift_coin !== undefined ? data.user.gift_coin : 0.0;
                 
                 if (balanceElement) {
-                    balanceElement.innerText = `${userBalance} ETB`;
-                    console.log("✅ በሚኒ አፑ ስክሪን ላይ አዲሱ ባላንስ ተጭኗል፦", userBalance);
-                } else {
-                    console.error("⚠️ ስህተት፦ በስክሪኑ ላይ የባላንስ መለያ (ID) አልተገኘም!");
+                    balanceElement.innerHTML = `<strong>${userBalance} ETB</strong>`;
+                }
+                const giftElement = document.getElementById('giftBalance');
+                if (giftElement) {
+                    giftElement.innerHTML = `<strong>${giftBalance.toFixed(2)} Coin</strong>`;
                 }
             }
         }
