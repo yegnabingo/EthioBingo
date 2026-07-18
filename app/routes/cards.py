@@ -55,7 +55,7 @@ async def pick_card(request: AdvancedPickCardRequest):
                 telegram_id=request.telegram_id,
                 telegram_name=f"User_{request.telegram_id[:5]}" if request.telegram_id else "Guest",
                 first_name="Player",
-                balance=100.0,
+                balance=0.0,
                 gift_coin=0.0
             )
             db.add(user)
