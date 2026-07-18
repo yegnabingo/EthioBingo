@@ -621,3 +621,19 @@ button {
     user-select: none;
     pointer-events: none;
 }
+
+.support-link {
+    margin-top: 5px;
+    text-align: center;
+    font-size: 11px;
+    color: #a4b0be;
+}
+
+.support-link a {
+    color: #ffd700;
+    text-decoration: none;
+}
+
+.support-link a:hover {
+    text-decoration: underline;
+}
