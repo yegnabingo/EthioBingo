@@ -15,15 +15,21 @@ class AdvancedPickCardRequest(BaseModel):
     bet_amount: float = Field(..., description="የውርርድ መጠን፡ 10, 20, ወይም 50")
 
 @router.get("/status")
-def get_cards_status():
-    """በዚህ ዙር የተገዙ የካርድ ቁጥሮችን ዝርዝር ለሁሉም ያሳያል"""
+def get_cards_status(bet_amount: float = Query(10.0, description="የተመረጠው ክፍል ውርርድ መጠን")):
+    """
+    🛠️ ማሻሻያ፦ ከተመረጠው የውርርድ ክፍል (10, 20, 50) አንጻር ብቻ የተገዙ ካርዶችን ለይቶ ያሳያል
+    """
     db = SessionLocal()
     try:
         active_game = db.query(Game).filter(Game.status == "running").order_by(Game.id.desc()).first()
         if not active_game:
             return []
         
-        taken_cards = db.query(PlayerCard).filter(PlayerCard.game_id == active_game.id).all()
+        # ከተመረጠው bet_amount ጋር እኩል የሆኑትን ብቻ መለየት
+        taken_cards = db.query(PlayerCard).filter(
+            PlayerCard.game_id == active_game.id,
+            PlayerCard.bet_amount == bet_amount
+        ).all()
         return [c.card_number for c in taken_cards]
     except Exception:
         return []
@@ -56,7 +62,7 @@ async def pick_card(request: AdvancedPickCardRequest):
             db.commit()
             db.refresh(user)
 
-        # 3. ንቁ ጨዋታ mኖሩን ማረጋገጥ
+        # 3. ንቁ ጨዋታ መኖሩን ማረጋገጥ
         game = db.query(Game).filter(Game.status == "running").order_by(Game.id.desc()).first()
         if not game:
             return {"success": False, "message": "በአሁኑ ሰዓት ምንም የነቃ ጨዋታ የለም። እባክህ አዲስ ዙር ጠብቅ።"}
@@ -70,13 +76,14 @@ async def pick_card(request: AdvancedPickCardRequest):
         if already_bought_count >= 5:
             return {"success": False, "message": "በአንድ ጨዋታ መግዛት የሚችሉት ከፍተኛው የካርድ መጠን 5 ብቻ ነው!"}
 
-        # 5. የካርዱ ቁጥር አስቀድሞ መያዙን ማረጋገጥ
+        # 5. የካርዱ ቁጥር በዚሁ ክፍል (Bet Room) አስቀድሞ መያዙን ማረጋገጥ
         card_taken = db.query(PlayerCard).filter(
             PlayerCard.game_id == game.id,
-            PlayerCard.card_number == request.card_number
+            PlayerCard.card_number == request.card_number,
+            PlayerCard.bet_amount == request.bet_amount
         ).first()
         if card_taken:
-            return {"success": False, "message": f"ካርድ ቁጥር {request.card_number} አስቀድሞ በሌላ ተጫዋች ተይዟል!"}
+            return {"success": False, "message": f"ካርድ ቁጥር {request.card_number} በ {int(request.bet_amount)} ብር ክፍል አስቀድሞ ተይዟል!"}
  
         # 6. የባላንስ ፍተሻ (Balance Check)
         if user.balance < request.bet_amount:
@@ -94,7 +101,7 @@ async def pick_card(request: AdvancedPickCardRequest):
         )
         db.add(new_player_card)
 
-        # የካርዱን ሁኔታ በዋናው የካርድ ሰንጠረዥ ላይ 'is_taken = True' ማድረግ (ከኮንታውንቱ ጋር እንዲቀናጅ)
+        # የካርዱን ሁኔታ በዋናው የካርድ ሰንጠረዥ ላይ 'is_taken = True' ማድረግ
         main_card = db.query(Card).filter(Card.card_number == request.card_number).first()
         if main_card:
             main_card.is_taken = True
@@ -104,11 +111,13 @@ async def pick_card(request: AdvancedPickCardRequest):
         db.commit()
 
         # 📡 [ሪል-ታይም ማሳወቂያ] ካርዱ መገዛቱን ወዲያውኑ ለሁሉም ተጫዋቾች በዌብሶኬት መላክ
+        # 🛠️ ማሻሻያ፦ የትኛው ሩም ላይ እንደተገዛ ጭምር አብሮ ይልካል
         try:
             all_taken = db.query(PlayerCard).filter(PlayerCard.game_id == game.id).all()
             taken_list = [c.card_number for c in all_taken]
             await manager.broadcast({
                 "type": "taken_cards_update",
+                "bet_amount": request.bet_amount,
                 "taken_cards": taken_list
             })
         except Exception as e:
@@ -145,7 +154,6 @@ def get_matrix(card_number: int = Query(...)):
             except Exception:
                 pass
                 
-        # 🎯 [ፎልባክ] በዳታቤዝ ውስጥ ካርዱ ካልተገኘ እውነተኛ የቢንጎ ማትሪክስ ሰርቶ ይሰጠዋል
         b = random.sample(range(1, 16), 5)
         i = random.sample(range(16, 31), 5)
         n = random.sample(range(31, 46), 5)
@@ -157,7 +165,7 @@ def get_matrix(card_number: int = Query(...)):
             row = [b[r_idx], i[r_idx], n[r_idx], g[r_idx], o[r_idx]]
             generated_matrix.append(row)
             
-        generated_matrix[2][2] = "FREE" # መሃል ቁጥር ነጻ ናት
+        generated_matrix[2][2] = "FREE"
         return {"matrix": generated_matrix}
         
     except Exception as e:
