@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, Date  # 💡 Date እዚህ ላይ ተጨምሯል
 from datetime import datetime
 from app.database import Base
 
@@ -11,10 +11,13 @@ class User(Base):
     telegram_name = Column(String, nullable=True)
     first_name = Column(String, nullable=True)
 
-    # 💡 ዋና ማሻሻያ፦ በሚኒ አፑ እና በዳታቤዙ መካከል ያለውን ግጭት ለመፍታት
-    balance = Column(Float, default=0.0)    # ለባክኤንድ ስሌቶች የሚጠቅም
-    wallet = Column(Float, default=0.0)     # ሚኒ አፑ በቀጥታ 'wallet' ብሎ ስለሚጠራው እዚህም ተጨምሯል
-    gift_coin = Column(Float, default=0.0)  # የGift Coin መከታተያ
+    # 💡 በሚኒ አፑ እና በዳታቤዙ መካከል ያለውን ግጭት ለመፍታት
+    balance = Column(Float, default=0.0)    
+    wallet = Column(Float, default=0.0)     
+    gift_coin = Column(Float, default=0.0)  
+    
+    # 🎁 የሪፈራል (የግብዣ ሲስተም) መቆጣጠሪያ ኮለም
+    referred_by = Column(String, nullable=True) 
 
     is_admin = Column(Boolean, default=False)
     is_banned = Column(Boolean, default=False)
@@ -33,7 +36,6 @@ class Deposit(Base):
     phone_or_acc = Column(String, nullable=True) 
     sms_text = Column(Text, nullable=True)         
     tx_hash = Column(String, nullable=True) 
-    # 🛠 ማስተካከያ፡ status ወደ 'pending' ተቀይሯል
     status = Column(String, default="pending")    
     approved_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -53,7 +55,6 @@ class Withdrawal(Base):
     
     method = Column(String, nullable=True, default="Bank") 
     wallet = Column(String, nullable=True)        
-    # 🛠 ማስተካከያ፡ status ወደ 'pending' ተቀይሯል
     status = Column(String, default="pending") 
     approved_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -175,8 +176,8 @@ class AdminStats(Base):
     house_balance = Column(Float, default=0.0) 
     total_commission = Column(Float, default=0.0)
 
-from sqlalchemy import Date # 💡 ይህ ከላይ መኖሩን አረጋግጥ
 
+# 🎁 የዕለታዊ ስጦታ (Daily Check-in) መቆጣጠሪያ ጠረጴዛ
 class DailyCheckIn(Base):
     __tablename__ = "daily_checkins"
     __table_args__ = {'extend_existing': True}
