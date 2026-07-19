@@ -17,15 +17,19 @@ class AdvancedPickCardRequest(BaseModel):
 @router.get("/status")
 def get_cards_status(bet_amount: float = Query(10.0, description="የተመረጠው ክፍል ውርርድ መጠን")):
     """
-    🛠️ ማሻሻያ፦ ከተመረጠው የውርርድ ክፍል (10, 20, 50) አንጻር ብቻ የተገዙ ካርዶችን ለይቶ ያሳያል
+    🛠️ ማሻሻያ፦ በአሁኑ ሰዓት ንቁ እና ገና በዝግጅት ላይ ያለ (waiting) ጨዋታ ካለ ብቻ የተገዙ ካርዶችን ያሳያል።
+    አዲስ ጨዋታ ሲጀምር የድሮ ጨዋታ ካርዶች እንዳይታዩ እና ሰሌዳው ነጭ እንዲሆን ተደርጓል።
     """
     db = SessionLocal()
     try:
-        active_game = db.query(Game).filter(Game.status == "running").order_by(Game.id.desc()).first()
-        if not active_game:
-            return []
+        # 🎯 ፍጹም ማስተካከያ፦ በጣም የቅርብ ጊዜውን የነቃ ጨዋታ ያነባል።
+        active_game = db.query(Game).order_by(Game.id.desc()).first()
         
-        # ከተመረጠው bet_amount ጋር እኩል የሆኑትን ብቻ መለየት
+        # ጨዋታ ከሌለ ወይም ጨዋታው አልቆ 'finished' ከሆነ ሰሌዳው ሙሉ በሙሉ ነጭ እንዲሆን ባዶ ዝርዝር [] ይመልሳል
+        if not active_game or active_game.status == "finished":
+            return []
+            
+        # 💡 ጨዋታው ገና ተጀምሮ በቆጠራ (waiting) ላይ ከሆነ ወይም እየተጫወቱ (running) ከሆነ ብቻ የተገዙትን ያሳያል
         taken_cards = db.query(PlayerCard).filter(
             PlayerCard.game_id == active_game.id,
             PlayerCard.bet_amount == bet_amount
@@ -64,8 +68,8 @@ async def pick_card(request: AdvancedPickCardRequest):
             db.commit()
             db.refresh(user)
 
-        # 3. ንቁ ጨዋታ መኖሩን ማረጋገጥ
-        game = db.query(Game).filter(Game.status == "running").order_by(Game.id.desc()).first()
+        # 3. ንቁ ጨዋታ መኖሩን ማረጋገጥ (ማሳሰቢያ፦ ጨዋታው ገና ሲጀምር status 'waiting' ሊሆን ስለሚችል ሁለቱንም ይፈትሻል)
+        game = db.query(Game).filter(Game.status.in_(["running", "waiting"])).order_by(Game.id.desc()).first()
         if not game:
             return {"success": False, "message": "በአሁኑ ሰዓት ምንም የነቃ ጨዋታ የለም። እባክህ አዲስ ዙር ጠብቅ።"}
 
@@ -94,14 +98,12 @@ async def pick_card(request: AdvancedPickCardRequest):
 
         # 7. ክፍያውን የመቁረጥ ሎጂክ (ቅድሚያ ለ Gift Coin መስጠት)
         if (user.gift_coin or 0.0) >= request.bet_amount:
-            # የቦነስ ብሩ ሙሉ በሙሉ ከቻለው ከእሱ ላይ ብቻ ይቀንሳል
             user.gift_coin -= request.bet_amount
         else:
-            # የቦነስ ብሩ ካልበቃው ያለውን ጨርሶ የቀረውን ከዋናው ባላንስ እና ዋሌት ላይ ይቀንሳል
             remaining_fee = request.bet_amount - (user.gift_coin or 0.0)
             user.gift_coin = 0.0
             user.balance -= remaining_fee
-            user.wallet -= remaining_fee  # ሚኒ አፑ እና ባክኤንዱ እንዳይጋጩ እኩል ይቀንሳል
+            user.wallet -= remaining_fee  
         
         # 8. ካርዱን ለተጫዋቹ መመዝገብ
         new_player_card = PlayerCard(
@@ -112,7 +114,6 @@ async def pick_card(request: AdvancedPickCardRequest):
         )
         db.add(new_player_card)
 
-        # የካርዱን ሁኔታ በዋናው የካርድ ሰንጠረዥ ላይ 'is_taken = True' ማድረግ
         main_card = db.query(Card).filter(Card.card_number == request.card_number).first()
         if main_card:
             main_card.is_taken = True
@@ -121,7 +122,6 @@ async def pick_card(request: AdvancedPickCardRequest):
         
         db.commit()
 
-        # 📡 [ሪል-ታይም ማሳወቂያ] ካርዱ መገዛቱን ወዲያውኑ ለሁሉም ተጫዋቾች በዌብሶኬት መላክ
         try:
             all_taken = db.query(PlayerCard).filter(PlayerCard.game_id == game.id).all()
             taken_list = [c.card_number for c in all_taken]
