@@ -834,7 +834,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
         console.log("⚠️ ቦቱ የተከፈተው ከቴሌግራም ሚኒ አፕ ውጪ ነው።");
     }
-});
+}
 
 // 💰 ከተጫዋቹ የባክኤንድ መረጃ ላይ Wallet እና Gift Coin ባላንስን አውርዶ UI ላይ የሚያድስ ተግባር
 async function loadPlayerBalance(telegramId) {
