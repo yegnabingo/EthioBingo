@@ -174,3 +174,14 @@ class AdminStats(Base):
     id = Column(Integer, primary_key=True, index=True)
     house_balance = Column(Float, default=0.0) 
     total_commission = Column(Float, default=0.0)
+
+from sqlalchemy import Date # 💡 ይህ ከላይ መኖሩን አረጋግጥ
+
+class DailyCheckIn(Base):
+    __tablename__ = "daily_checkins"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    checked_date = Column(Date, nullable=False) 
+    created_at = Column(DateTime, default=datetime.utcnow)
