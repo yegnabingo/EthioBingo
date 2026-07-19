@@ -788,3 +788,90 @@ async function submitWithdraw() {
         alert('⚠️ ከሰርቨር ጋር መገናኘት አልተቻለም።');
     }
 }
+
+// 💡 ይህ ተግባር ሚኒ አፑ ሲከፈት በየቀኑ የሚሰጠውን የ 10 ETB ስጦታ ይቀሰቅሳል
+async function checkDailyBonus(telegramId) {
+    try {
+        // 🔗 ከባክኤንድ ዩአርኤልዎ ጋር ይገናኛል (የባክኤንድ ኤፒአይ ዩአርኤል)
+        const response = await fetch(`/api/users/daily-checkin?telegram_id=${telegramId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+        console.log("🎁 Daily Check-in Response:", data);
+
+        if (response.ok && data.success) {
+            // 🎉 ስጦታው በተሳካ ሁኔታ ከተሰጠ ለተጫዋቹ ማሳወቂያ ያሳያል
+            alert(`🎁 የእለታዊ ስጦታ፦ ${data.bonus_amount} ETB የጨዋታ ቦነስ ተሰጥቶዎታል!`);
+            
+            // 💰 በUI ላይ የ Gift Coin እና Wallet መጠንን በቅጽበት ያድሳል
+            if (document.getElementById('gift-coin-display')) {
+                document.getElementById('gift-coin-display').innerText = data.gift_coin.toFixed(2);
+            }
+            if (document.getElementById('wallet-display')) {
+                document.getElementById('wallet-display').innerText = data.wallet.toFixed(2);
+            }
+        } else {
+            console.log("ℹ️ እለታዊ ስጦታው ዛሬ አስቀድሞ ተወስዷል ወይም አልተፈቀደም።");
+        }
+    } catch (error) {
+        console.error("❌ የዕለታዊ ስጦታ ኤፒአይ መጥራት አልተቻለም፦", error);
+    }
+}
+
+// 🚀 ሚኒ አፑ ከቴሌግራም ተነስቶ ሙሉ በሙሉ ሲጫን (Initialization)
+window.addEventListener('DOMContentLoaded', () => {
+    // የቴሌግራም ዌብ አፕ ተጠቃሚ መረጃን ማግኘት
+    const tg = window.Telegram?.WebApp;
+    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        const userId = tg.initDataUnsafe.user.id;
+        
+        // 🎯 የዕለታዊ ስጦታውን እዚህ ጋር ይቀሰቅሳል
+        checkDailyBonus(userId);
+    } else {
+        console.log("⚠️ ቦቱ የተከፈተው ከቴሌግራም ሚኒ አፕ ውጪ ነው።");
+    }
+});
+
+// 💰 ከተጫዋቹ የባክኤንድ መረጃ ላይ Wallet እና Gift Coin ባላንስን አውርዶ UI ላይ የሚያድስ ተግባር
+async function loadPlayerBalance(telegramId) {
+    try {
+        // 🔗 የተጫዋቹን መረጃ ከባክኤንድ ያነባል (በ users.py ላይ ባለው የ /api/users/{telegram_id} መሠረት)
+        const response = await fetch(`/api/users/${telegramId}`);
+        if (!response.ok) throw new Error("የተጫዋች መረጃ ማግኘት አልተቻለም");
+
+        const userData = await response.json();
+        console.log("👤 Player Data Loaded:", userData);
+
+        // 🎰 በUI ላይ ያሉትን የባላንስ ማሳያ ቦታዎች (HTML Elements) በቅጽበት ማደስ
+        if (document.getElementById('wallet-display')) {
+            // ዋናው የባንክ አካውንት ባላንስ
+            document.getElementById('wallet-display').innerText = userData.wallet.toFixed(2);
+        }
+        
+        if (document.getElementById('gift-coin-display')) {
+            // 🎁 እርስዎ ጓደኛ ሲጋብዙ የሚጨምረው የቦነስ (Gift Coin) ባላንስ እዚህ ጋር ይታያል!
+            document.getElementById('gift-coin-display').innerText = userData.gift_coin.toFixed(2);
+        }
+
+    } catch (error) {
+        console.error("❌ ባላንስ ማደስ አልተቻለም፦", error);
+    }
+}
+
+// 🚀 ሚኒ አፑ ሲነሳ ሁሉንም ሎጂኮች በአንድ ላይ መቀስቀስ
+window.addEventListener('DOMContentLoaded', () => {
+    const tg = window.Telegram?.WebApp;
+    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        const userId = tg.initDataUnsafe.user.id;
+        
+        // 1️⃣ መጀመሪያ የዕለታዊ ስጦታውን ቼክ ያደርጋል (ቅድም የጻፍነውን)
+        checkDailyBonus(userId);
+        
+        // 2️⃣ በመቀጠል የተጫዋቹን አጠቃላይ ባላንስ (የሪፈራል ቦነስ ጭምር) ከዳታቤዝ አውርዶ ያሳያል
+        loadPlayerBalance(userId);
+    }
+});
