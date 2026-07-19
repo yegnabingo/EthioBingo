@@ -792,7 +792,7 @@ async function submitWithdraw() {
 // 💡 ይህ ተግባር ሚኒ አፑ ሲከፈት በየቀኑ የሚሰጠውን የ 10 ETB ስጦታ ይቀሰቅሳል
 async function checkDailyBonus(telegramId) {
     try {
-        // 🔗 ከባክኤንድ ዩአርኤልዎ ጋር ይገናኛል (የባክኤንድ ኤፒአይ ዩአርኤል)
+        // 🔗 ከባክኤንድ ዩአርኤልዎ ጋር ይገናኛል
         const response = await fetch(`/api/users/daily-checkin?telegram_id=${telegramId}`, {
             method: 'POST',
             headers: {
@@ -804,8 +804,8 @@ async function checkDailyBonus(telegramId) {
         console.log("🎁 Daily Check-in Response:", data);
 
         if (response.ok && data.success) {
-            // 🎉 ስጦታው በተሳካ ሁኔታ ከተሰጠ ለተጫዋቹ ማሳወቂያ ያሳያል
-            alert(`🎁 የእለታዊ ስጦታ፦ ${data.bonus_amount} ETB የጨዋታ ቦነስ ተሰጥቶዎታል!`);
+            // 🎉 ፊክስ፦ 'undefined' እንዳይል ከባክኤንድ የመጣውን ቀጥታ መልዕክት (data.message) ያሳያል
+            alert(data.message || "🎉 የ 10 ETB እለታዊ ነፃ መጫወቻ ስጦታዎን ወስደዋል!");
             
             // 💰 በUI ላይ የ Gift Coin እና Wallet መጠንን በቅጽበት ያድሳል
             if (document.getElementById('gift-coin-display') && data.gift_coin !== undefined) {
@@ -814,6 +814,9 @@ async function checkDailyBonus(telegramId) {
             if (document.getElementById('wallet-display') && data.wallet !== undefined) {
                 document.getElementById('wallet-display').innerText = data.wallet.toFixed(2);
             }
+            
+            // የሪፈራል ቦነስንም ጭምር በትክክል ለማንበብ አጠቃላይ ባላንስን በድጋሚ ያድሳል
+            await loadPlayerBalance(telegramId);
         } else {
             console.log("ℹ️ እለታዊ ስጦታው ዛሬ አስቀድሞ ተወስዷል ወይም አልተፈቀደም።");
             // 💡 ስጦታው ዛሬ አስቀድሞ ተወስዶ እንኳ ከሆነ የቆየውን የሪፈራል ባላንስ በትክክል ለማንበብ ዩአይውን ያድሳል
@@ -837,12 +840,12 @@ async function loadPlayerBalance(telegramId) {
         console.log("👤 Player Data Loaded:", userData);
 
         // 🎰 በUI ላይ ያሉትን የባላንስ ማሳያ ቦታዎች (HTML Elements) በቅጽበት ማደስ
-        if (document.getElementById('wallet-display')) {
+        if (document.getElementById('wallet-display') && userData.wallet !== undefined) {
             // ዋናው የባንክ አካውንት ባላንስ
             document.getElementById('wallet-display').innerText = userData.wallet.toFixed(2);
         }
         
-        if (document.getElementById('gift-coin-display')) {
+        if (document.getElementById('gift-coin-display') && userData.gift_coin !== undefined) {
             // 🎁 እርስዎ ጓደኛ ሲጋብዙ የሚጨምረው የቦነስ (Gift Coin) ባላንስ እዚህ ጋር ይታያል!
             document.getElementById('gift-coin-display').innerText = userData.gift_coin.toFixed(2);
         }
@@ -857,7 +860,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // የቴሌግራም ዌብ አፕ ተጠቃሚ መረጃን ማግኘት
     const tg = window.Telegram?.WebApp;
     
-    // ሚኒ አፑ ሲከፈት ሙሉ ስክሪን እንዲሆን (ከተፈለገ)
+    // ሚኒ አፑ ሲከፈት ሙሉ ስክሪን እንዲሆን ማድረጊያ
     if (tg) {
         tg.expand(); 
     }
@@ -869,8 +872,5 @@ window.addEventListener('DOMContentLoaded', () => {
         checkDailyBonus(userId);
     } else {
         console.log("⚠️ ቦቱ የተከፈተው ከቴሌግራም ሚኒ አፕ ውጪ ነው።");
-        
-        // ለሎካል ቴስት (በብሮውዘር ስትሞክረው እንዳይቆም የናሙና ID መስጠት ትችላለህ)
-        // checkDailyBonus("123456789"); 
     }
 });
