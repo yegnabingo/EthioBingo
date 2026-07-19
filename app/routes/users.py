@@ -2,12 +2,12 @@ import os
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, date # 💡 date ለዕለታዊ ስጦታ ቁጥጥር ተጨምሯል
 from pydantic import BaseModel
 from typing import Optional
 
 from app.database import SessionLocal
-from app.models import User, Deposit, Withdrawal, Game
+from app.models import User, Deposit, Withdrawal, Game, DailyCheckIn # 💡 DailyCheckIn ተጨምሯል
 from app.schemas import DepositCreate, WithdrawCreate 
 
 router = APIRouter(
@@ -61,9 +61,10 @@ class AdminAction(BaseModel):
     message_id: Optional[int] = None
     admin_password: Optional[str] = None
 
-# 📥 1. አዲስ ተጫዋች ሲመዘገብ (መነሻ ባላንስ ከ0.0 ይጀምራል)
+
+# 📥 1. አዲስ ተጫዋች ሲመዘገብ (የሪፈራል ሎጂክ ተጨምሮበታል)
 @router.post("/users/register")
-def register_user(telegram_id: str, telegram_name: str = None, first_name: str = None, db: Session = Depends(get_db)):
+def register_user(telegram_id: str, telegram_name: str = None, first_name: str = None, referred_by: str = None, db: Session = Depends(get_db)):
     tg_id_str = str(telegram_id).strip()
     if not tg_id_str.isdigit():
         return {"success": False, "message": "Invalid Telegram ID."}
@@ -81,18 +82,34 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
             }
         }
     
+    # የጋባዥ ቼክ (የራሱን ID መጋበዣ ሊንክ መጠቀም አይችልም)
+    ref_id_str = None
+    if referred_by and str(referred_by).strip().isdigit():
+        ref_id_str = str(referred_by).strip()
+        if ref_id_str == tg_id_str:
+            ref_id_str = None
+
     new_user = User(
         telegram_id=tg_id_str, 
         telegram_name=telegram_name, 
         first_name=first_name, 
         wallet=0.0, 
-        balance=0.0,   # 🎯 በትክክል ከ 0.0 ይነሳል
+        balance=0.0,   
         gift_coin=0.0, 
+        referred_by=ref_id_str, # የጋባዡ ID እዚህ ይመዘገባል
         created_at=datetime.utcnow()
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    
+    # 🎁 የሪፈራል ቦነስ ስጦታ መስጠት (ለጋባዡ 20 ብር መጫወቻ ቦነስ)
+    if ref_id_str:
+        referrer = db.query(User).filter(User.telegram_id == ref_id_str).first()
+        if referrer:
+            referrer.gift_coin = (referrer.gift_coin or 0.0) + 20.0
+            db.commit()
+            print(f"🎉 Referral Bonus! User {ref_id_str} received 20 ETB bonus for inviting {tg_id_str}")
     
     return {
         "success": True, 
@@ -104,6 +121,45 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
             "gift_coin": new_user.gift_coin
         }
     }
+
+
+# 🎁 1ነጥብ2. የዕለታዊ ስጦታ መውሰጃ አዲስ API (Daily Check-in)
+@router.post("/users/daily-checkin")
+def user_daily_checkin(telegram_id: str, db: Session = Depends(get_db)):
+    tg_id_str = str(telegram_id).strip()
+    user = db.query(User).filter(User.telegram_id == tg_id_str).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="ተጠቃሚው አልተገኘም")
+        
+    today_date = date.today()
+    
+    # ዛሬ ቀድሞ መውሰዱን ማረጋገጥ
+    already_checked = db.query(DailyCheckIn).filter(
+        DailyCheckIn.user_id == user.id, 
+        DailyCheckIn.checked_date == today_date
+    ).first()
+    
+    if already_checked:
+        return {
+            "success": False, 
+            "message": "⚠️ የዛሬውን የስጦታ መጫወቻዎን ቀድመው ወስደዋል! እባክዎ ነገ በድጋሚ ይመለሱ።",
+            "gift_coin": user.gift_coin
+        }
+        
+    # 10 ብር መጫወቻ ቦነስ gift_coin ላይ መደመር
+    user.gift_coin = (user.gift_coin or 0.0) + 10.0
+    
+    # የዛሬውን ቀን መመዝገብ
+    new_checkin = DailyCheckIn(user_id=user.id, checked_date=today_date)
+    db.add(new_checkin)
+    db.commit()
+    
+    return {
+        "success": True, 
+        "message": "🎉 የ 10 ETB እለታዊ ነፃ መጫወቻ ስጦታዎን በተሳካ ሁኔታ ወስደዋል!", 
+        "gift_coin": user.gift_coin
+    }
+
 
 # 🔍 2. የተጫዋቹን የዋሌት መረጃ መፈተሻ API
 @router.get("/users/{telegram_id}")
@@ -174,7 +230,6 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
         print(f"❌ Database Deposit Error: {e}") 
         return {"success": False, "message": f"Failed to record deposit request: {str(e)}"}
 
-    # 🎯 ፊክስ፦ Callback ዳታዎቹ ከቦቱ የጥያቄ ስም ጋር 100% እንዲገጥሙ ተደርገዋል (approve_dep_ እና reject_dep_)
     inline_keyboard = {
         "inline_keyboard": [[
             {"text": "✅ APPROVED (አጽድቅ)", "callback_data": f"approve_dep_{new_deposit.id}"},
@@ -230,7 +285,6 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
         print(f"❌ Database Withdraw Error: {e}") 
         return {"success": False, "message": f"Failed to record withdrawal request: {str(e)}"}
 
-    # 🎯 ፊክስ፦ Callback ዳታዎቹ ከቦቱ የጥያቄ ስም ጋር 100% እንዲገጥሙ ተደርገዋል (approve_with_ እና reject_with_)
     inline_keyboard = {
         "inline_keyboard": [[
             {"text": "✅ APPROVED (ከፍያለሁ)", "callback_data": f"approve_with_{new_withdraw.id}"},
@@ -258,7 +312,6 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
     try:
         active_admin_id = payload.admin_telegram_id or payload.admin_id or "Admin"
         
-        # 🎯 ፊክስ፦ የጥያቄ መለያውን ከ 'id' ወይም ከ 'deposit_id' መፈለግ
         target_id = payload.id or payload.deposit_id
         if not target_id:
             return {"success": False, "message": "የዲፖዚት ID አልተላከም!"}
@@ -270,7 +323,6 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
         if deposit.status.lower() != "pending": 
             return {"success": False, "message": "ይህ ጥያቄ ቀድሞ ውሳኔ አግኝቷል (Pending አይደለም)!"}
 
-        # 🎯 ፊክስ፦ ተጠቃሚውን በ user_id ወይም በ telegram_id በትክክል ማጣመር
         user = None
         if deposit.user_id:
             user = db.query(User).filter(User.id == deposit.user_id).first()
