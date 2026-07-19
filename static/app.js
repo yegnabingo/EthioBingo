@@ -808,31 +808,21 @@ async function checkDailyBonus(telegramId) {
             alert(`🎁 የእለታዊ ስጦታ፦ ${data.bonus_amount} ETB የጨዋታ ቦነስ ተሰጥቶዎታል!`);
             
             // 💰 በUI ላይ የ Gift Coin እና Wallet መጠንን በቅጽበት ያድሳል
-            if (document.getElementById('gift-coin-display')) {
+            if (document.getElementById('gift-coin-display') && data.gift_coin !== undefined) {
                 document.getElementById('gift-coin-display').innerText = data.gift_coin.toFixed(2);
             }
-            if (document.getElementById('wallet-display')) {
+            if (document.getElementById('wallet-display') && data.wallet !== undefined) {
                 document.getElementById('wallet-display').innerText = data.wallet.toFixed(2);
             }
         } else {
             console.log("ℹ️ እለታዊ ስጦታው ዛሬ አስቀድሞ ተወስዷል ወይም አልተፈቀደም።");
+            // 💡 ስጦታው ዛሬ አስቀድሞ ተወስዶ እንኳ ከሆነ የቆየውን የሪፈራል ባላንስ በትክክል ለማንበብ ዩአይውን ያድሳል
+            await loadPlayerBalance(telegramId);
         }
     } catch (error) {
         console.error("❌ የዕለታዊ ስጦታ ኤፒአይ መጥራት አልተቻለም፦", error);
-    }
-}
-
-// 🚀 ሚኒ አፑ ከቴሌግራም ተነስቶ ሙሉ በሙሉ ሲጫን (Initialization)
-window.addEventListener('DOMContentLoaded', () => {
-    // የቴሌግራም ዌብ አፕ ተጠቃሚ መረጃን ማግኘት
-    const tg = window.Telegram?.WebApp;
-    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        const userId = tg.initDataUnsafe.user.id;
-        
-        // 🎯 የዕለታዊ ስጦታውን እዚህ ጋር ይቀሰቅሳል
-        checkDailyBonus(userId);
-    } else {
-        console.log("⚠️ ቦቱ የተከፈተው ከቴሌግራም ሚኒ አፕ ውጪ ነው።");
+        // ስህተት ቢኖር እንኳ መደበኛውን ባላንስ ለማንበብ ይሞክራል
+        await loadPlayerBalance(telegramId);
     }
 }
 
@@ -862,16 +852,25 @@ async function loadPlayerBalance(telegramId) {
     }
 }
 
-// 🚀 ሚኒ አፑ ሲነሳ ሁሉንም ሎጂኮች በአንድ ላይ መቀስቀስ
+// 🚀 ሚኒ አፑ ከቴሌግራም ተነስቶ ሙሉ በሙሉ ሲጫን (የተዋሃደ Initialization)
 window.addEventListener('DOMContentLoaded', () => {
+    // የቴሌግራም ዌብ አፕ ተጠቃሚ መረጃን ማግኘት
     const tg = window.Telegram?.WebApp;
+    
+    // ሚኒ አፑ ሲከፈት ሙሉ ስክሪን እንዲሆን (ከተፈለገ)
+    if (tg) {
+        tg.expand(); 
+    }
+
     if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
         const userId = tg.initDataUnsafe.user.id;
         
-        // 1️⃣ መጀመሪያ የዕለታዊ ስጦታውን ቼክ ያደርጋል (ቅድም የጻፍነውን)
+        // 🎯 የዕለታዊ ስጦታውን እና የባላንስ አሰጣጡን እዚህ ጋር ይቀሰቅሳል
         checkDailyBonus(userId);
+    } else {
+        console.log("⚠️ ቦቱ የተከፈተው ከቴሌግራም ሚኒ አፕ ውጪ ነው።");
         
-        // 2️⃣ በመቀጠል የተጫዋቹን አጠቃላይ ባላንስ (የሪፈራል ቦነስ ጭምር) ከዳታቤዝ አውርዶ ያሳያል
-        loadPlayerBalance(userId);
+        // ለሎካል ቴስት (በብሮውዘር ስትሞክረው እንዳይቆም የናሙና ID መስጠት ትችላለህ)
+        // checkDailyBonus("123456789"); 
     }
 });
