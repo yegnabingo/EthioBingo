@@ -10,9 +10,8 @@ from app.database import SessionLocal
 from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
 BOT_NAMES = [
-    "@Bura1655", "@Nati2030", "@Dagidi66", "@Deve33", "@Faya6688", 
-    "@wesen48", "@Benata777", "@Eyob_king", "@Telahun2121", "@Nati_Man", 
-    "@Dawed56", "@Tedy888", "@Robel19", "@Sami_Addis", "@Husen0911"
+    "user_Bura1655", "user_Nati2030", "user_Dagidi66", "user_Deve33", "user_Beya6688",  
+    "user_Dawed56", "user_Tedy888", "user_Robel19", "user_SamiAddis", "user_Husen0911"
 ]
 
 SUPPORTED_FEES = [10.0, 20.0, 50.0]
@@ -406,12 +405,12 @@ class GameEngine:
                 continue
 
             # 📌 የ Gift Coin እና Balance ማጣሪያ (ለቴስት ማገድ ከፈለክ እነዚህን 6 መስመሮች በ # ሸፍናቸው)
-            user = db.query(User).filter(User.id == card_info["user_id"]).first()
-            if user:
-                has_gift = getattr(user, 'gift_coin', 0) > 0
-                total_user_funds = getattr(user, 'balance', 0) + getattr(user, 'gift_coin', 0)
-                if has_gift or (total_user_funds <= fee):
-                    continue 
+           # user = db.query(User).filter(User.id == card_info["user_id"]).first()
+          #  if user:
+            #    has_gift = getattr(user, 'gift_coin', 0) > 0
+             #   total_user_funds = getattr(user, 'balance', 0) + getattr(user, 'gift_coin', 0)
+              #  if has_gift or (total_user_funds <= fee):
+                 #   continue 
 
             card_matrix = all_200_cards.get(str(card_num))
             if card_matrix:
