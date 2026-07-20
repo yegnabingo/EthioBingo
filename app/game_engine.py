@@ -223,20 +223,19 @@ class GameEngine:
                 if count > 0:
                     active_rooms.append(fee)
 
-            # 📌 1. የክፍሎችን የሀውስ ሁኔታ እና የኳስ ገደብ ለየብቻ ማሰናዳት
-            # ቆጣሪው 0, 1, 2 ከሆነ = FORCE_HOUSE (25-35 ኳስ ብቻ)
-            # ቆጣሪው 3 ከሆነ = ALLOW_PLAYER (እስከ 60 ኳስ ሙሉ እድል)
+            # 📌 1. የክፍሎችን የሀውስ ሁኔታ ማዘጋጀት
             room_status = {}
             force_all = True
             
             for fee in SUPPORTED_FEES:
-                if self.house_counters[fee] < 3:
-                    room_status[fee] = "FORCE_HOUSE"
-                else:
+                # ቆጣሪው 3 እና ከዚያ በላይ ከሆነ ለእውነተኛ ተጫዋች እድል ይሰጣል
+                if self.house_counters[fee] >= 3:
                     room_status[fee] = "ALLOW_PLAYER"
                     force_all = False
+                else:
+                    room_status[fee] = "FORCE_HOUSE"
 
-            # ሁሉንም ክፍሎች ሀውስ እንዲያሸንፍ ከተገደደ ኳሱ ቀድሞ ይቆማል፤ ተጫዋች ክፍት የሆነበት ክፍል ካለ እስከ 60 ይሄዳል
+            # ሁሉም ክፍሎች FORCE_HOUSE ከሆኑ ኳሱ በ 25-35 ይቋረጣል፤ ክፍት የሆነ ክፍል ካለ እስከ 60 ይፈቀዳል
             max_draw_balls = random.randint(25, 35) if force_all else 60
 
             winner_detected = False
@@ -273,7 +272,7 @@ class GameEngine:
                    "derash_rooms": derash_by_fee
                 })
 
-                # 📌 2. አሸናፊ መፈለግ
+                # 📌 2. አሸናፊ በየኳሱ መፈተሽ
                 result = self.process_drawn_ball_and_check_winner_v3(
                     db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards, room_status
                 )
@@ -330,14 +329,13 @@ class GameEngine:
 
                 await asyncio.sleep(interval)
 
-            # 🤖 3. House Win ከተፈጸመ ቆጣሪዎችን በትክክል ማሳደግ
+            # 🤖 3. House Win ከተፈጸመ ቆጣሪዎችን ማሳደግ
             if not winner_detected and self.running:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
 
-                # 📌 እያንዳንዱ ተጫዋች ያለበት ክፍል ቆጣሪ በ 1 ይጨምራል። 
-                # ቆጣሪው 3 ደርሶ አሁንም እውነተኛ ሰው ካላሸነፈ፣ መልሶ 0 ሆኖ ዑደቱ እንዳይዘጋ ያደርጋል።
-                for fee in SUPPORTED_FEES:
+                # 📌 ተጫዋች ባላቸው ክፍሎች ላይ ብቻ ቆጣሪው ይጨምራል
+                for fee in active_rooms:
                     self.house_counters[fee] += 1
                     if self.house_counters[fee] > 3:
                         self.house_counters[fee] = 0
@@ -403,14 +401,6 @@ class GameEngine:
             # የዚህ ክፍል ዙር FORCE_HOUSE ከሆነ እውነተኛ ተጫዋችን ይዘለዋል
             if room_status.get(fee) == "FORCE_HOUSE":
                 continue
-
-            # 📌 የ Gift Coin እና Balance ማጣሪያ (ለቴስት ማገድ ከፈለክ እነዚህን 6 መስመሮች በ # ሸፍናቸው)
-           # user = db.query(User).filter(User.id == card_info["user_id"]).first()
-          #  if user:
-            #    has_gift = getattr(user, 'gift_coin', 0) > 0
-             #   total_user_funds = getattr(user, 'balance', 0) + getattr(user, 'gift_coin', 0)
-              #  if has_gift or (total_user_funds <= fee):
-                 #   continue 
 
             card_matrix = all_200_cards.get(str(card_num))
             if card_matrix:
