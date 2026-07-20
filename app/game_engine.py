@@ -228,14 +228,14 @@ class GameEngine:
             force_all = True
             
             for fee in SUPPORTED_FEES:
-                # ቆጣሪው 1 እና ከዚያ በላይ ከሆነ ለእውነተኛ ተጫዋች እድል ይሰጣል (1 ለ 1 ratio)
+                # ቆጣሪው 1 እና ከዚያ በላይ ከሆነ ለእውነተኛ ተጫዋች እድል ይሰጣል (1:1 ratio)
                 if self.house_counters[fee] >= 1:
                     room_status[fee] = "ALLOW_PLAYER"
                     force_all = False
                 else:
                     room_status[fee] = "FORCE_HOUSE"
 
-            # 📌 2. የኳስ ብዛት ገደብ ማስተካከያ፡
+            # 📌 2. የኳስ ብዛት ገደብ ማስተካካያ፡
             # House Win ከሆነ ከ 15 ኳስ አይበልጥም (በ10 እና 15 ኳስ መካከል ይቋረጣል)
             # ለእውነተኛ ተጫዋች እድል ከተሰጠ እስከ 60 ኳስ ይጠራል
             max_draw_balls = random.randint(10, 15) if force_all else 60
@@ -331,7 +331,7 @@ class GameEngine:
 
                 await asyncio.sleep(interval)
 
-            # 🤖 4. House Win ከተፈጸመ ቆጣሪዎችን ማሳደግ
+            # 🤖 4. House Win ከተፈጸመ ቆጣሪዎችን ማሳደግ እና የቦቱን አሸናፊ ካርድ መረጃ በትክክል መላክ
             if not winner_detected and self.running:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
@@ -486,8 +486,10 @@ class GameEngine:
 
     def force_house_win(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards):
         winning_card_num = None
-        win_nums, pattern = [], "Forced House Win"
+        win_nums = []
+        pattern = "ቢንጎ"
         
+        # 1. ያልተሸጡት ካርዶች ውስጥ ቢንጎ የሰራ አለ ወይ ብሎ መፈተሽ
         for card_num in range(1, 201):
             if card_num not in bought_cards:
                 card_matrix = all_200_cards.get(str(card_num))
@@ -495,12 +497,17 @@ class GameEngine:
                     is_win, tmp_nums, tmp_pat = self.check_bingo_patterns(card_matrix, current_drawn_balls)
                     if is_win:
                         winning_card_num = card_num
-                        win_nums, pattern = tmp_nums, tmp_pat
+                        win_nums = tmp_nums
+                        pattern = tmp_pat
                         break
 
+        # 2. ቢንጎ የሰራ ካርድ ከሌለ ከተቀሩት ያልተሸጡ ካርዶች አንዱን መምረጥ እና የተጠሩትን ቁጥሮች መያዝ
         if not winning_card_num:
             available_ids = [idx for idx in range(1, 201) if idx not in bought_cards]
             winning_card_num = random.choice(available_ids) if available_ids else 1
+            card_matrix = all_200_cards.get(str(winning_card_num), [[0]*5]*5)
+            drawn_set = set(current_drawn_balls)
+            win_nums = [num for row in card_matrix for num in row if num in drawn_set]
 
         card_matrix = all_200_cards.get(str(winning_card_num), [[0]*5]*5)
         flat_card = [item for sublist in card_matrix for item in sublist]
