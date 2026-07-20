@@ -10,7 +10,9 @@ from app.database import SessionLocal
 from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
 BOT_NAMES = [
-    "Bura1655", "8976546", "Dagidi66", "Deve33675", "7895462",  
+    "@Bura1655", "@Nati2030", "@Dagidi66", "@Deve33", "@Faya6688", 
+    "@wesen48", "@Benata777", "@Eyob_king", "@Telahun2121", "@Nati_Man", 
+    "@Dawed56", "@Tedy888", "@Robel19", "@Sami_Addis", "@Husen0911"
 ]
 
 SUPPORTED_FEES = [10.0, 20.0, 50.0]
@@ -21,7 +23,7 @@ class GameEngine:
         self.running = False
         self.called_numbers = []
         self.current_game = None
-        # 📌 1. ለእያንዳንዱ ክፍል (Room Fee) ለየብቻ የሚቆጥር የሀውስ ቆጣሪ ተሰራ!
+        # 📌 ለእያንዳንዱ ክፍል ለየብቻ የሚቆጥር የሀውስ ቆጣሪ
         self.house_counters = {10.0: 0, 20.0: 0, 50.0: 0}
 
     async def safe_broadcast(self, payload):
@@ -213,7 +215,7 @@ class GameEngine:
             
             pools_by_fee = {}
             derash_by_fee = {}
-            active_rooms = [] # በዚ ዙር ተጫዋች ያላቸው ክፍሎች ብቻ
+            active_rooms = []
             
             for fee in SUPPORTED_FEES:
                 count = sum(1 for c in bought_cards.values() if c["bet_amount"] == fee)
@@ -222,18 +224,21 @@ class GameEngine:
                 if count > 0:
                     active_rooms.append(fee)
 
-            # 📌 2. ለእያንዳንዱ ክፍል የሀውስ ዙር መሆኑን ለየብቻ መወሰን
+            # 📌 1. የክፍሎችን የሀውስ ሁኔታ እና የኳስ ገደብ ለየብቻ ማሰናዳት
+            # ቆጣሪው 0, 1, 2 ከሆነ = FORCE_HOUSE (25-35 ኳስ ብቻ)
+            # ቆጣሪው 3 ከሆነ = ALLOW_PLAYER (እስከ 60 ኳስ ሙሉ እድል)
             room_status = {}
-            for fee in active_rooms:
-                # የዚህ ክፍል ቆጣሪ ከ 3 በታች ከሆነ በግድ ሀውስ ያሸንፋል
-                room_status[fee] = "FORCE_HOUSE" if self.house_counters[fee] < 3 else "ALLOW_PLAYER"
+            force_all = True
+            
+            for fee in SUPPORTED_FEES:
+                if self.house_counters[fee] < 3:
+                    room_status[fee] = "FORCE_HOUSE"
+                else:
+                    room_status[fee] = "ALLOW_PLAYER"
+                    force_all = False
 
-            # 🛑 3. የኳስ ገደብ UX ማስተካከያ
-            # በጨዋታው ውስጥ ያሉት ክፍሎች በሙሉ በሀውስ እንዲበሉ ከተወሰነ ጌሙን ፈጥነን እንጨርሰዋለን (ተጫዋቾች እንዳይጠራጠሩ)
-            if active_rooms and all(room_status[f] == "FORCE_HOUSE" for f in active_rooms):
-                max_draw_balls = random.randint(25, 35)
-            else:
-                max_draw_balls = 60
+            # ሁሉንም ክፍሎች ሀውስ እንዲያሸንፍ ከተገደደ ኳሱ ቀድሞ ይቆማል፤ ተጫዋች ክፍት የሆነበት ክፍል ካለ እስከ 60 ይሄዳል
+            max_draw_balls = random.randint(25, 35) if force_all else 60
 
             winner_detected = False
 
@@ -269,7 +274,7 @@ class GameEngine:
                    "derash_rooms": derash_by_fee
                 })
 
-                # 📌 4. አሸናፊዎችን በክፍላቸው (Room Fee) ልክ ለየብቻ የሚለይ አዲሱ ሎጅክ
+                # 📌 2. አሸናፊ መፈለግ
                 result = self.process_drawn_ball_and_check_winner_v3(
                     db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards, room_status
                 )
@@ -277,11 +282,12 @@ class GameEngine:
                 if result["status"] == "WINNER_FOUND":
                     winners_list = result["winners"]
                     
-                    # ያሸነፉትን ክፍሎች ቆጣሪ (Counter) ወደ 0 መመለስ (የሌላውን ክፍል ሳይነካ)
+                    # እውነተኛ ሰው ሲያሸንፍ የዚያ ክፍል ቆጣሪ ወደ 0 ይመለሳል
                     for w in winners_list:
                         fee = w["bet_amount"]
                         self.house_counters[fee] = 0
-                    
+                        print(f"🎉 እውነተኛ ተጫዋች በ {fee} ብር ክፍል አሸንፏል! ቆጣሪው ወደ 0 ተመልሷል።")
+
                     winners_data = []
                     for w in winners_list:
                         user_record = db.query(User).filter(User.id == w["winner_id"]).first()
@@ -308,7 +314,7 @@ class GameEngine:
                         "winning_card": primary_winner["card_number"],
                         "prize": primary_winner["prize"],
                         "room_fee": primary_winner["room_fee"],
-                        "message": f"🎉 በዙሩ {len(winners_data)} እውነተኛ አሸናፊዎች ተገኝተዋል!",
+                        "message": f"🎉 በዙሩ {len(winners_data)} አሸናፊዎች ተገኝተው ሽልማቱን ተካፍለዋል!",
                         "card_number": primary_winner["card_number"],
                         "winner_id": primary_winner["winner_id"],
                         "winning_numbers": primary_winner["winning_numbers"], 
@@ -320,21 +326,23 @@ class GameEngine:
                     break
 
                 if call_count >= max_draw_balls:
-                    print(f"⏰ ጨዋታው በ {call_count} ኳሶች ተዘግቷል። ወደ House Win ሂደት ይገባል።")
+                    print(f"⏰ ጨዋታው በ {call_count} ኳሶች ተዘግቷል። ወደ House Win ይሄዳል።")
                     break
 
                 await asyncio.sleep(interval)
 
-            # 🤖 5. House Win ማስፈጸሚያ (ያላሸነፉ/ሀውስ እንዲበላቸው የተወሰኑ ክፍሎችን ብቻ ማስተናገጃ)
+            # 🤖 3. House Win ከተፈጸመ ቆጣሪዎችን በትክክል ማሳደግ
             if not winner_detected and self.running:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
 
-                # 📌 እውነተኛ ሰው ላላሸነፈባቸው ክፍሎች በሙሉ የየራሳቸው የሀውስ ካውንተር ይጨምራል
-                for fee in active_rooms:
+                # 📌 እያንዳንዱ ተጫዋች ያለበት ክፍል ቆጣሪ በ 1 ይጨምራል። 
+                # ቆጣሪው 3 ደርሶ አሁንም እውነተኛ ሰው ካላሸነፈ፣ መልሶ 0 ሆኖ ዑደቱ እንዳይዘጋ ያደርጋል።
+                for fee in SUPPORTED_FEES:
                     self.house_counters[fee] += 1
-                    if self.house_counters[fee] >= 3:
-                        self.house_counters[fee] = 0 # 3 ከሞላ መልሶ ወደ 0 (ዑደቱ እንዲቀጥል)
+                    if self.house_counters[fee] > 3:
+                        self.house_counters[fee] = 0
+                    print(f"📊 ሩም {fee} ብር ቆጣሪ አሁን: {self.house_counters[fee]}")
 
                 await self.safe_broadcast({
                     "type": "game_over",
@@ -387,24 +395,23 @@ class GameEngine:
 
         return False, [], ""
 
-    # 📌 6. አዲሱ እያንዳንዱን ክፍል ነጥሎ ሂሳብ የሚሰራ እና አሸናፊ የሚፈትሽ ፈንክሽን
     def process_drawn_ball_and_check_winner_v3(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards, room_status):
         detected_winners = []
         
         for card_num, card_info in bought_cards.items():
             fee = card_info["bet_amount"]
             
-            # ይህ ዙር ለዚህ ክፍል የሀውስ ማሸነፊያ ከሆነ እውነተኛ ተጫዋቹን ይዘለዋል!
+            # የዚህ ክፍል ዙር FORCE_HOUSE ከሆነ እውነተኛ ተጫዋችን ይዘለዋል
             if room_status.get(fee) == "FORCE_HOUSE":
                 continue
 
-            # 📌 የ Gift Coin እና Balance ማጣሪያ ሎጅክ (ለመዝጋት ከፈለክ ከታች ያሉትን 6 መስመሮች በ # መክበብ ትችላለህ)
-          #  user = db.query(User).filter(User.id == card_info["user_id"]).first()
-           # if user:
-             #   has_gift = getattr(user, 'gift_coin', 0) > 0
-             #   total_user_funds = getattr(user, 'balance', 0) + getattr(user, 'gift_coin', 0)
-              #  if has_gift or (total_user_funds <= fee):
-                #    continue 
+            # 📌 የ Gift Coin እና Balance ማጣሪያ (ለቴስት ማገድ ከፈለክ እነዚህን 6 መስመሮች በ # ሸፍናቸው)
+            user = db.query(User).filter(User.id == card_info["user_id"]).first()
+            if user:
+                has_gift = getattr(user, 'gift_coin', 0) > 0
+                total_user_funds = getattr(user, 'balance', 0) + getattr(user, 'gift_coin', 0)
+                if has_gift or (total_user_funds <= fee):
+                    continue 
 
             card_matrix = all_200_cards.get(str(card_num))
             if card_matrix:
