@@ -228,16 +228,13 @@ class GameEngine:
             force_all = True
             
             for fee in SUPPORTED_FEES:
-                # ቆጣሪው 1 እና ከዚያ በላይ ከሆነ ለእውነተኛ ተጫዋች እድል ይሰጣል (1:1 ratio)
                 if self.house_counters[fee] >= 1:
                     room_status[fee] = "ALLOW_PLAYER"
                     force_all = False
                 else:
                     room_status[fee] = "FORCE_HOUSE"
 
-            # 📌 2. የኳስ ብዛት ገደብ ማስተካካያ፡
-            # House Win ከሆነ ከ 15 ኳስ አይበልጥም (በ10 እና 15 ኳስ መካከል ይቋረጣል)
-            # ለእውነተኛ ተጫዋች እድል ከተሰጠ እስከ 60 ኳስ ይጠራል
+            # 📌 2. House Win ከሆነ ከ 10 እስከ 15 ኳስ ብቻ ይጠራል፤ ተጫዋች ከሆነ እስከ 60 ይጠራል
             max_draw_balls = random.randint(10, 15) if force_all else 60
 
             winner_detected = False
@@ -282,7 +279,6 @@ class GameEngine:
                 if result["status"] == "WINNER_FOUND":
                     winners_list = result["winners"]
                     
-                    # እውነተኛ ሰው ሲያሸንፍ የዚያ ክፍል ቆጣሪ ወደ 0 ይመለሳል
                     for w in winners_list:
                         fee = w["bet_amount"]
                         self.house_counters[fee] = 0
@@ -331,17 +327,15 @@ class GameEngine:
 
                 await asyncio.sleep(interval)
 
-            # 🤖 4. House Win ከተፈጸመ ቆጣሪዎችን ማሳደግ እና የቦቱን አሸናፊ ካርድ መረጃ በትክክል መላክ
+            # 🤖 4. House Win ከተፈጸመ ቦቱ በትክክለኛና በተሟላ የቢንጎ መስመር አሸንፎ እንዲዘጋ ማድረግ
             if not winner_detected and self.running:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
 
-                # 📌 ተጫዋች ባላቸው ክፍሎች ላይ ብቻ ቆጣሪው ይጨምራል
                 for fee in active_rooms:
                     self.house_counters[fee] += 1
                     if self.house_counters[fee] > 1:
                         self.house_counters[fee] = 0
-                    print(f"📊 ሩም {fee} ብር ቆጣሪ አሁን: {self.house_counters[fee]}")
 
                 await self.safe_broadcast({
                     "type": "game_over",
@@ -400,7 +394,6 @@ class GameEngine:
         for card_num, card_info in bought_cards.items():
             fee = card_info["bet_amount"]
             
-            # የዚህ ክፍል ዙር FORCE_HOUSE ከሆነ እውነተኛ ተጫዋችን ይዘለዋል
             if room_status.get(fee) == "FORCE_HOUSE":
                 continue
 
@@ -485,31 +478,38 @@ class GameEngine:
             print(f"❌ Error committing prize distribution: {e}")
 
     def force_house_win(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards):
-        winning_card_num = None
-        win_nums = []
-        pattern = "ቢንጎ"
-        
-        # 1. ያልተሸጡት ካርዶች ውስጥ ቢንጎ የሰራ አለ ወይ ብሎ መፈተሽ
-        for card_num in range(1, 201):
-            if card_num not in bought_cards:
-                card_matrix = all_200_cards.get(str(card_num))
-                if card_matrix:
-                    is_win, tmp_nums, tmp_pat = self.check_bingo_patterns(card_matrix, current_drawn_balls)
-                    if is_win:
-                        winning_card_num = card_num
-                        win_nums = tmp_nums
-                        pattern = tmp_pat
-                        break
-
-        # 2. ቢንጎ የሰራ ካርድ ከሌለ ከተቀሩት ያልተሸጡ ካርዶች አንዱን መምረጥ እና የተጠሩትን ቁጥሮች መያዝ
-        if not winning_card_num:
-            available_ids = [idx for idx in range(1, 201) if idx not in bought_cards]
-            winning_card_num = random.choice(available_ids) if available_ids else 1
-            card_matrix = all_200_cards.get(str(winning_card_num), [[0]*5]*5)
-            drawn_set = set(current_drawn_balls)
-            win_nums = [num for row in card_matrix for num in row if num in drawn_set]
-
+        # 📌 1. ከተሸጡት ውጪ ያለ ካርድ መምረጥ
+        available_ids = [idx for idx in range(1, 201) if idx not in bought_cards]
+        winning_card_num = random.choice(available_ids) if available_ids else 1
         card_matrix = all_200_cards.get(str(winning_card_num), [[0]*5]*5)
+        
+        # 📌 2. በካርዱ ላይ የሚገኙ ሁሉንም ህጋዊ የቢንጎ መስመሮች (Patterns) ማዘጋጀት
+        possible_patterns = []
+        for r in range(5):
+            possible_patterns.append(([card_matrix[r][c] for c in range(5)], f"Horizontal Row {r+1}"))
+        for c in range(5):
+            possible_patterns.append(([card_matrix[r][c] for r in range(5)], f"Vertical Column {c+1}"))
+        possible_patterns.append(([card_matrix[i][i] for i in range(5)], "Diagonal Down"))
+        possible_patterns.append(([card_matrix[i][4-i] for i in range(5)], "Diagonal Up"))
+        corners = [(0, 0), (0, 4), (4, 0), (4, 4)]
+        possible_patterns.append(([card_matrix[r][c] for r, c in corners], "4 Corners"))
+
+        # 📌 3. ከተጠሩት ቁጥሮች ጋር በጣም የቀረበውን ሙሉ መስመር መምረጥ
+        drawn_set = set(current_drawn_balls)
+        best_pattern_nums, best_pattern_name = max(
+            possible_patterns, 
+            key=lambda p: sum(1 for n in p[0] if n in drawn_set or n in ["FREE", None])
+        )
+        
+        # 📌 4. የቦቱ ካርድ አምስቱም ቁጥሮች እንዲበሩ ያልተጠሩትን ወደ መጠሪያ ዝርዝር መጨመር
+        for num in best_pattern_nums:
+            if num and num != "FREE" and num not in self.called_numbers:
+                self.called_numbers.append(num)
+
+        # 📌 5. ለUI ማሳያ ሙሉውን የቢንጎ መስመር ቁጥሮች ማዘጋጀት
+        win_nums = [n for n in best_pattern_nums if n and n != "FREE"]
+        pattern = best_pattern_name
+
         flat_card = [item for sublist in card_matrix for item in sublist]
         
         self.distribute_multi_room_prize(db, game_id, pools_by_fee, winner_user_id=None, winning_card=winning_card_num)
