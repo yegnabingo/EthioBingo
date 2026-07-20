@@ -223,20 +223,22 @@ class GameEngine:
                 if count > 0:
                     active_rooms.append(fee)
 
-            # 📌 1. የክፍሎችን የሀውስ ሁኔታ ማዘጋጀት
+            # 📌 1. የክፍሎችን የሀውስ ሁኔታ ማዘጋጀት (1 ለ 1 ዑደት)
             room_status = {}
             force_all = True
             
             for fee in SUPPORTED_FEES:
-                # ቆጣሪው 3 እና ከዚያ በላይ ከሆነ ለእውነተኛ ተጫዋች እድል ይሰጣል
-                if self.house_counters[fee] >= 3:
+                # ቆጣሪው 1 እና ከዚያ በላይ ከሆነ ለእውነተኛ ተጫዋች እድል ይሰጣል (1 ለ 1 ratio)
+                if self.house_counters[fee] >= 1:
                     room_status[fee] = "ALLOW_PLAYER"
                     force_all = False
                 else:
                     room_status[fee] = "FORCE_HOUSE"
 
-            # ሁሉም ክፍሎች FORCE_HOUSE ከሆኑ ኳሱ በ 25-35 ይቋረጣል፤ ክፍት የሆነ ክፍል ካለ እስከ 60 ይፈቀዳል
-            max_draw_balls = random.randint(25, 35) if force_all else 60
+            # 📌 2. የኳስ ብዛት ገደብ ማስተካከያ፡
+            # House Win ከሆነ ከ 15 ኳስ አይበልጥም (በ10 እና 15 ኳስ መካከል ይቋረጣል)
+            # ለእውነተኛ ተጫዋች እድል ከተሰጠ እስከ 60 ኳስ ይጠራል
+            max_draw_balls = random.randint(10, 15) if force_all else 60
 
             winner_detected = False
 
@@ -272,7 +274,7 @@ class GameEngine:
                    "derash_rooms": derash_by_fee
                 })
 
-                # 📌 2. አሸናፊ በየኳሱ መፈተሽ
+                # 📌 3. አሸናፊ በየኳሱ መፈተሽ
                 result = self.process_drawn_ball_and_check_winner_v3(
                     db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards, room_status
                 )
@@ -329,7 +331,7 @@ class GameEngine:
 
                 await asyncio.sleep(interval)
 
-            # 🤖 3. House Win ከተፈጸመ ቆጣሪዎችን ማሳደግ
+            # 🤖 4. House Win ከተፈጸመ ቆጣሪዎችን ማሳደግ
             if not winner_detected and self.running:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
@@ -337,7 +339,7 @@ class GameEngine:
                 # 📌 ተጫዋች ባላቸው ክፍሎች ላይ ብቻ ቆጣሪው ይጨምራል
                 for fee in active_rooms:
                     self.house_counters[fee] += 1
-                    if self.house_counters[fee] > 3:
+                    if self.house_counters[fee] > 1:
                         self.house_counters[fee] = 0
                     print(f"📊 ሩም {fee} ብር ቆጣሪ አሁን: {self.house_counters[fee]}")
 
