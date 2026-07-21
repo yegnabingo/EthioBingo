@@ -239,7 +239,7 @@ class GameEngine:
                     room_status[fee] = "FORCE_HOUSE"
 
             # 📌 2. Force House ከሆነ ከ 10 እስከ 15 ኳስ ብቻ ይጠራል፤ ተጫዋች የሚፈቀድበት ከሆነ እስከ 60 ኳስ ይፈቀዳል
-            max_draw_balls = random.randint(10, 15) if force_all else 60
+            max_draw_balls = random.randint(10, 15) if force_all else 15
 
             winner_detected = False
 
@@ -263,7 +263,7 @@ class GameEngine:
                     game_record.drawn_balls = json.dumps(self.called_numbers)
                     db.commit()
 
-                letter = "B" if number <= 15 else "I" if number <= 30 else "N" if number <= 45 else "G" if number <= 60 else "O"
+                letter = "B" if number <= 15 else "I" if number <= 25 else "N" if number <= 25 else "G" if number <= 25 else "O"
 
                 await self.safe_broadcast({
                    "type": "ball",
