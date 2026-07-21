@@ -97,12 +97,13 @@ class GameEngine:
                 self.current_game = game
                 game_display_no = str(100000 + saved_game_id)
                 
+                # 📌 ቢያንስ 3 ካርዶች ከተሸጡ ብቻ ነው ወደ draw_numbers የሚሸጋገረው
                 has_bought_cards = await self.countdown(countdown_seconds, game_display_no, saved_game_id)
 
                 if self.running and has_bought_cards:
                     await self.draw_numbers(draw_interval, game_display_no, saved_game_id)
                 else:
-                    print(f"🔄 Game {game_display_no} ላይ በማንኛውም ክፍል ምንም ካርድ አልተሸጠም። ዑደቱ እንደገና ይጀምራል።")
+                    print(f"🔄 Game {game_display_no} ላይ አስፈላጊው የካርድ ብዛት አልተሟላም። ዑደቱ እንደገና ይጀምራል።")
                     game_record = db.query(Game).filter(Game.id == saved_game_id).first()
                     if game_record:
                         game_record.status = "cancelled"
@@ -129,11 +130,15 @@ class GameEngine:
                         print(f"❌ Error resetting context assets: {e}")
 
     async def countdown(self, seconds, game_display_no, saved_game_id):
+        initial_seconds = seconds
         has_bought_cards = False
+        
         while seconds >= 0 and self.running:
             current_taken_list = []
             comm_percent = 20.0
             player_counts = {fee: 0 for fee in SUPPORTED_FEES}
+            total_cards_sold = 0
+            unique_users_count = 0
             
             db: Session = None
             try:
@@ -152,6 +157,10 @@ class GameEngine:
                     ).count()
                     player_counts[fee] = count
 
+                # 📌 1. አጠቃላይ የተሸጡ ካርዶች እና የተለያዩ ተጫዋቾች ብዛት ስሌት
+                total_cards_sold = db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).count()
+                unique_users_count = db.query(PlayerCard.user_id).filter(PlayerCard.game_id == saved_game_id).distinct().count()
+
                 if saved_game_id:
                     game_record = db.query(Game).filter(Game.id == saved_game_id).first()
                     if game_record:
@@ -163,6 +172,31 @@ class GameEngine:
                 if db:
                     db.close()
 
+            # 📌 2. ሰከንዱ 0 ላይ ሲደርስ ቢያንስ 3 ካርድ ከተለያየ user ካልተሸጠ ሰከንዱን እንደገና መመለስ!
+            if seconds == 0:
+                if total_cards_sold < 3 or unique_users_count < 1:
+                    print(f"⏳ ካርድ አልተሟላም (የተሸጡ፡ {total_cards_sold}/3)። ቆጣሪው እንደገና ወደ {initial_seconds}s ይመለሳል።")
+                    seconds = initial_seconds
+                    
+                    # ለተጫዋቾች ማሳወቂያ መላክ
+                    await self.safe_broadcast({
+                        "type": "countdown",
+                        "seconds": seconds,
+                        "time": seconds,
+                        "phase": "PICK",
+                        "game_no": game_display_no,
+                        "game_id": saved_game_id,
+                        "taken_cards": current_taken_list,
+                        "derash_rooms": {}, 
+                        "player_counts": player_counts,
+                        "player_count": total_cards_sold,
+                        "message": "⚠️ ቢያንስ 3 ካርዶች መሸጥ አለባቸው! ጨዋታው ተራዝሟል።"
+                    })
+                    await asyncio.sleep(1)
+                    continue
+                else:
+                    has_bought_cards = True
+
             derash_amounts = {}
             total_players_all_rooms = 0
             for fee, count in player_counts.items():
@@ -170,9 +204,6 @@ class GameEngine:
                 total_pool = count * fee
                 derash_ratio = (100.0 - comm_percent) / 100.0
                 derash_amounts[str(int(fee))] = int(total_pool * derash_ratio)
-
-            if total_players_all_rooms > 0:
-                has_bought_cards = True
 
             payload = {
                 "type": "countdown",
