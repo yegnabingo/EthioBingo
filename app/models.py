@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, Date  # 💡 Date እዚህ ላይ ተጨምሯል
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, Date
 from datetime import datetime
 from app.database import Base
 
@@ -94,7 +94,8 @@ class Game(Base):
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     winner_id = Column(Integer, nullable=True)
-    winning_card = Column(Integer, nullable=True)
+    # 📌 String ተደርጓል፤ ምክንያቱም ከአንድ በላይ አሸናፊ ሲኖር "105,106" ተብሎ ሊጻፍ ይችላል
+    winning_card = Column(String, nullable=True) 
     prize = Column(Float, default=0.0)
     
     total_players = Column(Integer, default=0)
@@ -129,6 +130,10 @@ class Setting(Base):
     min_withdraw = Column(Float, default=50.0)
     jackpot_percent = Column(Float, default=10.0)
     is_registration_open = Column(Boolean, default=True)
+    
+    # 📌 አዲስ የተጨመረ፦ የቤት (House) ማሸነፊያ Ratio መቆጣጠሪያ 
+    # 3 = (3 House : 1 User), 2 = (2 House : 1 User), 1 = (1 House : 1 User)
+    house_win_ratio = Column(Integer, default=3)
 
 
 class Admin(Base):
