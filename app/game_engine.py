@@ -80,8 +80,8 @@ class GameEngine:
                 db = SessionLocal()
                 settings = db.query(Setting).first()
 
-                countdown_seconds = settings.countdown_seconds if settings else 30
-                draw_interval = settings.draw_interval if settings else 2.0
+                countdown_seconds = settings.countdown_seconds if (settings and hasattr(settings, 'countdown_seconds')) else 30
+                draw_interval = settings.draw_interval if (settings and hasattr(settings, 'draw_interval')) else 2.0
 
                 game = Game(
                     status="running",
@@ -207,7 +207,11 @@ class GameEngine:
             for pc in db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).all():
                 bought_cards[pc.card_number] = {"user_id": pc.user_id, "bet_amount": pc.bet_amount}
 
-            all_200_cards = {str(c.card_number): json.loads(c.data) if isinstance(c.data, str) else c.data for c in db.query(Card).all()}
+            # 📌 Safely load card json data
+            all_200_cards = {}
+            for c in db.query(Card).all():
+                card_data = json.loads(c.data) if isinstance(c.data, str) else c.data
+                all_200_cards[str(c.card_number)] = card_data
 
             settings = db.query(Setting).first()
             comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
@@ -228,14 +232,14 @@ class GameEngine:
             force_all = True
             
             for fee in SUPPORTED_FEES:
-                if self.house_counters[fee] >= 1:
+                if self.house_counters.get(fee, 0) >= 1:
                     room_status[fee] = "ALLOW_PLAYER"
                     force_all = False
                 else:
                     room_status[fee] = "FORCE_HOUSE"
 
-            # 📌 2. House Win ከሆነ ከ 10 እስከ 15 ኳስ ብቻ ይጠራል፤ ተጫዋች ከሆነ እስከ 60 ይጠራል
-            max_draw_balls = random.randint(10, 15) if force_all else 60
+            # 📌 2. ከፍተኛው የሚጠራው ኳስ ብዛት ወደ 15 ተቀይሯል
+            max_draw_balls = random.randint(10, 15) if force_all else 15
 
             winner_detected = False
 
@@ -333,7 +337,7 @@ class GameEngine:
                 winner_name = random.choice(BOT_NAMES)
 
                 for fee in active_rooms:
-                    self.house_counters[fee] += 1
+                    self.house_counters[fee] = self.house_counters.get(fee, 0) + 1
                     if self.house_counters[fee] > 1:
                         self.house_counters[fee] = 0
 
@@ -368,6 +372,9 @@ class GameEngine:
                 db.close()
 
     def check_bingo_patterns(self, matrix, drawn_balls):
+        if not matrix or len(matrix) != 5 or any(len(row) != 5 for row in matrix):
+            return False, [], ""
+
         drawn_set = set(drawn_balls)
         drawn_set.add("FREE")
         drawn_set.add(None)
@@ -481,36 +488,45 @@ class GameEngine:
         # 📌 1. ከተሸጡት ውጪ ያለ ካርድ መምረጥ
         available_ids = [idx for idx in range(1, 201) if idx not in bought_cards]
         winning_card_num = random.choice(available_ids) if available_ids else 1
-        card_matrix = all_200_cards.get(str(winning_card_num), [[0]*5]*5)
+        card_matrix = all_200_cards.get(str(winning_card_num), [[0]*5 for _ in range(5)])
         
         # 📌 2. በካርዱ ላይ የሚገኙ ሁሉንም ህጋዊ የቢንጎ መስመሮች (Patterns) ማዘጋጀት
         possible_patterns = []
-        for r in range(5):
-            possible_patterns.append(([card_matrix[r][c] for c in range(5)], f"Horizontal Row {r+1}"))
-        for c in range(5):
-            possible_patterns.append(([card_matrix[r][c] for r in range(5)], f"Vertical Column {c+1}"))
-        possible_patterns.append(([card_matrix[i][i] for i in range(5)], "Diagonal Down"))
-        possible_patterns.append(([card_matrix[i][4-i] for i in range(5)], "Diagonal Up"))
-        corners = [(0, 0), (0, 4), (4, 0), (4, 4)]
-        possible_patterns.append(([card_matrix[r][c] for r, c in corners], "4 Corners"))
+        if len(card_matrix) == 5:
+            for r in range(5):
+                possible_patterns.append(([card_matrix[r][c] for c in range(5)], f"Horizontal Row {r+1}"))
+            for c in range(5):
+                possible_patterns.append(([card_matrix[r][c] for r in range(5)], f"Vertical Column {c+1}"))
+            possible_patterns.append(([card_matrix[i][i] for i in range(5)], "Diagonal Down"))
+            possible_patterns.append(([card_matrix[i][4-i] for i in range(5)], "Diagonal Up"))
+            corners = [(0, 0), (0, 4), (4, 0), (4, 4)]
+            possible_patterns.append(([card_matrix[r][c] for r, c in corners], "4 Corners"))
 
         # 📌 3. ከተጠሩት ቁጥሮች ጋር በጣም የቀረበውን ሙሉ መስመር መምረጥ
         drawn_set = set(current_drawn_balls)
-        best_pattern_nums, best_pattern_name = max(
-            possible_patterns, 
-            key=lambda p: sum(1 for n in p[0] if n in drawn_set or n in ["FREE", None])
-        )
+        if possible_patterns:
+            best_pattern_nums, best_pattern_name = max(
+                possible_patterns, 
+                key=lambda p: sum(1 for n in p[0] if n in drawn_set or n in ["FREE", None])
+            )
+        else:
+            best_pattern_nums, best_pattern_name = [], "ቢንጎ"
         
         # 📌 4. የቦቱ ካርድ አምስቱም ቁጥሮች እንዲበሩ ያልተጠሩትን ወደ መጠሪያ ዝርዝር መጨመር
         for num in best_pattern_nums:
             if num and num != "FREE" and num not in self.called_numbers:
                 self.called_numbers.append(num)
 
+        # Update persistent drawn_balls state in Game DB record
+        game_record = db.query(Game).filter(Game.id == game_id).first()
+        if game_record:
+            game_record.drawn_balls = json.dumps(self.called_numbers)
+
         # 📌 5. ለUI ማሳያ ሙሉውን የቢንጎ መስመር ቁጥሮች ማዘጋጀት
         win_nums = [n for n in best_pattern_nums if n and n != "FREE"]
         pattern = best_pattern_name
 
-        flat_card = [item for sublist in card_matrix for item in sublist]
+        flat_card = [item for sublist in card_matrix for item in sublist] if len(card_matrix) == 5 else []
         
         self.distribute_multi_room_prize(db, game_id, pools_by_fee, winner_user_id=None, winning_card=winning_card_num)
 
