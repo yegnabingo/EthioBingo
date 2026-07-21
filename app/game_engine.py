@@ -238,8 +238,8 @@ class GameEngine:
                 else:
                     room_status[fee] = "FORCE_HOUSE"
 
-            # 📌 2. ከፍተኛው የሚጠራው ኳስ ብዛት ወደ 15 ተቀይሯል
-            max_draw_balls = random.randint(10, 15) if force_all else 15
+            # 📌 2. Force House ከሆነ ከ 10 እስከ 15 ኳስ ብቻ ይጠራል፤ ተጫዋች የሚፈቀድበት ከሆነ እስከ 60 ኳስ ይፈቀዳል
+            max_draw_balls = random.randint(10, 15) if force_all else 60
 
             winner_detected = False
 
@@ -275,7 +275,7 @@ class GameEngine:
                    "derash_rooms": derash_by_fee
                 })
 
-                # 📌 3. አሸናፊ በየኳሱ መፈተሽ
+                # 📌 3. አሸናፊ በየተጠራው ኳስ ይፈተሻል (ቀድሞ የሞላ ካለ እዚሁ ላይ ይወጣል!)
                 result = self.process_drawn_ball_and_check_winner_v3(
                     db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards, room_status
                 )
@@ -323,7 +323,7 @@ class GameEngine:
                         "winners": winners_data
                     })
                     winner_detected = True
-                    break
+                    break  # 👈 እውነተኛ አሸናፊ ከተገኘ loop ይቋረጣል!
 
                 if call_count >= max_draw_balls:
                     print(f"⏰ ጨዋታው በ {call_count} ኳሶች ተዘግቷል። ወደ House Win ይሄዳል።")
@@ -331,7 +331,7 @@ class GameEngine:
 
                 await asyncio.sleep(interval)
 
-            # 🤖 4. House Win ከተፈጸመ ቦቱ በትክክለኛና በተሟላ የቢንጎ መስመር አሸንፎ እንዲዘጋ ማድረግ
+            # 🤖 4. እስከተወሰነው ኳስ ድረስ እውነተኛ አሸናፊ ካልተገኘ ብቻ ቦቱ እንዲያሸንፍ ይደረጋል
             if not winner_detected and self.running:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
