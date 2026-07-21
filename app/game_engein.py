@@ -237,7 +237,6 @@ class GameEngine:
                 else:
                     room_status[fee] = "FORCE_HOUSE"
 
-            # 📌 2. Force House ከሆነ ከ 10 እስከ 15 ኳስ፤ ተጫዋች ከተፈቀደ ደግሞ ከፍተኛው 30 ኳስ ብቻ!
             max_draw_balls = random.randint(10, 15) if force_all else 30
 
             winner_detected = False
@@ -262,7 +261,6 @@ class GameEngine:
                     game_record.drawn_balls = json.dumps(self.called_numbers)
                     db.commit()
 
-                # ✅ የተስተካከለ የቢንጎ ፊደላት ክልል
                 letter = "B" if number <= 15 else "I" if number <= 30 else "N" if number <= 45 else "G" if number <= 60 else "O"
 
                 await self.safe_broadcast({
@@ -331,6 +329,7 @@ class GameEngine:
 
                 await asyncio.sleep(interval)
 
+            # 🤖 4. እውነተኛ አሸናፊ ካልተገኘ በሬንደም ስም አሸናፊ እንዲመጣ ይደረጋል (የሲስተም ቦት የሚል ቃል ሳይኖር)
             if not winner_detected and self.running:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
@@ -347,7 +346,7 @@ class GameEngine:
                     "winner_name": winner_name,
                     "winning_card": result["card_number"],
                     "prize": round(sum(pools_by_fee.values()), 2), 
-                    "message": result["message"],
+                    "message": f"🎉 ካርድ #{result['card_number']} ({winner_name}) አሸንፏል!",
                     "card_number": result["card_number"],
                     "winner_id": result["winner_id"],
                     "winning_numbers": result.get("winning_numbers", []),
@@ -428,9 +427,10 @@ class GameEngine:
             
             for w in detected_winners:
                 f = w["bet_amount"]
-                total_pool_money = pools_by_fee.get(f, 0)
-                admin_commission = total_pool_money * (comm_percent / 100.0)
-                total_player_prize = total_pool_money - admin_commission
+                room_total_pool = pools_by_fee.get(f, 0)
+                
+                admin_commission = room_total_pool * (comm_percent / 100.0)
+                total_player_prize = room_total_pool - admin_commission
                 
                 winners_in_this_room = room_winner_counts[f]
                 w["prize_share"] = total_player_prize / winners_in_this_room
@@ -469,13 +469,13 @@ class GameEngine:
                 user.balance += w["prize_share"]
                 
         for fee in winning_fees:
-            total_pool_money = pools_by_fee.get(fee, 0)
-            admin_commission = total_pool_money * (comm_percent / 100.0)
+            room_pool = pools_by_fee.get(fee, 0)
+            admin_commission = room_pool * (comm_percent / 100.0)
             admin_stats.total_commission += admin_commission
 
-        for fee, total_pool_money in pools_by_fee.items():
-            if fee not in winning_fees and total_pool_money > 0:
-                admin_stats.house_balance += total_pool_money
+        for fee, room_pool in pools_by_fee.items():
+            if fee not in winning_fees and room_pool > 0:
+                admin_stats.house_balance += room_pool
 
         try:
             db.commit()
@@ -525,7 +525,6 @@ class GameEngine:
 
         return {     
             "status": "HOUSE_WIN",
-            "message": f"🎉 ካርድ #{winning_card_num} (የሲስተም ቦት) አሸንፏል!",
             "winner_id": 0,
             "card_number": winning_card_num,
             "winning_numbers": win_nums,
