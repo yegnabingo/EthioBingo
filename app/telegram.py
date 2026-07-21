@@ -18,7 +18,7 @@ BACKEND_URL = SERVER_URL
 MINI_APP_URL = SERVER_URL
 
 # 🖼️ የማቀባበያ ምስል ሊንክ
-WELCOME_IMAGE_URL = f"{MINI_APP_URL}/static/images/welcome.png"
+WELCOME_IMAGE_URL = f"https://web-production-fd82a.up.railway.app/static/images/welcome.png"
 
 bot = TeleBot(BOT_TOKEN)
 
