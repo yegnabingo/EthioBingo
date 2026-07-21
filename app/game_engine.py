@@ -207,7 +207,6 @@ class GameEngine:
             for pc in db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).all():
                 bought_cards[pc.card_number] = {"user_id": pc.user_id, "bet_amount": pc.bet_amount}
 
-            # 📌 Safely load card json data
             all_200_cards = {}
             for c in db.query(Card).all():
                 card_data = json.loads(c.data) if isinstance(c.data, str) else c.data
@@ -227,7 +226,7 @@ class GameEngine:
                 if count > 0:
                     active_rooms.append(fee)
 
-            # 📌 1. የክፍሎችን የሀውስ ሁኔታ ማዘጋጀት (1 ለ 1 ዑደት)
+            # 📌 1. የክፍሎችን የሀውስ ሁኔታ ማዘጋጀት
             room_status = {}
             force_all = True
             
@@ -238,8 +237,8 @@ class GameEngine:
                 else:
                     room_status[fee] = "FORCE_HOUSE"
 
-            # 📌 2. Force House ከሆነ ከ 10 እስከ 15 ኳስ ብቻ ይጠራል፤ ተጫዋች የሚፈቀድበት ከሆነ እስከ 60 ኳስ ይፈቀዳል
-            max_draw_balls = random.randint(10, 15) if force_all else 15
+            # 📌 2. Force House ከሆነ ከ 10 እስከ 15 ኳስ፤ ተጫዋች ከተፈቀደ ደግሞ ከፍተኛው 30 ኳስ ብቻ!
+            max_draw_balls = random.randint(10, 15) if force_all else 30
 
             winner_detected = False
 
@@ -263,7 +262,8 @@ class GameEngine:
                     game_record.drawn_balls = json.dumps(self.called_numbers)
                     db.commit()
 
-                letter = "B" if number <= 15 else "I" if number <= 25 else "N" if number <= 25 else "G" if number <= 25 else "O"
+                # ✅ የተስተካከለ የቢንጎ ፊደላት ክልል
+                letter = "B" if number <= 15 else "I" if number <= 30 else "N" if number <= 45 else "G" if number <= 60 else "O"
 
                 await self.safe_broadcast({
                    "type": "ball",
@@ -275,7 +275,7 @@ class GameEngine:
                    "derash_rooms": derash_by_fee
                 })
 
-                # 📌 3. አሸናፊ በየተጠራው ኳስ ይፈተሻል (ቀድሞ የሞላ ካለ እዚሁ ላይ ይወጣል!)
+                # 📌 3. አሸናፊ በየተጠራው ኳስ ይፈተሻል
                 result = self.process_drawn_ball_and_check_winner_v3(
                     db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards, room_status
                 )
@@ -323,7 +323,7 @@ class GameEngine:
                         "winners": winners_data
                     })
                     winner_detected = True
-                    break  # 👈 እውነተኛ አሸናፊ ከተገኘ loop ይቋረጣል!
+                    break
 
                 if call_count >= max_draw_balls:
                     print(f"⏰ ጨዋታው በ {call_count} ኳሶች ተዘግቷል። ወደ House Win ይሄዳል።")
@@ -331,7 +331,6 @@ class GameEngine:
 
                 await asyncio.sleep(interval)
 
-            # 🤖 4. እስከተወሰነው ኳስ ድረስ እውነተኛ አሸናፊ ካልተገኘ ብቻ ቦቱ እንዲያሸንፍ ይደረጋል
             if not winner_detected and self.running:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
@@ -485,12 +484,10 @@ class GameEngine:
             print(f"❌ Error committing prize distribution: {e}")
 
     def force_house_win(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards):
-        # 📌 1. ከተሸጡት ውጪ ያለ ካርድ መምረጥ
         available_ids = [idx for idx in range(1, 201) if idx not in bought_cards]
         winning_card_num = random.choice(available_ids) if available_ids else 1
         card_matrix = all_200_cards.get(str(winning_card_num), [[0]*5 for _ in range(5)])
         
-        # 📌 2. በካርዱ ላይ የሚገኙ ሁሉንም ህጋዊ የቢንጎ መስመሮች (Patterns) ማዘጋጀት
         possible_patterns = []
         if len(card_matrix) == 5:
             for r in range(5):
@@ -502,7 +499,6 @@ class GameEngine:
             corners = [(0, 0), (0, 4), (4, 0), (4, 4)]
             possible_patterns.append(([card_matrix[r][c] for r, c in corners], "4 Corners"))
 
-        # 📌 3. ከተጠሩት ቁጥሮች ጋር በጣም የቀረበውን ሙሉ መስመር መምረጥ
         drawn_set = set(current_drawn_balls)
         if possible_patterns:
             best_pattern_nums, best_pattern_name = max(
@@ -512,17 +508,14 @@ class GameEngine:
         else:
             best_pattern_nums, best_pattern_name = [], "ቢንጎ"
         
-        # 📌 4. የቦቱ ካርድ አምስቱም ቁጥሮች እንዲበሩ ያልተጠሩትን ወደ መጠሪያ ዝርዝር መጨመር
         for num in best_pattern_nums:
             if num and num != "FREE" and num not in self.called_numbers:
                 self.called_numbers.append(num)
 
-        # Update persistent drawn_balls state in Game DB record
         game_record = db.query(Game).filter(Game.id == game_id).first()
         if game_record:
             game_record.drawn_balls = json.dumps(self.called_numbers)
 
-        # 📌 5. ለUI ማሳያ ሙሉውን የቢንጎ መስመር ቁጥሮች ማዘጋጀት
         win_nums = [n for n in best_pattern_nums if n and n != "FREE"]
         pattern = best_pattern_name
 
