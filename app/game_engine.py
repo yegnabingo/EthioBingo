@@ -10,7 +10,7 @@ from app.database import SessionLocal
 from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
 BOT_NAMES = [
-    "user_Bura1655", "user_Nati2030", "user_Dagidi66", "user_Deve33", "user_Beya6688",  
+    "user_Bura1655", "user_Nati2030", "user_6578866", "user_Deve33", "user_Beya6688",  
     "user_Dawed56", "user_Tedy888", "user_Robel19", "user_SamiAddis", "user_Husen0911"
 ]
 
