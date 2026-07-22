@@ -689,8 +689,9 @@ async function submitDeposit() {
     const bankName = bankInput ? bankInput.value : "";
     const smsText = smsInput ? smsInput.value.trim() : "";
     
-    if (!amount || amount <= 0) {
-        alert('እባክዎ መጀመሪያ ትክክለኛ የላኩትን የብር መጠን ያስገቡ!');
+    // 📌 Minimum Deposit Control (አነስተኛ ማስገቢያ 50 ETB)
+    if (!amount || amount < 50) {
+        alert('⚠️ አነስተኛው ማስገባት የሚችሉት የብር መጠን 50 ETB ነው!');
         return;
     }
     if (!smsText) {
@@ -744,8 +745,9 @@ async function submitWithdraw() {
     const bankName = bankInput ? bankInput.value : "";
     const accNumber = accInput ? accInput.value.trim() : "";
     
-    if (!amount || amount <= 0) {
-        alert('እባክዎ ትክክለኛ የብር መጠን ያስገቡ!');
+    // 📌 Minimum Withdrawal Control (አነስተኛ ማውጫ 100 ETB)
+    if (!amount || amount < 100) {
+        alert('⚠️ አነስተኛው ማውጣት የሚችሉት የብር መጠን 100 ETB ነው!');
         return;
     }
     if (!accNumber) {
