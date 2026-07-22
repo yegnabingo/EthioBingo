@@ -120,6 +120,10 @@ async def pick_card(request: AdvancedPickCardRequest):
             main_card.reserved_by = user.id
             main_card.current_game_id = game.id
         
+        # 🎯 🔴 አዲስ የተጨመረ፦ የተጫዋቹን አጠቃላይ እና ሳምንታዊ የካርድ ቆጣሪዎች መደመር
+        user.total_games_played = (getattr(user, "total_games_played", 0) or 0) + 1
+        user.weekly_games_played = (getattr(user, "weekly_games_played", 0) or 0) + 1
+
         db.commit()
 
         try:
