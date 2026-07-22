@@ -10,8 +10,9 @@ from app.database import SessionLocal
 from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
 BOT_NAMES = [
-    "user_Bura1655", "user_Nati2030", "user_6578866", "user_Deve33", "user_Beya6688",  
-    "user_3456856", "user_Tedy888", "user_Robel19", "user_SamiAddis", "user_Husen0911"
+   "user_454567", "user_3561655", "user_998767", "user_6578866", "user_765465", "user_436688",  
+    "user_3456856", "user_564888", "user_8654519", "user_988786", "user_213456" "user_654321",
+    "user_4325677", "user_789646", "user_35567655", "user_456787", "user_344565", "user_3243567",
 ]
 
 SUPPORTED_FEES = [10.0, 20.0, 50.0]
