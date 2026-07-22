@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, Date
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
 
@@ -22,6 +23,14 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     is_banned = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # 🎯 🔴 አዲስ የተጨመሩ፦ ለ Profile፣ Bonus እና Leaderboard የሚሆኑ ቆጣሪዎች
+    total_games_played = Column(Integer, default=0)     # በአጠቃላይ የተጫወታቸው ካርዶች ብዛት
+    total_games_won = Column(Integer, default=0)        # በአጠቃላይ ያሸነፋቸው ጨዋታዎች ብዛት
+    total_winnings = Column(Float, default=0.0)         # በአጠቃላይ ያሸነፈው የብር መጠን
+
+    weekly_games_played = Column(Integer, default=0)    # በሳምንቱ የተጫወታቸው ካርዶች ብዛት
+    weekly_deposit_amount = Column(Float, default=0.0)  # በሳምንቱ ያስገባው የብር መጠን
 
 
 class Deposit(Base):
@@ -191,3 +200,18 @@ class DailyCheckIn(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     checked_date = Column(Date, nullable=False) 
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# 🏆 🔴 አዲስ የተጨመረ፦ የሳምንታዊ ውድድር አሸናፊዎች ታሪክ መመዝገቢያ ጠረጴዛ
+class LeaderboardRewardHistory(Base):
+    __tablename__ = "leaderboard_rewards"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    rank = Column(Integer, nullable=False)             # 1ኛ፣ 2ኛ፣ ወይም 3ኛ
+    reward_amount = Column(Float, nullable=False)      # የተሸለመው የብር መጠን
+    games_count = Column(Integer, default=0)           # ያሸነፈበት የካርድ/የጨዋታ ብዛት
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
