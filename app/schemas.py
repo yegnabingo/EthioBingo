@@ -17,45 +17,96 @@ class UserResponse(BaseModel):
     telegram_name: str
     first_name: str
     balance: float
-    wallet: float    # 🛠️ ፊክስ፦ ቦቱ እና ሚኒ አፑ የዋሌት መጠንን ለማንበብ የሚፈልጉት ቁልፍ (Key)
-    gift_coin: float # 🆕 በUI ላይ Wallet እና Gift Coin ለማሳየት የተጨመረ
+    wallet: float
+    gift_coin: float
+    total_games_played: Optional[int] = 0
+    total_games_won: Optional[int] = 0
+    total_winnings: Optional[float] = 0.0
+    weekly_games_played: Optional[int] = 0
 
     class Config:
         from_attributes = True
 
 
 # -------------------------
-# 🎴 Card Pick Schemas (ከ app.js ሎጂክ ጋር የተጣጣመ)
+# 📜 Transaction History Schema (🆕 ለ Profile Modal የተጨመረ)
+# -------------------------
+class TransactionHistoryItem(BaseModel):
+    id: int
+    amount: float
+    type: str         # deposit / withdraw
+    status: str       # pending / completed / rejected
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+# -------------------------
+# 👤 Profile Full Response Schema (🆕 ለ UI Profile Modal)
+# -------------------------
+class UserProfileResponse(BaseModel):
+    id: int
+    telegram_id: str
+    telegram_name: str
+    balance: float
+    gift_coin: float
+    total_games_played: int
+    total_games_won: int
+    total_winnings: float
+    weekly_games_played: int
+    transactions: List[TransactionHistoryItem] = []
+
+    class Config:
+        from_attributes = True
+
+
+# -------------------------
+# 🏆 Leaderboard / Rank Schema (🆕 ለ UI Rank Modal)
+# -------------------------
+class LeaderboardUserResponse(BaseModel):
+    rank: Optional[int] = None
+    telegram_id: str
+    telegram_name: str
+    weekly_games_played: int
+    total_winnings: float
+
+    class Config:
+        from_attributes = True
+
+
+# -------------------------
+# 🎴 Card Pick Schemas
 # -------------------------
 class PickCardRequest(BaseModel):
     telegram_id: str
     card_number: int
-    bet_amount: float # 🆕 በጃቫስክሪፕቱ ፌች (fetch) ጥሪ ላይ የላክነውን ውርርድ መጠን ለመቀበል
+    bet_amount: float
 
 
 class PickCardResponse(BaseModel):
     success: bool
     message: str
-    current_balance: Optional[float] = None # 🆕 ግዢው ሲሳካ የቲጂ ሚኒ አፑ ባላንስን በቅጽበት እንዲያድስ
+    current_balance: Optional[float] = None
 
 
 # -------------------------
-# 💵 Deposit Schemas (ከ app.js payload ጋር ፍጹም የተጣጣመ 🛠)
+# 💵 Deposit Schemas
 # -------------------------
 class DepositCreate(BaseModel):
-    telegram_id: str      # 👈 ከጃቫስክሪፕቱ payload በቀጥታ ለማንበብ የተጨመረ
+    telegram_id: str
     telegram_name: Optional[str] = "ተጫዋች"
     amount: float
-    bank_name: str        # 👈 'method' የነበረው በጃቫስክሪፕቱ 'bank_name' ተተክቷል
-    sms_data: str         # 👈 'sms_text' የነበረው በጃቫስክሪፕቱ 'sms_data' ተተክቷል
+    bank_name: str
+    sms_data: str
 
 
 class DepositResponse(BaseModel):
     id: int
     user_id: int
     amount: float
-    tx_hash: Optional[str]  # 👈 በዳታቤዝህ ላይ ካለው እውነተኛ ኮለም ጋር እንዲገጥም ተስተካከለ
-    status: str             # Pending, Approved, Rejected
+    tx_hash: Optional[str] = None
+    status: str
     created_at: datetime
 
     class Config:
@@ -63,21 +114,21 @@ class DepositResponse(BaseModel):
 
 
 # -------------------------
-# 💸 Withdraw Schemas (ከ app.js payload ጋር ፍጹም የተጣጣመ 🛠)
+# 💸 Withdraw Schemas
 # -------------------------
 class WithdrawCreate(BaseModel):
-    telegram_id: str      # 👈 ከጃቫስክሪፕቱ payload በቀጥታ ለማንበብ የተጨመረ
+    telegram_id: str
     amount: float
-    bank_name: str        # 👈 'method' የነበረው በጃቫስክሪፕቱ 'bank_name' ተተክቷል
-    account_number: str   # 👈 'wallet' የነበረው በጃቫስክሪፕቱ 'account_number' ተተክቷል
+    bank_name: str
+    account_number: str
 
 
 class WithdrawResponse(BaseModel):
     id: int
     user_id: int
     amount: float
-    wallet: str           # 👈 በዳታቤዝህ ላይ ካለው እውነተኛ ኮለም ጋር እንዲገጥም ተስተካከለ
-    status: str           # Pending, Approved, Rejected
+    wallet: str
+    status: str
     created_at: datetime
 
     class Config:
@@ -95,7 +146,7 @@ class GameResponse(BaseModel):
     id: int
     status: str
     prize: float
-    taken_cards: str # የ 1-200 ቁልፎችን ቀለም ለመቀየር ወደ ፊት ገጽ የሚላክ ጃሰን ዝርዝር
+    taken_cards: str
     
     class Config:
         from_attributes = True
