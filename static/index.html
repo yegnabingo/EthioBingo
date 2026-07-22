@@ -54,6 +54,27 @@
             border-color: #ffd700;
             box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
         }
+
+        /* 🎨 የ Dropdown (Select) ሳጥኖች ዲዛይን */
+        .modal-select-input {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0 15px 0;
+            border-radius: 8px;
+            border: 1px solid #4b6584;
+            background: #2f3542;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: bold;
+            box-sizing: border-box;
+            outline: none;
+            cursor: pointer;
+        }
+        .modal-select-input option {
+            background: #1e272e;
+            color: #ffffff;
+            padding: 10px;
+        }
     </style>
 </head>
 <body>
@@ -170,6 +191,7 @@
 
 </div>
 
+<!-- 💳 WALLET MODAL -->
 <div id="walletModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; color: white;">
     <div style="background: #1e272e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto;">
         
@@ -178,6 +200,7 @@
             <button onclick="closeWalletModal()" style="background: none; border: none; color: #ff4757; font-size: 24px; cursor: pointer; font-weight: bold;">×</button>
         </div> 
         
+        <!-- 📥 DEPOSIT SECTION -->
         <div id="depositSection">
             <p style="font-size: 12px; color: #a4b0be; line-height: 1.5; margin-bottom: 12px;">
                 💡 <b>ማሳሰቢያ፦</b> አካውንቶቹን ለመቅዳት <b>የቁጥሩን ጽሑፍ ይጫኑት (ኮፒ ይሆናል)</b>። ብር ካስገቡ በኋላ ዝርዝሩን ሞልተው የደረሰውን SMS ከታች ባለው ሳጥን ላይ ይለጥፉት።
@@ -201,11 +224,21 @@
                 </div>
             </div>
             
-            <label style="font-size: 12px; color: #ffd700; display: block; margin-top: 10px;">የላኩት የገንዘብ መጠን (ETB)፦</label>
-            <input type="number" id="depositAmount" placeholder="ለምሳሌ፡ 50" style="width: 100%; padding: 10px; margin: 5px 0 12px 0; border-radius: 6px; border: 1px solid #4b6584; background: #2f3542; color: white; box-sizing: border-box;">
+            <label style="font-size: 12px; color: #ffd700; display: block;">የገንዘብ መጠን ይምረጡ (Deposit)፦</label>
+            <!-- 🔽 Deposit Dropdown -->
+            <select id="depositAmount" class="modal-select-input">
+                <option value="" disabled selected>-- የገንዘብ መጠን ይምረጡ --</option>
+                <option value="50">50 ብር</option>
+                <option value="100">100 ብር</option>
+                <option value="200">200 ብር</option>
+                <option value="300">300 ብር</option>
+                <option value="500">500 ብር</option>
+                <option value="1000">1,000 ብር</option>
+                <option value="5000">5,000 ብር</option>
+            </select>
 
             <label style="font-size: 12px; color: #ffd700; display: block;">ብር የላኩበት የባንክ አይነት፦</label>
-            <select id="depositBank" style="width: 100%; padding: 10px; margin: 5px 0 12px 0; border-radius: 6px; border: 1px solid #4b6584; background: #2f3542; color: white; box-sizing: border-box;">
+            <select id="depositBank" class="modal-select-input">
                 <option value="Telebirr">Telebirr</option>
                 <option value="CBE Birr">CBE Birr</option>
                 <option value="CBE Bank">CBE Bank (የኢትዮጵያ ንግድ ባንክ)</option>
@@ -219,12 +252,23 @@
             <button onclick="submitDeposit()" style="width: 100%; background: #2ed573; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 14px;">📥 የማስገቢያ ጥያቄ ላክ</button>
         </div>
 
+        <!-- 📤 WITHDRAW SECTION -->
         <div id="withdrawSection" style="display: none;">
-            <label style="font-size: 12px; color: #ffd700;">የምታወጡት የገንዘብ መጠን (ETB)፦</label>
-            <input type="number" id="withdrawAmount" placeholder="ለምሳሌ፡ 100" style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border-radius: 6px; border: 1px solid #4b6584; background: #2f3542; color: white;">
+            <label style="font-size: 12px; color: #ffd700;">የምታወጡት የገንዘብ መጠን ይምረጡ (Withdraw)፦</label>
+            <!-- 🔽 Withdraw Dropdown -->
+            <select id="withdrawAmount" class="modal-select-input">
+                <option value="" disabled selected>-- የገንዘብ መጠን ይምረጡ --</option>
+                <option value="100">100 ብር</option>
+                <option value="200">200 ብር</option>
+                <option value="300">300 ብር</option>
+                <option value="400">400 ብር</option>
+                <option value="500">500 ብር</option>
+                <option value="1000">1,000 ብር</option>
+                <option value="5000">5,000 ብር</option>
+            </select>
             
             <label style="font-size: 12px; color: #ffd700;">ብር የሚገባበት የባንክ ስም፦</label>
-            <select id="withdrawBank" style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border-radius: 6px; border: 1px solid #4b6584; background: #2f3542; color: white;">
+            <select id="withdrawBank" class="modal-select-input">
                 <option value="Telebirr">Telebirr</option>
                 <option value="CBE">CBE (የኢትዮጵያ ንግድ ባንክ)</option>
                 <option value="Abyssinia">አቢሲኒያ ባንክ</option>
@@ -232,9 +276,9 @@
             </select>
 
             <label style="font-size: 12px; color: #ffd700;">የአካውንት ወይም የስልክ ቁጥር፦</label>
-            <input type="text" id="withdrawAcc" placeholder="የባንክ አካውንት ወይም ስልክ ቁጥር" style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border-radius: 6px; border: 1px solid #4b6584; background: #2f3542; color: white;">
+            <input type="text" id="withdrawAcc" placeholder="የባንክ አካውንት ወይም ስልክ ቁጥር" style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border-radius: 6px; border: 1px solid #4b6584; background: #2f3542; color: white; box-sizing: border-box;">
             
-            <button onclick="submitWithdraw()" style="width: 100%; background: #ff4757; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 14px;">📥 የማውጫ ጥያቄ ላክ</button>
+            <button onclick="submitWithdraw()" style="width: 100%; background: #ff4757; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 14px;">📤 የማውጫ ጥያቄ ላክ</button>
         </div>
 
     </div>
@@ -242,11 +286,11 @@
 
 <script src="/static/app.js"></script>
 <script>
-    // 📌 2. የቴሌግራም Mini App-ኡ እንደተከፈተ ሙሉ ስክሪን (Expanded) እንዲሆን የማድረጊያ Logic
+    // 📌 ቴሌግራም Mini App-ኡ እንደተከፈተ ሙሉ ስክሪን እንዲሆን የማድረጊያ Logic
     document.addEventListener("DOMContentLoaded", function () {
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand(); // 👈 አፑን እስከመጨረሻው ያሳድገዋል
+            window.Telegram.WebApp.expand();
         }
     });
 
