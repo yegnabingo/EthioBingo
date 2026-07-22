@@ -103,7 +103,7 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
     db.commit()
     db.refresh(new_user)
     
-    # 🎁 የሪፈራል ቦነስ ስጦታ መስጠት (ለጋባዡ 20 ብር መጫወቻ ቦነስ)
+    # 🎁 የሪፈራል ቦነስ ስጦታ መስጠት (ለጋባዡ 10 ብር መጫወቻ ቦነስ)
     if ref_id_str:
         referrer = db.query(User).filter(User.telegram_id == ref_id_str).first()
         if referrer:
@@ -260,6 +260,18 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.telegram_id == tg_id_str).first()
     if not user:
         return {"success": False, "message": "User not found. Please register first."}
+
+    # 🔒 🔴 ቼክ፦ ተጫዋቹ ከዚህ በፊት ቢያንስ 1 ጊዜ Deposit አድርጎ የጸደቀለት መሆኑን ማረጋገጫ
+    has_approved_deposit = db.query(Deposit).filter(
+        Deposit.user_id == user.id,
+        Deposit.status == "approved"
+    ).first()
+
+    if not has_approved_deposit:
+        return {
+            "success": False, 
+            "message": "⚠️ ያሸነፉትን ብር ለማውጣት (Withdraw) ለማድረግ፡ መጀመሪያ ቢያንስ 1 ጊዜ Deposit ማድረግ አለብዎት!"
+        }
 
     user_balance = getattr(user, "balance", 0.0) or 0.0
     if user_balance < req.amount:
