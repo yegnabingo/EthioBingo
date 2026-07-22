@@ -77,7 +77,7 @@
             padding: 10px;
         }
 
-        /* 📱 🔴 አዲስ፦ የታችኛው Bottom Navigation Bar CSS */
+        /* 📱 የታችኛው Bottom Navigation Bar CSS */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -278,7 +278,7 @@
 
 </div>
 
-<!-- 📱 🔴 አዲስ፦ የታችኛው BOTTOM NAVIGATION BAR -->
+<!-- 📱 የታችኛው BOTTOM NAVIGATION BAR -->
 <div class="bottom-nav">
     <button class="nav-item" onclick="openProfileModal()">
         <span class="icon">👤</span>
@@ -387,9 +387,9 @@
     </div>
 </div>
 
-<!-- 👤 🔴 አዲስ፦ PROFILE MODAL -->
+<!-- 👤 PROFILE MODAL (የተሟላ መረጃ እና Transaction History ያለው) -->
 <div id="profileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; color: white;">
-    <div style="background: #1e272e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+    <div style="background: #1e272e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d; padding-bottom: 10px; margin-bottom: 15px;">
             <h3 style="margin: 0; color: #ffd700; font-size: 18px;">👤 የተጫዋች ፕሮፋይል</h3>
             <button onclick="closeModal('profileModal')" style="background: none; border: none; color: #ff4757; font-size: 24px; cursor: pointer; font-weight: bold;">×</button>
@@ -399,17 +399,25 @@
             <h4 id="prof-name" style="margin: 0; color: #ffffff;">-</h4>
             <span id="prof-tg-id" style="font-size: 11px; color: #a4b0be;">ID: -</span>
         </div>
-        <div style="background: #2f3542; padding: 12px; border-radius: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="background: #2f3542; padding: 12px; border-radius: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
             <div style="display: flex; justify-content: space-between;"><span>💰 ዋና ባላንስ:</span><strong id="prof-balance" style="color: #2ed573;">0.00 ETB</strong></div>
             <div style="display: flex; justify-content: space-between;"><span>🎁 ቦነስ Coin:</span><strong id="prof-gift" style="color: #ffd700;">0.00 Coin</strong></div>
             <div style="display: flex; justify-content: space-between;"><span>🎮 አጠቃላይ የተጫወቱት:</span><strong id="prof-games">0 ካርድ</strong></div>
             <div style="display: flex; justify-content: space-between;"><span>🏆 ያሸነፏቸው ጨዋታዎች:</span><strong id="prof-wins" style="color: #2ed573;">0</strong></div>
             <div style="display: flex; justify-content: space-between;"><span>💵 ያሸነፉት አጠቃላይ ብር:</span><strong id="prof-winnings" style="color: #ffd700;">0.00 ETB</strong></div>
         </div>
+
+        <!-- 📜 TRANSACTIONS LIST SECTION -->
+        <div style="border-top: 1px dashed #3d3d3d; padding-top: 12px;">
+            <h4 style="margin: 0 0 10px 0; color: #ffd700; font-size: 14px;">📜 የቅርብ ጊዜ የገንዘብ እንቅስቃሴዎች</h4>
+            <div id="prof-transactions-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto;">
+                <div style="text-center; font-size: 11px; color: #a4b0be; padding: 8px;">ምንም የዝውውር ታሪክ የለም</div>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- 🎁 🔴 አዲስ፦ BONUS MODAL -->
+<!-- 🎁 BONUS MODAL -->
 <div id="bonusModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; color: white;">
     <div style="background: #1e272e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d; padding-bottom: 10px; margin-bottom: 15px;">
@@ -431,7 +439,7 @@
     </div>
 </div>
 
-<!-- 🏆 🔴 አዲስ፦ LEADERBOARD / RANK MODAL -->
+<!-- 🏆 LEADERBOARD / RANK MODAL -->
 <div id="leaderboardModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; color: white;">
     <div style="background: #1e272e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d; padding-bottom: 10px; margin-bottom: 15px;">
@@ -505,6 +513,27 @@
 
     function closeModal(modalId) {
         document.getElementById(modalId).style.display = 'none';
+    }
+
+    function openProfileModal() {
+        if (typeof loadProfileData === "function") {
+            loadProfileData();
+        }
+        openModal('profileModal');
+    }
+
+    function openBonusModal() {
+        if (typeof loadBonusData === "function") {
+            loadBonusData();
+        }
+        openModal('bonusModal');
+    }
+
+    function openLeaderboardModal() {
+        if (typeof loadLeaderboardData === "function") {
+            loadLeaderboardData();
+        }
+        openModal('leaderboardModal');
     }
 </script>
 </body>
