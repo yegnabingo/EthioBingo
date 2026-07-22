@@ -11,7 +11,7 @@ from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
 BOT_NAMES = [
     "user_Bura1655", "user_Nati2030", "user_6578866", "user_Deve33", "user_Beya6688",  
-    "user_3456856", "user_Tedy888", "user_Robel19", "user_SamiAddis", "user_Husen0911"
+    "user_3456856", "user_Tedy888",
 ]
 
 SUPPORTED_FEES = [10.0, 20.0, 50.0]
@@ -157,7 +157,6 @@ class GameEngine:
                     ).count()
                     player_counts[fee] = count
 
-                # 📌 1. አጠቃላይ የተሸጡ ካርዶች እና የተለያዩ ተጫዋቾች ብዛት ስሌት
                 total_cards_sold = db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).count()
                 unique_users_count = db.query(PlayerCard.user_id).filter(PlayerCard.game_id == saved_game_id).distinct().count()
 
@@ -172,13 +171,12 @@ class GameEngine:
                 if db:
                     db.close()
 
-            # 📌 2. ሰከንዱ 0 ላይ ሲደርስ ቢያንስ 3 ካርድ ከተለያየ user ካልተሸጠ ሰከንዱን እንደገና መመለስ!
+            # 📌 ቢያንስ 3 ካርድ ከተለያየ user ካልተሸጠ ቆጣሪውን ዳግም ማስጀመር
             if seconds == 0:
                 if total_cards_sold < 3 or unique_users_count < 1:
                     print(f"⏳ ካርድ አልተሟላም (የተሸጡ፡ {total_cards_sold}/3)። ቆጣሪው እንደገና ወደ {initial_seconds}s ይመለሳል።")
                     seconds = initial_seconds
                     
-                    # ለተጫዋቾች ማሳወቂያ መላክ
                     await self.safe_broadcast({
                         "type": "countdown",
                         "seconds": seconds,
@@ -246,7 +244,6 @@ class GameEngine:
             settings = db.query(Setting).first()
             comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
             
-            # 📌 1. ከአድሚን Setting የተቀመጠውን Target Ratio ማንበብ (default 3 ማለትም 3 House : 1 User)
             target_house_wins = settings.house_win_ratio if (settings and hasattr(settings, 'house_win_ratio')) else 3
 
             pools_by_fee = {}
@@ -260,12 +257,10 @@ class GameEngine:
                 if count > 0:
                     active_rooms.append(fee)
 
-            # 📌 2. የክፍሎችን የሀውስ ሁኔታ በ Dynamic Target Ratio ማዘጋጀት
             room_status = {}
             force_all = True
             
             for fee in SUPPORTED_FEES:
-                # ቆጣሪው የተፈለገውን የሀውስ ማሸነፍ ብዛት (3, 2, ወይም 1) ካሟላ በኋላ ብቻ ተጫዋች እንዲያሸንፍ ይፈቀዳል!
                 if self.house_counters.get(fee, 0) >= target_house_wins:
                     room_status[fee] = "ALLOW_PLAYER"
                     force_all = False
@@ -296,7 +291,6 @@ class GameEngine:
                     game_record.drawn_balls = json.dumps(self.called_numbers)
                     db.commit()
 
-                # 📌 1-75 የ BINGO ፊደላት ምደባ
                 letter = "B" if number <= 15 else "I" if number <= 30 else "N" if number <= 45 else "G" if number <= 60 else "O"
 
                 await self.safe_broadcast({
@@ -316,7 +310,6 @@ class GameEngine:
                 if result["status"] == "WINNER_FOUND":
                     winners_list = result["winners"]
                     
-                    # 📌 እውነተኛ ተጫዋች ሲያሸንፍ የሀውስ ቆጣሪው ወደ 0 ይመለሳል!
                     for w in winners_list:
                         fee = w["bet_amount"]
                         self.house_counters[fee] = 0
@@ -332,7 +325,7 @@ class GameEngine:
                             "telegram_name": telegram_name,
                             "card_number": w["card_number"],
                             "room_fee": w["bet_amount"],
-                            "prize": round(w["prize_share"], 2), # ✅ የተካፈለው 80% ብቻ
+                            "prize": round(w["prize_share"], 2), # ✅ የተካፈለው የራሱን ክፍል ደራሽ ብቻ ነው!
                             "winning_numbers": w["winning_numbers"],
                             "card_numbers": w["card_numbers"],
                             "winning_reason": w["winning_pattern"]
@@ -348,7 +341,7 @@ class GameEngine:
                         "winning_card": primary_winner["card_number"],
                         "prize": primary_winner["prize"],
                         "room_fee": primary_winner["room_fee"],
-                        "message": f"🎉 በዙሩ {len(winners_data)} አሸናፊዎች ተገኝተው ሽልማቱን ተካፍለዋል!",
+                        "message": f"🎉 በዙሩ {len(winners_data)} አሸናፊዎች ተገኝተው የየክፍላቸውን ሽልማት ተካፍለዋል!",
                         "card_number": primary_winner["card_number"],
                         "winner_id": primary_winner["winner_id"],
                         "winning_numbers": primary_winner["winning_numbers"], 
@@ -369,12 +362,12 @@ class GameEngine:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
 
-                # 📌 ቦቱ ባሸነፈ ቁጥር ቆጣሪው +1 ይጨምራል!
                 for fee in active_rooms:
                     self.house_counters[fee] = self.house_counters.get(fee, 0) + 1
                     print(f"🤖 House Win በ {fee} ብር ክፍል! የአሁኑ ቆጣሪ፦ {self.house_counters[fee]}/{target_house_wins}")
 
-                total_bot_prize = sum([pools_by_fee[f] * ((100.0 - comm_percent) / 100.0) for f in active_rooms])
+                # 📌 ቦቱ የሁሉም ክፍሎች ድምር ሳይሆን ለየብቻቸው ብቻ ነው የሚወስደው
+                bot_prize_display = sum([derash_by_fee.get(str(int(f)), 0) for f in active_rooms])
 
                 await self.safe_broadcast({
                     "type": "game_over",
@@ -382,7 +375,7 @@ class GameEngine:
                     "result": "BINGO",
                     "winner_name": winner_name,
                     "winning_card": result["card_number"],
-                    "prize": round(total_bot_prize, 2), 
+                    "prize": round(bot_prize_display, 2), 
                     "message": f"🎉 ካርድ #{result['card_number']} ({winner_name}) አሸንፏል!",
                     "card_number": result["card_number"],
                     "winner_id": result["winner_id"],
@@ -394,7 +387,7 @@ class GameEngine:
                         "telegram_name": winner_name,
                         "card_number": result["card_number"],
                         "room_fee": 0.0,
-                        "prize": round(total_bot_prize, 2),
+                        "prize": round(bot_prize_display, 2),
                         "winning_numbers": result.get("winning_numbers", []),
                         "card_numbers": result.get("card_numbers", []),
                         "winning_reason": result.get("winning_pattern", "ቢንጎ")
@@ -462,15 +455,16 @@ class GameEngine:
             settings = db.query(Setting).first()
             comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
             
+            # 📌 እያንዳንዱ አሸናፊ የሚወስደው የራሱን ክፍል Derash ብቻ ነው!
             for w in detected_winners:
                 f = w["bet_amount"]
                 room_total_pool = pools_by_fee.get(f, 0)
                 
                 admin_commission = room_total_pool * (comm_percent / 100.0)
-                total_player_prize = room_total_pool - admin_commission 
+                total_room_player_prize = room_total_pool - admin_commission 
                 
                 winners_in_this_room = room_winner_counts[f]
-                w["prize_share"] = total_player_prize / winners_in_this_room
+                w["prize_share"] = total_room_player_prize / winners_in_this_room
 
             self.distribute_multi_room_prize_v2(db, game_id, pools_by_fee, detected_winners)
             
@@ -500,19 +494,22 @@ class GameEngine:
 
         winning_fees = set([w["bet_amount"] for w in detected_winners])
         
+        # 📌 1. አሸናፊዎች የየክፍላቸውን ደራሽ ብቻ ወደ ባላንሳቸው ያስገባሉ
         for w in detected_winners:
             user = db.query(User).filter(User.id == w["winner_id"]).first()
             if user:
                 user.balance += w["prize_share"]
                 
-        for fee in winning_fees:
-            room_pool = pools_by_fee.get(fee, 0)
+        # 📌 2. የአድሚን ኮሚሽን እና ያልተሸነፉ ክፍሎች (House Balance) ስሌት
+        for fee, room_pool in pools_by_fee.items():
+            if room_pool <= 0:
+                continue
             admin_commission = room_pool * (comm_percent / 100.0)
             admin_stats.total_commission += admin_commission
 
-        for fee, room_pool in pools_by_fee.items():
-            if fee not in winning_fees and room_pool > 0:
-                admin_stats.house_balance += room_pool
+            # በዚያ ክፍል አሸናፊ ከሌለ ገቢው ሙሉ በሙሉ ወደ House ገቢ ይሄዳል
+            if fee not in winning_fees:
+                admin_stats.house_balance += (room_pool - admin_commission)
 
         try:
             db.commit()
@@ -588,10 +585,10 @@ class GameEngine:
             if total_pool_money <= 0:
                 continue
 
-            if winner_user_id and fee == winning_fee:
-                admin_commission = total_pool_money * (comm_percent / 100.0)
-                player_prize = total_pool_money - admin_commission
+            admin_commission = total_pool_money * (comm_percent / 100.0)
+            player_prize = total_pool_money - admin_commission
 
+            if winner_user_id and fee == winning_fee:
                 admin_stats.total_commission += admin_commission
                 user = db.query(User).filter(User.id == winner_user_id).first()
                 if user:
@@ -601,7 +598,8 @@ class GameEngine:
                     game.winner_id = winner_user_id
                     game.prize = player_prize
             else:
-                admin_stats.house_balance += total_pool_money
+                admin_stats.total_commission += admin_commission
+                admin_stats.house_balance += player_prize
                 
                 if not winner_user_id and game:
                     game.winner_id = 0
