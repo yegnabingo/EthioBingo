@@ -2,12 +2,12 @@ import os
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
-from datetime import datetime, date # 💡 date ለዕለታዊ ስጦታ ቁጥጥር ተጨምሯል
+from datetime import datetime, date
 from pydantic import BaseModel
 from typing import Optional
 
 from app.database import SessionLocal
-from app.models import User, Deposit, Withdrawal, Game, DailyCheckIn # 💡 DailyCheckIn ተጨምሯል
+from app.models import User, Deposit, Withdrawal, Game, DailyCheckIn, PlayerCard
 from app.schemas import DepositCreate, WithdrawCreate 
 
 router = APIRouter(
@@ -50,19 +50,96 @@ def _telegram_edit_message_sync(chat_id: str, message_id: int, text: str):
     except Exception as e:
         print(f"❌ Telegram Edit Exception: {e}")
 
-# 💡 ፊክስ፦ ቦቱ የሚልከውን ማንኛውንም የድርጊት ፎርማት ያለምንም Validation Error እንዲቀበል የተስተካከለ ስኪማ
 class AdminAction(BaseModel):
-    id: Optional[int] = None                  # ለቀጥታ ጥያቄ ID ፍለጋ
+    id: Optional[int] = None
     deposit_id: Optional[int] = None
     withdraw_id: Optional[int] = None
-    action: str                               # APPROVE, APPROVED, REJECT, REJECTED
+    action: str
     admin_telegram_id: Optional[str] = None  
     admin_id: Optional[str] = None           
     message_id: Optional[int] = None
     admin_password: Optional[str] = None
 
 
-# 📥 1. አዲስ ተጫዋች ሲመዘገብ (የሪፈራል ሎጂክ ተጨምሮበታል)
+# 👤 1. የተጫዋች ፕሮፋይል መረጃ ማሳያ API (Profile Modal)
+@router.get("/users/profile/{telegram_id}")
+def get_user_profile(telegram_id: str, db: Session = Depends(get_db)):
+    tg_id_str = str(telegram_id).strip()
+    user = db.query(User).filter(User.telegram_id == tg_id_str).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="ተጠቃሚው አልተገኘም")
+    
+    return {
+        "success": True,
+        "profile": {
+            "telegram_id": user.telegram_id,
+            "telegram_name": user.telegram_name or user.first_name or f"User_{user.id}",
+            "balance": getattr(user, "balance", 0.0) or 0.0,
+            "gift_coin": getattr(user, "gift_coin", 0.0) or 0.0,
+            "total_games_played": getattr(user, "total_games_played", 0) or 0,
+            "total_games_won": getattr(user, "total_games_won", 0) or 0,
+            "total_winnings": getattr(user, "total_winnings", 0.0) or 0.0,
+            "weekly_games_played": getattr(user, "weekly_games_played", 0) or 0,
+            "weekly_deposit_amount": getattr(user, "weekly_deposit_amount", 0.0) or 0.0
+        }
+    }
+
+
+# 🏆 2. የሳምንቱ ምርጥ ተጫዋቾች የደረጃ ሰንጠረዥ (Leaderboard API)
+@router.get("/leaderboard")
+def get_leaderboard(db: Session = Depends(get_db)):
+    # በሳምንቱ ብዙ ካርድ የተጫወቱትን በቅደም ተከተል ያወጣል
+    top_players = db.query(User).order_by(
+        User.weekly_games_played.desc(),
+        User.weekly_deposit_amount.desc()
+    ).limit(10).all()
+
+    leaderboard_data = []
+    for rank, player in enumerate(top_players, 1):
+        leaderboard_data.append({
+            "rank": rank,
+            "telegram_name": player.telegram_name or player.first_name or f"User_{player.id}",
+            "weekly_games": getattr(player, "weekly_games_played", 0) or 0,
+            "weekly_deposits": getattr(player, "weekly_deposit_amount", 0.0) or 0.0
+        })
+
+    return {"success": True, "leaderboard": leaderboard_data}
+
+
+# 🎁 3. የሳምንታዊ ልዩ ሽልማት መረጃ (Bonus Info API)
+@router.get("/bonus/info/{telegram_id}")
+def get_bonus_info(telegram_id: str, db: Session = Depends(get_db)):
+    tg_id_str = str(telegram_id).strip()
+    user = db.query(User).filter(User.telegram_id == tg_id_str).first()
+    
+    user_rank = "አልተመደቡም"
+    user_weekly_games = 0
+    
+    if user:
+        user_weekly_games = getattr(user, "weekly_games_played", 0) or 0
+        # የተጫዋቹን የራሱን ሳምንታዊ ደረጃ ማስላት
+        higher_players = db.query(User).filter(
+            User.weekly_games_played > user_weekly_games
+        ).count()
+        user_rank = f"{higher_players + 1}ኛ"
+
+    return {
+        "success": True,
+        "bonus_info": {
+            "title": "🎁 ሳምንታዊ የልዩ ሽልማት ውድድር",
+            "description": "በየሳምንቱ ብዙ ካርዶችን በመግዛት ከ 1 እስከ 3 ለወጡ ተጫዋቾች የሚሰጥ ልዩ የገንዘብ ሽልማት!",
+            "prizes": [
+                {"rank": "1ኛ የወጣ", "reward": "500 ETB"},
+                {"rank": "2ኛ የወጣ", "reward": "300 ETB"},
+                {"rank": "3ኛ የወጣ", "reward": "150 ETB"}
+            ],
+            "user_current_rank": user_rank,
+            "user_weekly_games": user_weekly_games
+        }
+    }
+
+
+# 📥 4. አዲስ ተጫዋች ሲመዘገብ
 @router.post("/users/register")
 def register_user(telegram_id: str, telegram_name: str = None, first_name: str = None, referred_by: str = None, db: Session = Depends(get_db)):
     tg_id_str = str(telegram_id).strip()
@@ -82,7 +159,6 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
             }
         }
     
-    # የጋባዥ ቼክ (የራሱን ID መጋበዣ ሊንክ መጠቀም አይችልም)
     ref_id_str = None
     if referred_by and str(referred_by).strip().isdigit():
         ref_id_str = str(referred_by).strip()
@@ -96,14 +172,13 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
         wallet=0.0, 
         balance=0.0,   
         gift_coin=0.0, 
-        referred_by=ref_id_str, # የጋባዡ ID እዚህ ይመዘገባል
+        referred_by=ref_id_str,
         created_at=datetime.utcnow()
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     
-    # 🎁 የሪፈራል ቦነስ ስጦታ መስጠት (ለጋባዡ 10 ብር መጫወቻ ቦነስ)
     if ref_id_str:
         referrer = db.query(User).filter(User.telegram_id == ref_id_str).first()
         if referrer:
@@ -123,7 +198,7 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
     }
 
 
-# 🎁 1ነጥብ2. የዕለታዊ ስጦታ መውሰጃ አዲስ API (Daily Check-in)
+# 🎁 5. የዕለታዊ ስጦታ መውሰጃ API (Daily Check-in)
 @router.post("/users/daily-checkin")
 def user_daily_checkin(telegram_id: str, db: Session = Depends(get_db)):
     tg_id_str = str(telegram_id).strip()
@@ -133,7 +208,6 @@ def user_daily_checkin(telegram_id: str, db: Session = Depends(get_db)):
         
     today_date = date.today()
     
-    # ዛሬ ቀድሞ መውሰዱን ማረጋገጥ
     already_checked = db.query(DailyCheckIn).filter(
         DailyCheckIn.user_id == user.id, 
         DailyCheckIn.checked_date == today_date
@@ -146,10 +220,7 @@ def user_daily_checkin(telegram_id: str, db: Session = Depends(get_db)):
             "gift_coin": user.gift_coin
         }
         
-    # 10 ብር መጫወቻ ቦነስ gift_coin ላይ መደመር
     user.gift_coin = (user.gift_coin or 0.0) + 10.0
-    
-    # የዛሬውን ቀን መመዝገብ
     new_checkin = DailyCheckIn(user_id=user.id, checked_date=today_date)
     db.add(new_checkin)
     db.commit()
@@ -161,7 +232,7 @@ def user_daily_checkin(telegram_id: str, db: Session = Depends(get_db)):
     }
 
 
-# 🔍 2. የተጫዋቹን የዋሌት መረጃ መፈተሻ API
+# 🔍 6. የተጫዋቹን የዋሌት መረጃ መፈተሻ API
 @router.get("/users/{telegram_id}")
 def get_user(telegram_id: str, db: Session = Depends(get_db)):
     tg_id_str = str(telegram_id).strip()
@@ -183,7 +254,8 @@ def get_user(telegram_id: str, db: Session = Depends(get_db)):
         }
     }
 
-# 💰 3. ተጫዋች ከሚኒ አፕ ላይ ዲፖዚት ሲያደርግ
+
+# 💰 7. ተጫዋች ከሚኒ አፕ ላይ ዲፖዚት ሲያደርግ
 @router.post("/users/deposit")
 def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
@@ -250,7 +322,7 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
     return {"success": True, "message": "የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል!"}
 
 
-# 📤 4. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ
+# 📤 8. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ
 @router.post("/users/withdraw")
 def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
@@ -261,7 +333,6 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     if not user:
         return {"success": False, "message": "User not found. Please register first."}
 
-    # 🔒 🔴 ቼክ፦ ተጫዋቹ ከዚህ በፊት ቢያንስ 1 ጊዜ Deposit አድርጎ የጸደቀለት መሆኑን ማረጋገጫ
     has_approved_deposit = db.query(Deposit).filter(
         Deposit.user_id == user.id,
         Deposit.status == "approved"
@@ -318,7 +389,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     return {"success": True, "message": "የማውጫ ጥያቄዎ ተመዝግቧል!"}
 
 
-# 👮‍♂️ 5. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Deposit)
+# 👮‍♂️ 9. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Deposit - ዲፖዚት ሲጸድቅ ቆጣሪዎችን ይጨምራል)
 @router.post("/deposit/admin/approve")
 def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
@@ -349,6 +420,9 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
             current_balance = getattr(user, "balance", 0.0) or 0.0
             user.balance = current_balance + deposit.amount
             user.wallet = user.balance
+            
+            # 🎯 🔴 አዲስ የተጨመረ፦ የሳምንቱን ዲፖዚት መጠን መቁጠሪያ
+            user.weekly_deposit_amount = (getattr(user, "weekly_deposit_amount", 0.0) or 0.0) + deposit.amount
             
             deposit.status = "approved"
             deposit.approved_by = str(active_admin_id)
@@ -384,7 +458,7 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
         return {"success": False, "message": f"Internal Server Error: {str(e)}"}
 
 
-# 👮‍♂️ 6. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Withdraw)
+# 👮‍♂️ 10. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Withdraw)
 @router.post("/withdraw/admin/approve")
 def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
