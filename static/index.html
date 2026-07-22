@@ -16,6 +16,7 @@
             background-color: #1e272e;
             overflow-x: hidden;
             box-sizing: border-box;
+            padding-bottom: 60px !important; /* ለታችኛው ናቪጌሽን ባር ቦታ ይተዋል */
         }
 
         .container {
@@ -74,6 +75,93 @@
             background: #1e272e;
             color: #ffffff;
             padding: 10px;
+        }
+
+        /* 📱 🔴 አዲስ፦ የታችኛው Bottom Navigation Bar CSS */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background: #1e272e;
+            border-top: 1px solid #2f3542;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 9999;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #a4b0be;
+            background: none;
+            border: none;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            width: 33%;
+        }
+
+        .nav-item.active, .nav-item:hover {
+            color: #ffd700;
+        }
+
+        .nav-item span.icon {
+            font-size: 20px;
+            margin-bottom: 2px;
+        }
+
+        /* 🏆 Leaderboard CSS Stylings */
+        .podium-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .podium-card {
+            background: #2f3542;
+            border-radius: 8px;
+            text-align: center;
+            padding: 10px 5px;
+            width: 30%;
+            border: 1px solid #4b6584;
+            position: relative;
+        }
+        .podium-card.rank-1 {
+            border-color: #ffd700;
+            background: #3a3f4d;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+            order: 2;
+        }
+        .podium-card.rank-2 {
+            order: 1;
+        }
+        .podium-card.rank-3 {
+            order: 3;
+        }
+        .crown-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+        }
+        .leader-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #2f3542;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 4px solid #2ed573;
         }
     </style>
 </head>
@@ -143,9 +231,8 @@
 
         <div class="card-grid-200" id="cardGrid"></div>
 
-        <div class="pick-actions">
-            <button class="btn-confirm" id="confirmBtn">CONFIRM PICKS</button>
-            <button class="btn-refresh-blue" onclick="window.location.reload()">Refresh</button>
+        <div class="pick-actions" style="margin-bottom: 20px;">
+            <button class="btn-confirm" id="confirmBtn" style="width: 100%;">CONFIRM PICKS</button>
         </div>
         
     </div> 
@@ -191,6 +278,24 @@
 
 </div>
 
+<!-- 📱 🔴 አዲስ፦ የታችኛው BOTTOM NAVIGATION BAR -->
+<div class="bottom-nav">
+    <button class="nav-item" onclick="openProfileModal()">
+        <span class="icon">👤</span>
+        <span>Profile</span>
+    </button>
+
+    <button class="nav-item" onclick="openBonusModal()">
+        <span class="icon">🎁</span>
+        <span>Bonus</span>
+    </button>
+
+    <button class="nav-item" onclick="openLeaderboardModal()">
+        <span class="icon">🏆</span>
+        <span>Rank</span>
+    </button>
+</div>
+
 <!-- 💳 WALLET MODAL -->
 <div id="walletModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; color: white;">
     <div style="background: #1e272e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto;">
@@ -225,7 +330,6 @@
             </div>
             
             <label style="font-size: 12px; color: #ffd700; display: block;">የገንዘብ መጠን ይምረጡ (Deposit)፦</label>
-            <!-- 🔽 Deposit Dropdown -->
             <select id="depositAmount" class="modal-select-input">
                 <option value="" disabled selected>-- የገንዘብ መጠን ይምረጡ --</option>
                 <option value="50">50 ብር</option>
@@ -255,7 +359,6 @@
         <!-- 📤 WITHDRAW SECTION -->
         <div id="withdrawSection" style="display: none;">
             <label style="font-size: 12px; color: #ffd700;">የምታወጡት የገንዘብ መጠን ይምረጡ (Withdraw)፦</label>
-            <!-- 🔽 Withdraw Dropdown -->
             <select id="withdrawAmount" class="modal-select-input">
                 <option value="" disabled selected>-- የገንዘብ መጠን ይምረጡ --</option>
                 <option value="100">100 ብር</option>
@@ -284,9 +387,87 @@
     </div>
 </div>
 
+<!-- 👤 🔴 አዲስ፦ PROFILE MODAL -->
+<div id="profileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; color: white;">
+    <div style="background: #1e272e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #ffd700; font-size: 18px;">👤 የተጫዋች ፕሮፋይል</h3>
+            <button onclick="closeModal('profileModal')" style="background: none; border: none; color: #ff4757; font-size: 24px; cursor: pointer; font-weight: bold;">×</button>
+        </div>
+        <div style="text-align: center; margin-bottom: 15px;">
+            <div style="font-size: 40px; margin-bottom: 5px;">👤</div>
+            <h4 id="prof-name" style="margin: 0; color: #ffffff;">-</h4>
+            <span id="prof-tg-id" style="font-size: 11px; color: #a4b0be;">ID: -</span>
+        </div>
+        <div style="background: #2f3542; padding: 12px; border-radius: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between;"><span>💰 ዋና ባላንስ:</span><strong id="prof-balance" style="color: #2ed573;">0.00 ETB</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>🎁 ቦነስ Coin:</span><strong id="prof-gift" style="color: #ffd700;">0.00 Coin</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>🎮 አጠቃላይ የተጫወቱት:</span><strong id="prof-games">0 ካርድ</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>🏆 ያሸነፏቸው ጨዋታዎች:</span><strong id="prof-wins" style="color: #2ed573;">0</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>💵 ያሸነፉት አጠቃላይ ብር:</span><strong id="prof-winnings" style="color: #ffd700;">0.00 ETB</strong></div>
+        </div>
+    </div>
+</div>
+
+<!-- 🎁 🔴 አዲስ፦ BONUS MODAL -->
+<div id="bonusModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; color: white;">
+    <div style="background: #1e272e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #ffd700; font-size: 18px;">🎁 ሳምንታዊ የልዩ ሽልማት</h3>
+            <button onclick="closeModal('bonusModal')" style="background: none; border: none; color: #ff4757; font-size: 24px; cursor: pointer; font-weight: bold;">×</button>
+        </div>
+        <p style="font-size: 12px; color: #a4b0be; text-align: center; margin-bottom: 15px;">
+            በየሳምንቱ ብዙ ካርዶችን በመግዛት ከ 1 እስከ 3 ለወጡ ተጫዋቾች የሚሰጥ ልዩ የገንዘብ ሽልማት!
+        </p>
+        <div style="background: #2f3542; padding: 12px; border-radius: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between;"><span>🥇 1ኛ የወጣ፦</span><strong style="color: #ffd700;">500 ETB</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>🥈 2ኛ የወጣ፦</span><strong style="color: #c0c0c0;">300 ETB</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>🥉 3ኛ የወጣ፦</span><strong style="color: #cd7f32;">150 ETB</strong></div>
+        </div>
+        <div style="background: #3a3f4d; padding: 10px; border-radius: 8px; text-align: center; font-size: 12px; border: 1px solid #ffd700;">
+            የእርስዎ የሳምንቱ ደረጃ፦ <strong id="bonus-user-rank" style="color: #ffd700;">-</strong><br>
+            የተጫወቱት የካርድ ብዛት፦ <strong id="bonus-user-cards" style="color: #2ed573;">0 ካርድ</strong>
+        </div>
+    </div>
+</div>
+
+<!-- 🏆 🔴 አዲስ፦ LEADERBOARD / RANK MODAL -->
+<div id="leaderboardModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; color: white;">
+    <div style="background: #1e272e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #ffd700; font-size: 18px;">🏆 አሸናፊዎች (TOP 10 RANK)</h3>
+            <button onclick="closeModal('leaderboardModal')" style="background: none; border: none; color: #ff4757; font-size: 24px; cursor: pointer; font-weight: bold;">×</button>
+        </div>
+
+        <!-- 🥇 🥈 🥉 TOP 3 PODIUM -->
+        <div class="podium-container" id="podium-section">
+            <div class="podium-card rank-2">
+                <div style="font-size: 11px; color: #c0c0c0; font-weight: bold;">2</div>
+                <div id="rank2-name" style="font-size: 11px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+                <div id="rank2-cards" style="font-size: 10px; color: #ffd700;">0 ካርድ</div>
+            </div>
+            <div class="podium-card rank-1">
+                <div class="crown-badge">👑</div>
+                <div style="font-size: 11px; color: #ffd700; font-weight: bold;">1</div>
+                <div id="rank1-name" style="font-size: 11px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+                <div id="rank1-cards" style="font-size: 10px; color: #ffd700;">0 ካርድ</div>
+            </div>
+            <div class="podium-card rank-3">
+                <div style="font-size: 11px; color: #cd7f32; font-weight: bold;">3</div>
+                <div id="rank3-name" style="font-size: 11px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+                <div id="rank3-cards" style="font-size: 10px; color: #ffd700;">0 ካርድ</div>
+            </div>
+        </div>
+
+        <!-- 4-10 LIST -->
+        <div id="leaderboard-list">
+            <!-- ጃቫስክሪፕት እዚህ ላይ ይሞላዋል -->
+        </div>
+    </div>
+</div>
+
 <script src="/static/app.js"></script>
 <script>
-    // 📌 ቴሌግራም Mini App-ኡ እንደተከፈተ ሙሉ ስክሪን እንዲሆን የማድረጊያ Logic
     document.addEventListener("DOMContentLoaded", function () {
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
@@ -316,6 +497,14 @@
         
         let drawAmtEl = document.getElementById('derashAmt');
         if (drawAmtEl) drawAmtEl.innerText = amt;
+    }
+
+    function openModal(modalId) {
+        document.getElementById(modalId).style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
     }
 </script>
 </body>
