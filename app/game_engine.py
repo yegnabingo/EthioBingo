@@ -11,7 +11,7 @@ from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
 BOT_NAMES = [
     "user_Bura1655", "user_Nati2030", "user_6578866", "user_Deve33", "user_Beya6688",  
-    "user_3456856", "user_Tedy888",
+    "user_3456856", "user_Tedy888", "user_Robel19", "user_SamiAddis", "user_Husen0911"
 ]
 
 SUPPORTED_FEES = [10.0, 20.0, 50.0]
@@ -333,13 +333,14 @@ class GameEngine:
 
                     primary_winner = winners_data[0]
 
+                    # 📌 ፊክስ፦ 'prize' የሚለው ዋና ማሳያ የድምሩ ሳይሆን የአሸናፊው ክፍል ደራሽ ብቻ እንዲሆን ተደርጓል!
                     await self.safe_broadcast({
                         "type": "game_over",
                         "status": "WINNER_FOUND",
                         "result": "BINGO",
                         "winner_name": primary_winner["telegram_name"],
                         "winning_card": primary_winner["card_number"],
-                        "prize": primary_winner["prize"],
+                        "prize": primary_winner["prize"], # 👈 የአሸናፊው ክፍል ደራሽ ብቻ ይታያል
                         "room_fee": primary_winner["room_fee"],
                         "message": f"🎉 በዙሩ {len(winners_data)} አሸናፊዎች ተገኝተው የየክፍላቸውን ሽልማት ተካፍለዋል!",
                         "card_number": primary_winner["card_number"],
@@ -366,8 +367,9 @@ class GameEngine:
                     self.house_counters[fee] = self.house_counters.get(fee, 0) + 1
                     print(f"🤖 House Win በ {fee} ብር ክፍል! የአሁኑ ቆጣሪ፦ {self.house_counters[fee]}/{target_house_wins}")
 
-                # 📌 ቦቱ የሁሉም ክፍሎች ድምር ሳይሆን ለየብቻቸው ብቻ ነው የሚወስደው
-                bot_prize_display = sum([derash_by_fee.get(str(int(f)), 0) for f in active_rooms])
+                # 📌 ፊክስ፦ ቦቱ ያሸነፈበትን የአንዱን ዋና ክፍል ደራሽ ብቻ መውሰድ
+                primary_bot_fee = active_rooms[0] if active_rooms else 10.0
+                bot_prize_display = derash_by_fee.get(str(int(primary_bot_fee)), 0)
 
                 await self.safe_broadcast({
                     "type": "game_over",
@@ -375,8 +377,8 @@ class GameEngine:
                     "result": "BINGO",
                     "winner_name": winner_name,
                     "winning_card": result["card_number"],
-                    "prize": round(bot_prize_display, 2), 
-                    "message": f"🎉 ካርድ #{result['card_number']} ({winner_name}) አሸንፏል!",
+                    "prize": round(bot_prize_display, 2), # 👈 የአንዱ ክፍል ደራሽ ብቻ ይታያል
+                    "message": f"🎉 ካርድ #{result['card_number']} ({winner_name}) በ {int(primary_bot_fee)} ብር ክፍል አሸንፏል!",
                     "card_number": result["card_number"],
                     "winner_id": result["winner_id"],
                     "winning_numbers": result.get("winning_numbers", []),
@@ -386,7 +388,7 @@ class GameEngine:
                         "winner_id": result["winner_id"],
                         "telegram_name": winner_name,
                         "card_number": result["card_number"],
-                        "room_fee": 0.0,
+                        "room_fee": primary_bot_fee,
                         "prize": round(bot_prize_display, 2),
                         "winning_numbers": result.get("winning_numbers", []),
                         "card_numbers": result.get("card_numbers", []),
