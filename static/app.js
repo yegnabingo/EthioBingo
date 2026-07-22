@@ -1,3 +1,7 @@
+// ==========================================
+// 📦 PART 1: GLOBALS, WEBSOCKET & GAME ENGINE
+// ==========================================
+
 // 📡 የዌብሶኬት እና የጨዋታው ግሎባል ተለዋዋጮች
 let ws;
 let temporarilySelectedCards = []; 
@@ -176,7 +180,7 @@ function connectWebSocket() {
             updateRecentBallsUI(); 
         }
 
-                // 3️⃣ BALL PHASE (ኳስ ሲወድቅ)
+        // 3️⃣ BALL PHASE (ኳስ ሲወድቅ)
         if (data.type === "ball") {
             document.getElementById("pickScreen").style.display = "none";
             document.getElementById("drawScreen").style.display = "block";
@@ -345,6 +349,10 @@ function connectWebSocket() {
 
     ws.onclose = () => setTimeout(connectWebSocket, 2000);
 }
+
+// ==========================================
+// 📦 PART 2: CARDS, WALLET, PROFILE & MODALS
+// ==========================================
 
 // 🎴 1-200 የካርድ ቁልፎች መፍጠሪያ
 function generate200Cards() {
@@ -645,9 +653,9 @@ async function refreshUserBalance() {
                 if (balanceElement) {
                     balanceElement.innerHTML = `<strong>${userBalance} ETB</strong>`;
                 }
-                const giftElement = document.getElementById('giftBalance');
+                const giftElement = document.getElementById('gift-coin-display');
                 if (giftElement) {
-                    giftElement.innerHTML = `<strong>${giftBalance.toFixed(2)} Coin</strong>`;
+                    giftElement.innerText = giftBalance.toFixed(2);
                 }
             }
         }
@@ -689,7 +697,6 @@ async function submitDeposit() {
     const bankName = bankInput ? bankInput.value : "";
     const smsText = smsInput ? smsInput.value.trim() : "";
     
-    // 📌 Minimum Deposit Control (አነስተኛ ማስገቢያ 50 ETB)
     if (!amount || amount < 50) {
         alert('⚠️ አነስተኛው ማስገባት የሚችሉት የብር መጠን 50 ETB ነው!');
         return;
@@ -745,7 +752,6 @@ async function submitWithdraw() {
     const bankName = bankInput ? bankInput.value : "";
     const accNumber = accInput ? accInput.value.trim() : "";
     
-    // 📌 Minimum Withdrawal Control (አነስተኛ ማውጫ 100 ETB)
     if (!amount || amount < 100) {
         alert('⚠️ አነስተኛው ማውጣት የሚችሉት የብር መጠን 100 ETB ነው!');
         return;
@@ -791,10 +797,8 @@ async function submitWithdraw() {
     }
 }
 
-// 💡 ይህ ተግባር ሚኒ አፑ ሲከፈት በየቀኑ የሚሰጠውን የ 10 ETB ስጦታ ይቀሰቅሳል
 async function checkDailyBonus(telegramId) {
     try {
-        // 🔗 ከባክኤንድ ዩአርኤልዎ ጋር ይገናኛል
         const response = await fetch(`/api/users/daily-checkin?telegram_id=${telegramId}`, {
             method: 'POST',
             headers: {
@@ -806,50 +810,37 @@ async function checkDailyBonus(telegramId) {
         console.log("🎁 Daily Check-in Response:", data);
 
         if (response.ok && data.success) {
-            // 🎉 ፊክስ፦ 'undefined' እንዳይል ከባክኤንድ የመጣውን ቀጥታ መልዕክት (data.message) ያሳያል
             alert(data.message || "🎉 የ 10 ETB እለታዊ ነፃ መጫወቻ ስጦታዎን ወስደዋል!");
             
-            // 💰 በUI ላይ የ Gift Coin እና Wallet መጠንን በቅጽበት ያድሳል
             if (document.getElementById('gift-coin-display') && data.gift_coin !== undefined) {
                 document.getElementById('gift-coin-display').innerText = data.gift_coin.toFixed(2);
             }
-            if (document.getElementById('wallet-display') && data.wallet !== undefined) {
-                document.getElementById('wallet-display').innerText = data.wallet.toFixed(2);
-            }
             
-            // የሪፈራል ቦነስንም ጭምር በትክክል ለማንበብ አጠቃላይ ባላንስን በድጋሚ ያድሳል
             await loadPlayerBalance(telegramId);
         } else {
             console.log("ℹ️ እለታዊ ስጦታው ዛሬ አስቀድሞ ተወስዷል ወይም አልተፈቀደም።");
-            // 💡 ስጦታው ዛሬ አስቀድሞ ተወስዶ እንኳ ከሆነ የቆየውን የሪፈራል ባላንስ በትክክል ለማንበብ ዩአይውን ያድሳል
             await loadPlayerBalance(telegramId);
         }
     } catch (error) {
         console.error("❌ የዕለታዊ ስጦታ ኤፒአይ መጥራት አልተቻለም፦", error);
-        // ስህተት ቢኖር እንኳ መደበኛውን ባላንስ ለማንበብ ይሞክራል
         await loadPlayerBalance(telegramId);
     }
 }
 
-// 💰 ከተጫዋቹ የባክኤንድ መረጃ ላይ Wallet እና Gift Coin ባላንስን አውርዶ UI ላይ የሚያድስ ተግባር
 async function loadPlayerBalance(telegramId) {
     try {
-        // 🔗 የተጫዋቹን መረጃ ከባክኤንድ ያነባል (በ users.py ላይ ባለው የ /api/users/{telegram_id} መሠረት)
         const response = await fetch(`/api/users/${telegramId}`);
         if (!response.ok) throw new Error("የተጫዋች መረጃ ማግኘት አልተቻለም");
 
         const userData = await response.json();
         console.log("👤 Player Data Loaded:", userData);
 
-        // 🎰 በUI ላይ ያሉትን የባላንስ ማሳያ ቦታዎች (HTML Elements) በቅጽበት ማደስ
-        if (document.getElementById('wallet-display') && userData.wallet !== undefined) {
-            // ዋናው የባንክ አካውንት ባላንስ
-            document.getElementById('wallet-display').innerText = userData.wallet.toFixed(2);
+        if (document.getElementById('walletBalance') && userData.user && userData.user.balance !== undefined) {
+            document.getElementById('walletBalance').innerText = userData.user.balance.toFixed(2) + " ETB";
         }
         
-        if (document.getElementById('gift-coin-display') && userData.gift_coin !== undefined) {
-            // 🎁 እርስዎ ጓደኛ ሲጋብዙ የሚጨምረው የቦነስ (Gift Coin) ባላንስ እዚህ ጋር ይታያል!
-            document.getElementById('gift-coin-display').innerText = userData.gift_coin.toFixed(2);
+        if (document.getElementById('gift-coin-display') && userData.user && userData.user.gift_coin !== undefined) {
+            document.getElementById('gift-coin-display').innerText = userData.user.gift_coin.toFixed(2);
         }
 
     } catch (error) {
@@ -857,20 +848,127 @@ async function loadPlayerBalance(telegramId) {
     }
 }
 
+// ==========================================================================
+// 🔴 👤 PROFILE, 🎁 BONUS, & 🏆 LEADERBOARD MODAL LOGICS (አዲስ የተጨመሩ)
+// ==========================================================================
+
+// 1. 👤 የፕሮፋይል መረጃን ከባክኤንድ ጠርቶ ማሳያ
+async function openProfileModal() {
+    const modal = document.getElementById('profileModal');
+    if (modal) modal.style.display = 'flex';
+
+    if (!myTelegramId || myTelegramId === "TG-GUEST") return;
+
+    try {
+        const res = await fetch(`/api/users/profile/${myTelegramId}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.profile) {
+                const p = data.profile;
+                document.getElementById('prof-name').innerText = p.telegram_name;
+                document.getElementById('prof-tg-id').innerText = `ID: ${p.telegram_id}`;
+                document.getElementById('prof-balance').innerText = `${p.balance.toFixed(2)} ETB`;
+                document.getElementById('prof-gift').innerText = `${p.gift_coin.toFixed(2)} Coin`;
+                document.getElementById('prof-games').innerText = `${p.total_games_played} ካርድ`;
+                document.getElementById('prof-wins').innerText = `${p.total_games_won}`;
+                document.getElementById('prof-winnings').innerText = `${p.total_winnings.toFixed(2)} ETB`;
+            }
+        }
+    } catch (e) {
+        console.error("❌ Profile Loading Error:", e);
+    }
+}
+
+// 2. 🎁 የሳምንታዊ ቦነስ መረጃን ከባክኤንድ ጠርቶ ማሳያ
+async function openBonusModal() {
+    const modal = document.getElementById('bonusModal');
+    if (modal) modal.style.display = 'flex';
+
+    if (!myTelegramId || myTelegramId === "TG-GUEST") return;
+
+    try {
+        const res = await fetch(`/api/bonus/info/${myTelegramId}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.bonus_info) {
+                const b = data.bonus_info;
+                document.getElementById('bonus-user-rank').innerText = b.user_current_rank;
+                document.getElementById('bonus-user-cards').innerText = `${b.user_weekly_games} ካርድ`;
+            }
+        }
+    } catch (e) {
+        console.error("❌ Bonus Loading Error:", e);
+    }
+}
+
+// 3. 🏆 የሳምንቱን ምርጥ ተጫዋቾች (Leaderboard Top 10) ማሳያ
+async function openLeaderboardModal() {
+    const modal = document.getElementById('leaderboardModal');
+    if (modal) modal.style.display = 'flex';
+
+    try {
+        const res = await fetch('/api/leaderboard');
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.leaderboard) {
+                const list = data.leaderboard;
+
+                // 🥇 1ኛ የወጣ
+                if (list[0]) {
+                    document.getElementById('rank1-name').innerText = list[0].telegram_name;
+                    document.getElementById('rank1-cards').innerText = `${list[0].weekly_games} ካርድ`;
+                }
+                // 🥈 2ኛ የወጣ
+                if (list[1]) {
+                    document.getElementById('rank2-name').innerText = list[1].telegram_name;
+                    document.getElementById('rank2-cards').innerText = `${list[1].weekly_games} ካርድ`;
+                }
+                // 🥉 3ኛ የወጣ
+                if (list[2]) {
+                    document.getElementById('rank3-name').innerText = list[2].telegram_name;
+                    document.getElementById('rank3-cards').innerText = `${list[2].weekly_games} ካርድ`;
+                }
+
+                // 4-10 ያሉትን ማውጣት
+                const listContainer = document.getElementById('leaderboard-list');
+                if (listContainer) {
+                    listContainer.innerHTML = "";
+                    for (let i = 3; i < list.length; i++) {
+                        const item = list[i];
+                        const row = document.createElement('div');
+                        row.className = 'leader-item';
+                        row.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <strong style="color: #ffd700; width: 20px;">#${item.rank}</strong>
+                                <span>${item.telegram_name}</span>
+                            </div>
+                            <strong style="color: #2ed573;">${item.weekly_games} ካርድ</strong>
+                        `;
+                        listContainer.appendChild(row);
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error("❌ Leaderboard Loading Error:", e);
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.style.display = 'none';
+}
+
 // 🚀 ሚኒ አፑ ከቴሌግራም ተነስቶ ሙሉ በሙሉ ሲጫን (የተዋሃደ Initialization)
 window.addEventListener('DOMContentLoaded', () => {
-    // የቴሌግራም ዌብ አፕ ተጠቃሚ መረጃን ማግኘት
     const tg = window.Telegram?.WebApp;
     
-    // ሚኒ አፑ ሲከፈት ሙሉ ስክሪን እንዲሆን ማድረጊያ
     if (tg) {
         tg.expand(); 
     }
 
     if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
         const userId = tg.initDataUnsafe.user.id;
-        
-        // 🎯 የዕለታዊ ስጦታውን እና የባላንስ አሰጣጡን እዚህ ጋር ይቀሰቅሳል
         checkDailyBonus(userId);
     } else {
         console.log("⚠️ ቦቱ የተከፈተው ከቴሌግራም ሚኒ አፕ ውጪ ነው።");
