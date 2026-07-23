@@ -6,15 +6,31 @@ let currentBetAmount = 10; // 🛠️ ተጫዋቹ የሚመርጠው ተለዋ�
 let latestDerashRooms = {"10": 0, "20": 0, "50": 0}; // 🛠️ የየክፍሉን ደራሽ መያዣ
 let myTelegramId = "TG-GUEST"; 
 let myTelegramName = "ተጫዋች";
-let tgUser = { id: "12345678", first_name: "የይለፍ ተጫዋች" }; 
+let tgUser = null; 
 
 let currentCardIndex = 0; 
 let recentBallsList = []; 
 let soundEnabled = true;
 let isAutoMark = true;
 
+// 🌐 የቴሌግራም መረጃዎችን በአስተማማኝ ሁኔታ ማበጀት
+function initTelegramApp() {
+    if (window.Telegram && window.Telegram.WebApp) {
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            tgUser = tg.initDataUnsafe.user;
+            myTelegramId = String(tg.initDataUnsafe.user.id);
+            myTelegramName = tg.initDataUnsafe.user.first_name || tg.initDataUnsafe.user.username || "ተጫዋች";
+        }
+    }
+}
+
 // 🔊 የድምፅ ማብሪያ/ማጥፊያ አዝራር ተቆጣጣሪ
 document.addEventListener("DOMContentLoaded", () => {
+    initTelegramApp();
+
     const soundBtn = document.getElementById("soundBtn");
     if (soundBtn) {
         soundBtn.addEventListener("click", () => {
@@ -35,18 +51,6 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshUserBalance();
     setInterval(refreshUserBalance, 10000);
 });
-
-// 🌐 የቴሌግራም ሚኒ አፕ መረጃ መጫኛ
-if (window.Telegram && window.Telegram.WebApp) {
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        tgUser = tg.initDataUnsafe.user;
-        myTelegramId = String(tg.initDataUnsafe.user.id);
-        myTelegramName = tg.initDataUnsafe.user.first_name || "ተጫዋች";
-    }
-}
 
 // 🎨 የቢንጎ ፊደላት ቀለማትን መለኪያ ፈንክሽን
 function getBingoColor(letter) {
@@ -654,6 +658,24 @@ function closeWalletModal() {
     if (modal) modal.style.display = 'none';
 }
 
+async function refreshUserBalance() {
+    initTelegramApp();
+    if (!myTelegramId || myTelegramId === "TG-GUEST") return;
+
+    try {
+        const response = await fetch(`/api/users/balance?telegram_id=${myTelegramId}`);
+        if (response.ok) {
+            const data = await response.json();
+            const walletBalanceEl = document.getElementById("walletBalance");
+            if (walletBalanceEl && data.balance !== undefined) {
+                walletBalanceEl.innerText = parseFloat(data.balance).toFixed(2) + " ETB";
+            }
+        }
+    } catch (e) {
+        console.error("❌ ባላንስ ማደስ አልተቻለም፦", e);
+    }
+}
+
 async function submitDeposit() {
     const amountInput = document.getElementById('depositAmount');
     const bankInput = document.getElementById('depositBank');
@@ -785,13 +807,21 @@ async function checkDailyBonus(telegramId) {
 }
 
 // ==========================================================================
-// 🔴 👤 PROFILE, 🎁 BONUS, & 🏆 LEADERBOARD MODAL LOGICS (የተስተካከለ)
+// 🔴 👤 PROFILE, 🎁 BONUS, & 🏆 LEADERBOARD MODAL LOGICS
 // ==========================================================================
 
 // 1. 👤 የፕሮፋይል መረጃ እና የትራንዛክሽን ታሪክን ከባክኤንድ ጠርቶ ማሳያ
 async function openProfileModal() {
     const modal = document.getElementById('profileModal');
     if (modal) modal.style.display = 'flex';
+
+    initTelegramApp();
+
+    const nameEl = document.getElementById('prof-name') || document.getElementById('profile-name');
+    const idEl = document.getElementById('prof-tg-id') || document.getElementById('profile-id');
+
+    if (nameEl) nameEl.innerText = myTelegramName;
+    if (idEl) idEl.innerText = `ID: ${myTelegramId}`;
 
     if (!myTelegramId || myTelegramId === "TG-GUEST") return;
 
@@ -800,16 +830,21 @@ async function openProfileModal() {
         if (res.ok) {
             const data = await res.json();
             if (data) {
-                // profile stats Update
-                if (document.getElementById('prof-name')) document.getElementById('prof-name').innerText = data.telegram_name || data.first_name || "ተጫዋች";
-                if (document.getElementById('prof-tg-id')) document.getElementById('prof-tg-id').innerText = `ID: ${data.telegram_id || myTelegramId}`;
-                if (document.getElementById('prof-balance')) document.getElementById('prof-balance').innerText = `${parseFloat(data.balance || 0).toFixed(2)} ETB`;
-                if (document.getElementById('prof-gift')) document.getElementById('prof-gift').innerText = `${parseFloat(data.gift_coin || 0).toFixed(2)} Coin`;
-                if (document.getElementById('prof-games')) document.getElementById('prof-games').innerText = `${data.total_games_played || 0} ካርድ`;
-                if (document.getElementById('prof-wins')) document.getElementById('prof-wins').innerText = `${data.total_games_won || 0}`;
-                if (document.getElementById('prof-winnings')) document.getElementById('prof-winnings').innerText = `${parseFloat(data.total_winnings || 0).toFixed(2)} ETB`;
+                if (nameEl) nameEl.innerText = data.telegram_name || data.first_name || myTelegramName;
+                if (idEl) idEl.innerText = `ID: ${data.telegram_id || myTelegramId}`;
 
-                // Render Transaction History
+                const balEl = document.getElementById('prof-balance') || document.getElementById('profile-balance');
+                const giftEl = document.getElementById('prof-gift') || document.getElementById('profile-gift');
+                const gamesEl = document.getElementById('prof-games') || document.getElementById('profile-games');
+                const winsEl = document.getElementById('prof-wins') || document.getElementById('profile-wins');
+                const winAmtEl = document.getElementById('prof-winnings') || document.getElementById('profile-winnings');
+
+                if (balEl) balEl.innerText = `${parseFloat(data.balance || 0).toFixed(2)} ETB`;
+                if (giftEl) giftEl.innerText = `${parseFloat(data.gift_coin || 0).toFixed(2)} Coin`;
+                if (gamesEl) gamesEl.innerText = `${data.total_games_played || 0} ካርድ`;
+                if (winsEl) winsEl.innerText = `${data.total_games_won || 0}`;
+                if (winAmtEl) winAmtEl.innerText = `${parseFloat(data.total_winnings || 0).toFixed(2)} ETB`;
+
                 renderTransactionHistory(data.transactions || []);
             }
         }
@@ -819,7 +854,7 @@ async function openProfileModal() {
 }
 
 function renderTransactionHistory(transactions) {
-    const listContainer = document.getElementById('prof-transactions-list');
+    const listContainer = document.getElementById('prof-transactions-list') || document.getElementById('transaction-history-list');
     if (!listContainer) return;
 
     if (!transactions || transactions.length === 0) {
@@ -864,6 +899,7 @@ async function openBonusModal() {
     const modal = document.getElementById('bonusModal');
     if (modal) modal.style.display = 'flex';
 
+    initTelegramApp();
     if (!myTelegramId || myTelegramId === "TG-GUEST") return;
 
     try {
@@ -883,7 +919,7 @@ async function openBonusModal() {
 
 // 3. 🏆 የሳምንቱን ምርጥ ተጫዋቾች (Leaderboard Top 10)
 async function openLeaderboardModal() {
-    const modal = document.getElementById('leaderboardModal');
+    const modal = document.getElementById('leaderboardModal') || document.getElementById('rankModal');
     if (modal) modal.style.display = 'flex';
 
     try {
@@ -893,31 +929,26 @@ async function openLeaderboardModal() {
             const list = Array.isArray(users) ? users : (users.leaderboard || users.users || []);
 
             if (list.length > 0) {
-                // 1️⃣ TOP 3 (PODIUMS)
                 const top1 = list[0] || { name: '---', telegram_name: '---', total_winnings: 0 };
                 const top2 = list[1] || { name: '---', telegram_name: '---', total_winnings: 0 };
                 const top3 = list[2] || { name: '---', telegram_name: '---', total_winnings: 0 };
 
-                // 🥇 1ኛ የወጣ
                 if (document.getElementById('rank1-name')) {
                     document.getElementById('rank1-name').innerText = top1.telegram_name || top1.name || 'User';
                     document.getElementById('rank1-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${parseFloat(top1.total_winnings || 0).toFixed(0)} ETB</span>`;
                 }
 
-                // 🥈 2ኛ የወጣ
                 if (document.getElementById('rank2-name')) {
                     document.getElementById('rank2-name').innerText = top2.telegram_name || top2.name || 'User';
                     document.getElementById('rank2-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${parseFloat(top2.total_winnings || 0).toFixed(0)} ETB</span>`;
                 }
 
-                // 🥉 3ኛ የወጣ
                 if (document.getElementById('rank3-name')) {
                     document.getElementById('rank3-name').innerText = top3.telegram_name || top3.name || 'User';
                     document.getElementById('rank3-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${parseFloat(top3.total_winnings || 0).toFixed(0)} ETB</span>`;
                 }
 
-                // 2️⃣ ከ #4 እስከ #10 ያሉትን ማውጣት
-                const listContainer = document.getElementById('leaderboard-list');
+                const listContainer = document.getElementById('leaderboard-list') || document.getElementById('rank-list');
                 if (listContainer) {
                     listContainer.innerHTML = "";
                     const restUsers = list.slice(3, 10);
@@ -925,7 +956,7 @@ async function openLeaderboardModal() {
                     if (restUsers.length > 0) {
                         restUsers.forEach((user, idx) => {
                             const row = document.createElement('div');
-                            row.style.cssText = "display: flex; justify-content: space-between; align-items: center; background: #2f3542; padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid #2ed573;";
+                            row.style.cssText = "display: flex; justify-content: space-between; align-items: center; background: #2f3542; padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; border: 1.5px solid #2ed573;";
                             row.innerHTML = `
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <span style="border: 1px solid #2ed573; color: #ffffff; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;">${idx + 4}</span>
@@ -951,18 +982,10 @@ function closeModal(modalId) {
     if (modal) modal.style.display = 'none';
 }
 
-// 🚀 ሚኒ አፑ ከቴሌግራም ተነስቶ ሙሉ በሙሉ ሲጫን (የተዋሃደ Initialization)
+// 🚀 ሚኒ አፑ ከቴሌግራም ተነስቶ ሙሉ በሙሉ ሲጫን
 window.addEventListener('DOMContentLoaded', () => {
-    const tg = window.Telegram?.WebApp;
-    
-    if (tg) {
-        tg.expand(); 
-    }
-
-    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        const userId = tg.initDataUnsafe.user.id;
-        checkDailyBonus(userId);
-    } else {
-        console.log("⚠️ ቦቱ የተከፈተው ከቴሌግራም ሚኒ አፕ ውጪ ነው።");
+    initTelegramApp();
+    if (myTelegramId && myTelegramId !== "TG-GUEST") {
+        checkDailyBonus(myTelegramId);
     }
 });
