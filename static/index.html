@@ -411,7 +411,7 @@
         <div style="border-top: 1px dashed #3d3d3d; padding-top: 12px;">
             <h4 style="margin: 0 0 10px 0; color: #ffd700; font-size: 14px;">📜 የቅርብ ጊዜ የገንዘብ እንቅስቃሴዎች</h4>
             <div id="prof-transactions-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto;">
-                <div style="text-center; font-size: 11px; color: #a4b0be; padding: 8px;">ምንም የዝውውር ታሪክ የለም</div>
+                <div style="text-align: center; font-size: 11px; color: #a4b0be; padding: 8px;">ምንም የዝውውር ታሪክ የለም</div>
             </div>
         </div>
     </div>
@@ -452,89 +452,30 @@
             <div class="podium-card rank-2">
                 <div style="font-size: 11px; color: #c0c0c0; font-weight: bold;">2</div>
                 <div id="rank2-name" style="font-size: 11px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
-                <div id="rank2-cards" style="font-size: 10px; color: #ffd700;">0 ካርድ</div>
+                <div id="rank2-cards" style="font-size: 10px; color: #ffd700;">0 ETB</div>
             </div>
             <div class="podium-card rank-1">
                 <div class="crown-badge">👑</div>
                 <div style="font-size: 11px; color: #ffd700; font-weight: bold;">1</div>
                 <div id="rank1-name" style="font-size: 11px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
-                <div id="rank1-cards" style="font-size: 10px; color: #ffd700;">0 ካርድ</div>
+                <div id="rank1-cards" style="font-size: 10px; color: #ffd700;">0 ETB</div>
             </div>
             <div class="podium-card rank-3">
                 <div style="font-size: 11px; color: #cd7f32; font-weight: bold;">3</div>
                 <div id="rank3-name" style="font-size: 11px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
-                <div id="rank3-cards" style="font-size: 10px; color: #ffd700;">0 ካርድ</div>
+                <div id="rank3-cards" style="font-size: 10px; color: #ffd700;">0 ETB</div>
             </div>
         </div>
 
         <!-- 4-10 LIST -->
         <div id="leaderboard-list">
-            <!-- ጃቫስክሪፕት እዚህ ላይ ይሞላዋል -->
+            <!-- ጃቫስክሪፕት በ app.js በኩል እዚህ ይሞላዋል -->
         </div>
     </div>
 </div>
 
+<!-- 🔗 app.js ፋይልን መጥሪያ (ሁሉንም logic በደንብ ይይዛል) -->
 <script src="/static/app.js"></script>
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-        }
-    });
 
-    let currentSelectedBet = 10;
-    let latestDerashRooms = {"10": 0, "20": 0, "50": 0};
-
-    function changeBetRoom(betAmount) {
-        currentSelectedBet = betAmount;
-        
-        document.querySelectorAll('.bet-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if(parseInt(btn.innerText) === betAmount) {
-                btn.classList.add('active');
-            }
-        });
-
-        updateDerashUI();
-    }
-
-    function updateDerashUI() {
-        let amt = latestDerashRooms[currentSelectedBet.toString()] || 0;
-        document.getElementById('derashBadge').innerText = `Derash: ${amt} ETB 📋`;
-        
-        let drawAmtEl = document.getElementById('derashAmt');
-        if (drawAmtEl) drawAmtEl.innerText = amt;
-    }
-
-    function openModal(modalId) {
-        document.getElementById(modalId).style.display = 'flex';
-    }
-
-    function closeModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-    }
-
-    function openProfileModal() {
-        if (typeof loadProfileData === "function") {
-            loadProfileData();
-        }
-        openModal('profileModal');
-    }
-
-    function openBonusModal() {
-        if (typeof loadBonusData === "function") {
-            loadBonusData();
-        }
-        openModal('bonusModal');
-    }
-
-    function openLeaderboardModal() {
-        if (typeof loadLeaderboardData === "function") {
-            loadLeaderboardData();
-        }
-        openModal('leaderboardModal');
-    }
-</script>
 </body>
 </html>
