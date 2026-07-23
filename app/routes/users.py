@@ -182,9 +182,9 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
     if ref_id_str:
         referrer = db.query(User).filter(User.telegram_id == ref_id_str).first()
         if referrer:
-            referrer.gift_coin = (referrer.gift_coin or 0.0) + 10.0
+            referrer.gift_coin = (referrer.gift_coin or 0.0) + 2.0
             db.commit()
-            print(f"🎉 Referral Bonus! User {ref_id_str} received 10 ETB bonus for inviting {tg_id_str}")
+            print(f"🎉 Referral Bonus! User {ref_id_str} received 2 ETB bonus for inviting {tg_id_str}")
     
     return {
         "success": True, 
