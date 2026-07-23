@@ -630,31 +630,6 @@ function handleManualCellClick(cellElement, cellNumber) {
 // 💳 የኪስ ቦርሳ ፍሰት መቆጣጠሪያ (Wallet Flow - Deposit & Withdraw)
 // ==========================================================================
 
-async function refreshUserBalance() {
-    if (!myTelegramId || myTelegramId === "TG-GUEST") return; 
-    try {
-        const response = await fetch(`/api/users/${myTelegramId}`);
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.user) {
-                let balanceElement = document.getElementById('walletBalance');
-                const userBalance = data.user.balance !== undefined ? data.user.balance : 0.0;
-                const giftBalance = data.user.gift_coin !== undefined ? data.user.gift_coin : 0.0;
-                
-                if (balanceElement) {
-                    balanceElement.innerHTML = `<strong>${userBalance} ETB</strong>`;
-                }
-                const giftElement = document.getElementById('gift-coin-display');
-                if (giftElement) {
-                    giftElement.innerText = giftBalance.toFixed(2);
-                }
-            }
-        }
-    } catch (error) {
-        console.error("⚠️ ባላንስ ማደስ አልተቻለም፦", error);
-    }
-}
-
 function openWalletModal(type) {
     const modal = document.getElementById('walletModal');
     const title = document.getElementById('modalTitle');
@@ -792,55 +767,28 @@ async function checkDailyBonus(telegramId) {
     try {
         const response = await fetch(`/api/users/daily-checkin?telegram_id=${telegramId}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: { 'Content-Type': 'application/json' }
         });
 
         const data = await response.json();
 
         if (response.ok && data.success) {
             alert(data.message || "🎉 የ 10 ETB እለታዊ ነፃ መጫወቻ ስጦታዎን ወስደዋል!");
-            
-            if (document.getElementById('gift-coin-display') && data.gift_coin !== undefined) {
-                document.getElementById('gift-coin-display').innerText = data.gift_coin.toFixed(2);
-            }
-            
-            await loadPlayerBalance(telegramId);
+            refreshUserBalance();
         } else {
-            await loadPlayerBalance(telegramId);
+            refreshUserBalance();
         }
     } catch (error) {
         console.error("❌ የዕለታዊ ስጦታ ኤፒአይ መጥራት አልተቻለም፦", error);
-        await loadPlayerBalance(telegramId);
-    }
-}
-
-async function loadPlayerBalance(telegramId) {
-    try {
-        const response = await fetch(`/api/users/${telegramId}`);
-        if (!response.ok) throw new Error("የተጫዋች መረጃ ማግኘት አልተቻለም");
-
-        const userData = await response.json();
-
-        if (document.getElementById('walletBalance') && userData.user && userData.user.balance !== undefined) {
-            document.getElementById('walletBalance').innerText = userData.user.balance.toFixed(2) + " ETB";
-        }
-        
-        if (document.getElementById('gift-coin-display') && userData.user && userData.user.gift_coin !== undefined) {
-            document.getElementById('gift-coin-display').innerText = userData.user.gift_coin.toFixed(2);
-        }
-
-    } catch (error) {
-        console.error("❌ ባላንስ ማደስ አልተቻለም፦", error);
+        refreshUserBalance();
     }
 }
 
 // ==========================================================================
-// 🔴 👤 PROFILE, 🎁 BONUS, & 🏆 LEADERBOARD MODAL LOGICS (አዲስ የተጨመሩ)
+// 🔴 👤 PROFILE, 🎁 BONUS, & 🏆 LEADERBOARD MODAL LOGICS (የተስተካከለ)
 // ==========================================================================
 
-// 1. 👤 የፕሮፋይል መረጃን ከባክኤንድ ጠርቶ ማሳያ
+// 1. 👤 የፕሮፋይል መረጃ እና የትራንዛክሽን ታሪክን ከባክኤንድ ጠርቶ ማሳያ
 async function openProfileModal() {
     const modal = document.getElementById('profileModal');
     if (modal) modal.style.display = 'flex';
@@ -848,23 +796,67 @@ async function openProfileModal() {
     if (!myTelegramId || myTelegramId === "TG-GUEST") return;
 
     try {
-        const res = await fetch(`/api/users/profile/${myTelegramId}`);
+        const res = await fetch(`/api/user/profile?telegram_id=${myTelegramId}`);
         if (res.ok) {
             const data = await res.json();
-            if (data.success && data.profile) {
-                const p = data.profile;
-                document.getElementById('prof-name').innerText = p.telegram_name || "ተጫዋች";
-                document.getElementById('prof-tg-id').innerText = `ID: ${p.telegram_id || myTelegramId}`;
-                document.getElementById('prof-balance').innerText = `${(p.balance || 0).toFixed(2)} ETB`;
-                document.getElementById('prof-gift').innerText = `${(p.gift_coin || 0).toFixed(2)} Coin`;
-                document.getElementById('prof-games').innerText = `${p.total_games_played || 0} ካርድ`;
-                document.getElementById('prof-wins').innerText = `${p.total_games_won || 0}`;
-                document.getElementById('prof-winnings').innerText = `${Number(p.total_winnings || 0).toLocaleString()} ETB`;
+            if (data) {
+                // profile stats Update
+                if (document.getElementById('prof-name')) document.getElementById('prof-name').innerText = data.telegram_name || data.first_name || "ተጫዋች";
+                if (document.getElementById('prof-tg-id')) document.getElementById('prof-tg-id').innerText = `ID: ${data.telegram_id || myTelegramId}`;
+                if (document.getElementById('prof-balance')) document.getElementById('prof-balance').innerText = `${parseFloat(data.balance || 0).toFixed(2)} ETB`;
+                if (document.getElementById('prof-gift')) document.getElementById('prof-gift').innerText = `${parseFloat(data.gift_coin || 0).toFixed(2)} Coin`;
+                if (document.getElementById('prof-games')) document.getElementById('prof-games').innerText = `${data.total_games_played || 0} ካርድ`;
+                if (document.getElementById('prof-wins')) document.getElementById('prof-wins').innerText = `${data.total_games_won || 0}`;
+                if (document.getElementById('prof-winnings')) document.getElementById('prof-winnings').innerText = `${parseFloat(data.total_winnings || 0).toFixed(2)} ETB`;
+
+                // Render Transaction History
+                renderTransactionHistory(data.transactions || []);
             }
         }
     } catch (e) {
         console.error("❌ Profile Loading Error:", e);
     }
+}
+
+function renderTransactionHistory(transactions) {
+    const listContainer = document.getElementById('prof-transactions-list');
+    if (!listContainer) return;
+
+    if (!transactions || transactions.length === 0) {
+        listContainer.innerHTML = `<div style="text-align:center; font-size: 11px; color: #a4b0be; padding: 8px;">ምንም የዝውውር ታሪክ የለም</div>`;
+        return;
+    }
+
+    let html = '';
+    transactions.forEach(tx => {
+        const isPositive = tx.transaction_type === 'deposit' || tx.transaction_type === 'win' || tx.transaction_type === 'bonus';
+        const color = isPositive ? '#2ed573' : '#ff4757';
+        const sign = isPositive ? '+' : '-';
+
+        let typeLabel = 'ቅይጥ';
+        if (tx.transaction_type === 'deposit') typeLabel = 'ገንዘብ ገቢ';
+        else if (tx.transaction_type === 'withdraw') typeLabel = 'ገንዘብ ወጪ';
+        else if (tx.transaction_type === 'win') typeLabel = 'የጨዋታ ማሸነፊያ';
+        else if (tx.transaction_type === 'buy_card') typeLabel = 'የካርድ መግዣ';
+
+        const dateStr = tx.created_at ? new Date(tx.created_at).toLocaleDateString('et-ET', {
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        }) : '';
+
+        html += `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #2f3542; padding: 8px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 5px;">
+                <div>
+                    <div style="font-weight: bold; color: #ffffff;">${typeLabel}</div>
+                    <div style="font-size: 10px; color: #a4b0be;">${dateStr}</div>
+                </div>
+                <div style="font-weight: bold; color: ${color};">
+                    ${sign}${parseFloat(tx.amount || 0).toFixed(2)} ETB
+                </div>
+            </div>
+        `;
+    });
+
+    listContainer.innerHTML = html;
 }
 
 // 2. 🎁 የሳምንታዊ ቦነስ መረጃን ከባክኤንድ ጠርቶ ማሳያ
@@ -878,10 +870,10 @@ async function openBonusModal() {
         const res = await fetch(`/api/bonus/info/${myTelegramId}`);
         if (res.ok) {
             const data = await res.json();
-            if (data.success && data.bonus_info) {
+            if (data && data.bonus_info) {
                 const b = data.bonus_info;
-                document.getElementById('bonus-user-rank').innerText = b.user_current_rank || "-";
-                document.getElementById('bonus-user-cards').innerText = `${b.user_weekly_games || 0} ካርድ`;
+                if (document.getElementById('bonus-user-rank')) document.getElementById('bonus-user-rank').innerText = b.user_current_rank || "-";
+                if (document.getElementById('bonus-user-cards')) document.getElementById('bonus-user-cards').innerText = `${b.user_weekly_games || 0} ካርድ`;
             }
         }
     } catch (e) {
@@ -889,7 +881,7 @@ async function openBonusModal() {
     }
 }
 
-// 3. 🏆 የሳምንቱን ምርጥ ተጫዋቾች (Leaderboard Top 10 - WINNINGS DISPLAY)
+// 3. 🏆 የሳምንቱን ምርጥ ተጫዋቾች (Leaderboard Top 10)
 async function openLeaderboardModal() {
     const modal = document.getElementById('leaderboardModal');
     if (modal) modal.style.display = 'flex';
@@ -898,35 +890,33 @@ async function openLeaderboardModal() {
         const res = await fetch('/api/leaderboard');
         if (res.ok) {
             const users = await res.json();
-            
-            // Response ሊሆን የሚችለውን አወቃቀር ማስተካከል (Array ወይም JSON object)
             const list = Array.isArray(users) ? users : (users.leaderboard || users.users || []);
 
             if (list.length > 0) {
                 // 1️⃣ TOP 3 (PODIUMS)
-                const top1 = list[0] || { telegram_name: '---', total_winnings: 0 };
-                const top2 = list[1] || { telegram_name: '---', total_winnings: 0 };
-                const top3 = list[2] || { telegram_name: '---', total_winnings: 0 };
+                const top1 = list[0] || { name: '---', telegram_name: '---', total_winnings: 0 };
+                const top2 = list[1] || { name: '---', telegram_name: '---', total_winnings: 0 };
+                const top3 = list[2] || { name: '---', telegram_name: '---', total_winnings: 0 };
 
                 // 🥇 1ኛ የወጣ
                 if (document.getElementById('rank1-name')) {
-                    document.getElementById('rank1-name').innerText = top1.telegram_name || 'User';
-                    document.getElementById('rank1-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${Number(top1.total_winnings || 0).toLocaleString()} ETB</span>`;
+                    document.getElementById('rank1-name').innerText = top1.telegram_name || top1.name || 'User';
+                    document.getElementById('rank1-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${parseFloat(top1.total_winnings || 0).toFixed(0)} ETB</span>`;
                 }
 
                 // 🥈 2ኛ የወጣ
                 if (document.getElementById('rank2-name')) {
-                    document.getElementById('rank2-name').innerText = top2.telegram_name || 'User';
-                    document.getElementById('rank2-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${Number(top2.total_winnings || 0).toLocaleString()} ETB</span>`;
+                    document.getElementById('rank2-name').innerText = top2.telegram_name || top2.name || 'User';
+                    document.getElementById('rank2-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${parseFloat(top2.total_winnings || 0).toFixed(0)} ETB</span>`;
                 }
 
                 // 🥉 3ኛ የወጣ
                 if (document.getElementById('rank3-name')) {
-                    document.getElementById('rank3-name').innerText = top3.telegram_name || 'User';
-                    document.getElementById('rank3-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${Number(top3.total_winnings || 0).toLocaleString()} ETB</span>`;
+                    document.getElementById('rank3-name').innerText = top3.telegram_name || top3.name || 'User';
+                    document.getElementById('rank3-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${parseFloat(top3.total_winnings || 0).toFixed(0)} ETB</span>`;
                 }
 
-                // 2️⃣ ከ #4 እስከ #10 ያሉትን ማውጣት (1ኛ-3ኛ ሳይደገሙ ከ index 3 ጀምሮ ይቆርጣል)
+                // 2️⃣ ከ #4 እስከ #10 ያሉትን ማውጣት
                 const listContainer = document.getElementById('leaderboard-list');
                 if (listContainer) {
                     listContainer.innerHTML = "";
@@ -939,9 +929,9 @@ async function openLeaderboardModal() {
                             row.innerHTML = `
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <span style="border: 1px solid #2ed573; color: #ffffff; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;">${idx + 4}</span>
-                                    <span style="font-size: 13px; font-weight: bold; color: #ffffff;">${user.telegram_name || 'User'}</span>
+                                    <span style="font-size: 13px; font-weight: bold; color: #ffffff;">${user.telegram_name || user.name || 'User'}</span>
                                 </div>
-                                <span style="color: #2ed573; font-weight: 900; font-size: 13px;">${Number(user.total_winnings || 0).toLocaleString()} ETB</span>
+                                <span style="color: #2ed573; font-weight: 900; font-size: 13px;">${parseFloat(user.total_winnings || 0).toFixed(0)} ETB</span>
                             `;
                             listContainer.appendChild(row);
                         });
