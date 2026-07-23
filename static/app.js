@@ -1,13 +1,9 @@
-// ==========================================
-// 📦 PART 1: GLOBALS, WEBSOCKET & GAME ENGINE
-// ==========================================
-
 // 📡 የዌብሶኬት እና የጨዋታው ግሎባል ተለዋዋጮች
 let ws;
 let temporarilySelectedCards = []; 
 let selectedCards = []; 
-let currentBetAmount = 10; // 🛠️ ማሻሻያ፦ ተጫዋቹ የሚመርጠው ተለዋዋጭ ክፍል (10, 20, 50)
-let latestDerashRooms = {"10": 0, "20": 0, "50": 0}; // 🛠️ ማሻሻያ፦ የየክፍሉን ደራሽ መያዣ
+let currentBetAmount = 10; // 🛠️ ተጫዋቹ የሚመርጠው ተለዋዋጭ ክፍል (10, 20, 50)
+let latestDerashRooms = {"10": 0, "20": 0, "50": 0}; // 🛠️ የየክፍሉን ደራሽ መያዣ
 let myTelegramId = "TG-GUEST"; 
 let myTelegramName = "ተጫዋች";
 let tgUser = { id: "12345678", first_name: "የይለፍ ተጫዋች" }; 
@@ -64,7 +60,7 @@ function getBingoColor(letter) {
     }
 }
 
-// 🛠️ ማሻሻያ፦ ተጫዋቹ የ 10, 20, 50 ብር ቁልፍ ሲጫን የሚሰራ አዲስ ፈንክሽን
+// 🛠️ ተጫዋቹ የ 10, 20, 50 ብር ቁልፍ ሲጫን የሚሰራ አዲስ ፈንክሽን
 function changeBetRoom(betAmount) {
     currentBetAmount = betAmount;
     
@@ -86,7 +82,7 @@ function changeBetRoom(betAmount) {
     refreshTakenCards();
 }
 
-// 🛠️ ማሻሻያ፦ የተመረጠውን ክፍል ደራሽ መጠን በ UI ላይ ማደሻ ፈንክሽን
+// 🛠️ የተመረጠውን ክፍል ደራሽ መጠን በ UI ላይ ማደሻ ፈንክሽን
 function updateDerashUI() {
     let amt = latestDerashRooms[currentBetAmount.toString()] || 0;
     
@@ -101,7 +97,7 @@ function updateDerashUI() {
     }
 }
 
-// 🛠️ ማሻሻያ፦ ከተመረጠው ክፍል (Bet Amount) አንጻር የተገዙ ካርዶችን ለይቶ መጥሪያ ፈንክሽን
+// 🛠️ ከተመረጠው ክፍል (Bet Amount) አንጻር የተገዙ ካርዶችን ለይቶ መጥሪያ ፈንክሽን
 async function refreshTakenCards() {
     try {
         const response = await fetch(`/api/cards/status?bet_amount=${currentBetAmount}`);
@@ -127,7 +123,7 @@ function connectWebSocket() {
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
-        // 🛠️ ማሻሻያ፦ ካርድ ሲገዛ የመጣው መልዕክት ከአሁኑ ክፍል ጋር እኩል ከሆነ ብቻ UI ማደስ
+        // 🛠️ ካርድ ሲገዛ የመጣው መልዕክት ከአሁኑ ክፍል ጋር እኩል ከሆነ ብቻ UI ማደስ
         if (data.type === "taken_cards_update") {
             if (data.bet_amount === undefined || data.bet_amount === currentBetAmount) {
                 update200CardsColors(data.taken_cards);
@@ -349,10 +345,6 @@ function connectWebSocket() {
 
     ws.onclose = () => setTimeout(connectWebSocket, 2000);
 }
-
-// ==========================================
-// 📦 PART 2: CARDS, WALLET, PROFILE & MODALS
-// ==========================================
 
 // 🎴 1-200 የካርድ ቁልፎች መፍጠሪያ
 function generate200Cards() {
@@ -641,7 +633,6 @@ function handleManualCellClick(cellElement, cellNumber) {
 async function refreshUserBalance() {
     if (!myTelegramId || myTelegramId === "TG-GUEST") return; 
     try {
-        console.log("🔄 የባላንስ መረጃ ከዳታቤዝ እየተጠየቀ ነው... ID:", myTelegramId);
         const response = await fetch(`/api/users/${myTelegramId}`);
         if (response.ok) {
             const data = await response.json();
@@ -807,7 +798,6 @@ async function checkDailyBonus(telegramId) {
         });
 
         const data = await response.json();
-        console.log("🎁 Daily Check-in Response:", data);
 
         if (response.ok && data.success) {
             alert(data.message || "🎉 የ 10 ETB እለታዊ ነፃ መጫወቻ ስጦታዎን ወስደዋል!");
@@ -818,7 +808,6 @@ async function checkDailyBonus(telegramId) {
             
             await loadPlayerBalance(telegramId);
         } else {
-            console.log("ℹ️ እለታዊ ስጦታው ዛሬ አስቀድሞ ተወስዷል ወይም አልተፈቀደም።");
             await loadPlayerBalance(telegramId);
         }
     } catch (error) {
@@ -833,7 +822,6 @@ async function loadPlayerBalance(telegramId) {
         if (!response.ok) throw new Error("የተጫዋች መረጃ ማግኘት አልተቻለም");
 
         const userData = await response.json();
-        console.log("👤 Player Data Loaded:", userData);
 
         if (document.getElementById('walletBalance') && userData.user && userData.user.balance !== undefined) {
             document.getElementById('walletBalance').innerText = userData.user.balance.toFixed(2) + " ETB";
@@ -865,13 +853,13 @@ async function openProfileModal() {
             const data = await res.json();
             if (data.success && data.profile) {
                 const p = data.profile;
-                document.getElementById('prof-name').innerText = p.telegram_name;
-                document.getElementById('prof-tg-id').innerText = `ID: ${p.telegram_id}`;
-                document.getElementById('prof-balance').innerText = `${p.balance.toFixed(2)} ETB`;
-                document.getElementById('prof-gift').innerText = `${p.gift_coin.toFixed(2)} Coin`;
-                document.getElementById('prof-games').innerText = `${p.total_games_played} ካርድ`;
-                document.getElementById('prof-wins').innerText = `${p.total_games_won}`;
-                document.getElementById('prof-winnings').innerText = `${p.total_winnings.toFixed(2)} ETB`;
+                document.getElementById('prof-name').innerText = p.telegram_name || "ተጫዋች";
+                document.getElementById('prof-tg-id').innerText = `ID: ${p.telegram_id || myTelegramId}`;
+                document.getElementById('prof-balance').innerText = `${(p.balance || 0).toFixed(2)} ETB`;
+                document.getElementById('prof-gift').innerText = `${(p.gift_coin || 0).toFixed(2)} Coin`;
+                document.getElementById('prof-games').innerText = `${p.total_games_played || 0} ካርድ`;
+                document.getElementById('prof-wins').innerText = `${p.total_games_won || 0}`;
+                document.getElementById('prof-winnings').innerText = `${Number(p.total_winnings || 0).toLocaleString()} ETB`;
             }
         }
     } catch (e) {
@@ -892,8 +880,8 @@ async function openBonusModal() {
             const data = await res.json();
             if (data.success && data.bonus_info) {
                 const b = data.bonus_info;
-                document.getElementById('bonus-user-rank').innerText = b.user_current_rank;
-                document.getElementById('bonus-user-cards').innerText = `${b.user_weekly_games} ካርድ`;
+                document.getElementById('bonus-user-rank').innerText = b.user_current_rank || "-";
+                document.getElementById('bonus-user-cards').innerText = `${b.user_weekly_games || 0} ካርድ`;
             }
         }
     } catch (e) {
@@ -901,7 +889,7 @@ async function openBonusModal() {
     }
 }
 
-// 3. 🏆 የሳምንቱን ምርጥ ተጫዋቾች (Leaderboard Top 10) ማሳያ
+// 3. 🏆 የሳምንቱን ምርጥ ተጫዋቾች (Leaderboard Top 10 - WINNINGS DISPLAY)
 async function openLeaderboardModal() {
     const modal = document.getElementById('leaderboardModal');
     if (modal) modal.style.display = 'flex';
@@ -909,42 +897,56 @@ async function openLeaderboardModal() {
     try {
         const res = await fetch('/api/leaderboard');
         if (res.ok) {
-            const data = await res.json();
-            if (data.success && data.leaderboard) {
-                const list = data.leaderboard;
+            const users = await res.json();
+            
+            // Response ሊሆን የሚችለውን አወቃቀር ማስተካከል (Array ወይም JSON object)
+            const list = Array.isArray(users) ? users : (users.leaderboard || users.users || []);
+
+            if (list.length > 0) {
+                // 1️⃣ TOP 3 (PODIUMS)
+                const top1 = list[0] || { telegram_name: '---', total_winnings: 0 };
+                const top2 = list[1] || { telegram_name: '---', total_winnings: 0 };
+                const top3 = list[2] || { telegram_name: '---', total_winnings: 0 };
 
                 // 🥇 1ኛ የወጣ
-                if (list[0]) {
-                    document.getElementById('rank1-name').innerText = list[0].telegram_name;
-                    document.getElementById('rank1-cards').innerText = `${list[0].weekly_games} ካርድ`;
-                }
-                // 🥈 2ኛ የወጣ
-                if (list[1]) {
-                    document.getElementById('rank2-name').innerText = list[1].telegram_name;
-                    document.getElementById('rank2-cards').innerText = `${list[1].weekly_games} ካርድ`;
-                }
-                // 🥉 3ኛ የወጣ
-                if (list[2]) {
-                    document.getElementById('rank3-name').innerText = list[2].telegram_name;
-                    document.getElementById('rank3-cards').innerText = `${list[2].weekly_games} ካርድ`;
+                if (document.getElementById('rank1-name')) {
+                    document.getElementById('rank1-name').innerText = top1.telegram_name || 'User';
+                    document.getElementById('rank1-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${Number(top1.total_winnings || 0).toLocaleString()} ETB</span>`;
                 }
 
-                // 4-10 ያሉትን ማውጣት
+                // 🥈 2ኛ የወጣ
+                if (document.getElementById('rank2-name')) {
+                    document.getElementById('rank2-name').innerText = top2.telegram_name || 'User';
+                    document.getElementById('rank2-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${Number(top2.total_winnings || 0).toLocaleString()} ETB</span>`;
+                }
+
+                // 🥉 3ኛ የወጣ
+                if (document.getElementById('rank3-name')) {
+                    document.getElementById('rank3-name').innerText = top3.telegram_name || 'User';
+                    document.getElementById('rank3-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${Number(top3.total_winnings || 0).toLocaleString()} ETB</span>`;
+                }
+
+                // 2️⃣ ከ #4 እስከ #10 ያሉትን ማውጣት (1ኛ-3ኛ ሳይደገሙ ከ index 3 ጀምሮ ይቆርጣል)
                 const listContainer = document.getElementById('leaderboard-list');
                 if (listContainer) {
                     listContainer.innerHTML = "";
-                    for (let i = 3; i < list.length; i++) {
-                        const item = list[i];
-                        const row = document.createElement('div');
-                        row.className = 'leader-item';
-                        row.innerHTML = `
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <strong style="color: #ffd700; width: 20px;">#${item.rank}</strong>
-                                <span>${item.telegram_name}</span>
-                            </div>
-                            <strong style="color: #2ed573;">${item.weekly_games} ካርድ</strong>
-                        `;
-                        listContainer.appendChild(row);
+                    const restUsers = list.slice(3, 10);
+
+                    if (restUsers.length > 0) {
+                        restUsers.forEach((user, idx) => {
+                            const row = document.createElement('div');
+                            row.style.cssText = "display: flex; justify-content: space-between; align-items: center; background: #2f3542; padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid #2ed573;";
+                            row.innerHTML = `
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="border: 1px solid #2ed573; color: #ffffff; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;">${idx + 4}</span>
+                                    <span style="font-size: 13px; font-weight: bold; color: #ffffff;">${user.telegram_name || 'User'}</span>
+                                </div>
+                                <span style="color: #2ed573; font-weight: 900; font-size: 13px;">${Number(user.total_winnings || 0).toLocaleString()} ETB</span>
+                            `;
+                            listContainer.appendChild(row);
+                        });
+                    } else {
+                        listContainer.innerHTML = '<div style="text-align: center; color: #a4b0be; padding: 10px; font-size: 12px;">ምንም ተጨማሪ ደረጃዎች የሉም</div>';
                     }
                 }
             }
