@@ -60,6 +60,14 @@ class AdminAction(BaseModel):
     message_id: Optional[int] = None
     admin_password: Optional[str] = None
 
+# 🎯 ለተጠቃሚ ምዝገባ የተዘጋጀ Schema
+class UserRegisterPayload(BaseModel):
+    telegram_id: str
+    telegram_name: Optional[str] = None
+    first_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    referred_by: Optional[str] = None
+
 
 # 👤 1. የተጫዋች ፕሮፋይል መረጃ ማሳያ API (Profile Modal)
 @router.get("/users/profile/{telegram_id}")
@@ -76,6 +84,7 @@ def get_user_profile(telegram_id: str, db: Session = Depends(get_db)):
             "telegram_name": user.telegram_name or user.first_name or f"User_{user.id}",
             "balance": getattr(user, "balance", 0.0) or 0.0,
             "gift_coin": getattr(user, "gift_coin", 0.0) or 0.0,
+            "phone_number": getattr(user, "phone_number", None),
             "total_games_played": getattr(user, "total_games_played", 0) or 0,
             "total_games_won": getattr(user, "total_games_won", 0) or 0,
             "total_winnings": getattr(user, "total_winnings", 0.0) or 0.0,
@@ -88,7 +97,6 @@ def get_user_profile(telegram_id: str, db: Session = Depends(get_db)):
 # 🏆 2. የሳምንቱ ምርጥ ተጫዋቾች የደረጃ ሰንጠረዥ (Leaderboard API)
 @router.get("/leaderboard")
 def get_leaderboard(db: Session = Depends(get_db)):
-    # በሳምንቱ ብዙ ካርድ የተጫወቱትን በቅደም ተከተል ያወጣል
     top_players = db.query(User).order_by(
         User.weekly_games_played.desc(),
         User.weekly_deposit_amount.desc()
@@ -117,7 +125,6 @@ def get_bonus_info(telegram_id: str, db: Session = Depends(get_db)):
     
     if user:
         user_weekly_games = getattr(user, "weekly_games_played", 0) or 0
-        # የተጫዋቹን የራሱን ሳምንታዊ ደረጃ ማስላት
         higher_players = db.query(User).filter(
             User.weekly_games_played > user_weekly_games
         ).count()
@@ -139,42 +146,53 @@ def get_bonus_info(telegram_id: str, db: Session = Depends(get_db)):
     }
 
 
-# 📥 4. አዲስ ተጫዋች ሲመዘገብ
+# 📥 4. አዲስ ተጫዋች ሲመዘገብ (ስልክ ቁጥር ጭምር)
 @router.post("/users/register")
-def register_user(telegram_id: str, telegram_name: str = None, first_name: str = None, referred_by: str = None, db: Session = Depends(get_db)):
-    tg_id_str = str(telegram_id).strip()
+def register_user(payload: UserRegisterPayload, db: Session = Depends(get_db)):
+    tg_id_str = str(payload.telegram_id).strip()
     if not tg_id_str.isdigit():
         return {"success": False, "message": "Invalid Telegram ID."}
     
     existing = db.query(User).filter(User.telegram_id == tg_id_str).first()
     if existing:
+        # ስልክ ቁጥሩ ካለ ማዘመን (Update)
+        if payload.phone_number and hasattr(existing, 'phone_number'):
+            existing.phone_number = payload.phone_number
+            db.commit()
+
         user_balance = getattr(existing, "balance", 0.0) or 0.0
         return {
-            "success": True, "message": "ተጠቃሚው አስቀድሞ ተመዝግቧል",
+            "success": True, "message": "ተጠቃሚው አስቀድሞ ተመዝግቧል፤ መረጃው ዘምኗል።",
             "user": {
                 "telegram_id": existing.telegram_id, 
                 "balance": user_balance, 
                 "wallet": user_balance,
-                "gift_coin": getattr(existing, "gift_coin", 0.0) or 0.0
+                "gift_coin": getattr(existing, "gift_coin", 0.0) or 0.0,
+                "phone_number": getattr(existing, "phone_number", None)
             }
         }
     
     ref_id_str = None
-    if referred_by and str(referred_by).strip().isdigit():
-        ref_id_str = str(referred_by).strip()
+    if payload.referred_by and str(payload.referred_by).strip().isdigit():
+        ref_id_str = str(payload.referred_by).strip()
         if ref_id_str == tg_id_str:
             ref_id_str = None
 
-    new_user = User(
-        telegram_id=tg_id_str, 
-        telegram_name=telegram_name, 
-        first_name=first_name, 
-        wallet=0.0, 
-        balance=0.0,   
-        gift_coin=0.0, 
-        referred_by=ref_id_str,
-        created_at=datetime.utcnow()
-    )
+    user_kwargs = {
+        "telegram_id": tg_id_str, 
+        "telegram_name": payload.telegram_name, 
+        "first_name": payload.first_name, 
+        "wallet": 0.0, 
+        "balance": 0.0,   
+        "gift_coin": 0.0, 
+        "referred_by": ref_id_str,
+        "created_at": datetime.utcnow()
+    }
+
+    if hasattr(User, 'phone_number'):
+        user_kwargs["phone_number"] = payload.phone_number
+
+    new_user = User(**user_kwargs)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -193,7 +211,8 @@ def register_user(telegram_id: str, telegram_name: str = None, first_name: str =
             "telegram_id": new_user.telegram_id, 
             "balance": 0.0,
             "wallet": 0.0,
-            "gift_coin": new_user.gift_coin
+            "gift_coin": new_user.gift_coin,
+            "phone_number": getattr(new_user, "phone_number", None)
         }
     }
 
@@ -250,7 +269,8 @@ def get_user(telegram_id: str, db: Session = Depends(get_db)):
             "telegram_id": user.telegram_id, 
             "balance": user_balance, 
             "wallet": user_balance,
-            "gift_coin": getattr(user, "gift_coin", 0.0) or 0.0
+            "gift_coin": getattr(user, "gift_coin", 0.0) or 0.0,
+            "phone_number": getattr(user, "phone_number", None)
         }
     }
 
@@ -389,7 +409,7 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     return {"success": True, "message": "የማውጫ ጥያቄዎ ተመዝግቧል!"}
 
 
-# 👮‍♂️ 9. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Deposit - ዲፖዚት ሲጸድቅ ቆጣሪዎችን ይጨምራል)
+# 👮‍♂️ 9. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Deposit)
 @router.post("/deposit/admin/approve")
 def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
@@ -421,7 +441,6 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
             user.balance = current_balance + deposit.amount
             user.wallet = user.balance
             
-            # 🎯 🔴 አዲስ የተጨመረ፦ የሳምንቱን ዲፖዚት መጠን መቁጠሪያ
             user.weekly_deposit_amount = (getattr(user, "weekly_deposit_amount", 0.0) or 0.0) + deposit.amount
             
             deposit.status = "approved"
