@@ -11,6 +11,9 @@ class User(Base):
     telegram_id = Column(String, unique=True, index=True)
     telegram_name = Column(String, nullable=True)
     first_name = Column(String, nullable=True)
+    
+    # 📱 🔴 አዲስ የተጨመረ፦ የስልክ ቁጥር መመዝገቢያ
+    phone_number = Column(String, nullable=True, index=True)
 
     # 💡 በሚኒ አፑ እና በዳታቤዙ መካከል ያለውን ግጭት ለመፍታት
     balance = Column(Float, default=0.0)    
@@ -24,7 +27,7 @@ class User(Base):
     is_banned = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # 🎯 🔴 አዲስ የተጨመሩ፦ ለ Profile፣ Bonus እና Leaderboard የሚሆኑ ቆጣሪዎች
+    # 🎯 🔴 ለ Profile፣ Bonus እና Leaderboard የሚሆኑ ቆጣሪዎች
     total_games_played = Column(Integer, default=0)     # በአጠቃላይ የተጫወታቸው ካርዶች ብዛት
     total_games_won = Column(Integer, default=0)        # በአጠቃላይ ያሸነፋቸው ጨዋታዎች ብዛት
     total_winnings = Column(Float, default=0.0)         # በአጠቃላይ ያሸነፈው የብር መጠን
@@ -140,7 +143,7 @@ class Setting(Base):
     jackpot_percent = Column(Float, default=10.0)
     is_registration_open = Column(Boolean, default=True)
     
-    # 📌 አዲስ የተጨመረ፦ የቤት (House) ማሸነፊያ Ratio መቆጣጠሪያ 
+    # 📌 የቤት (House) ማሸነፊያ Ratio መቆጣጠሪያ 
     # 3 = (3 House : 1 User), 2 = (2 House : 1 User), 1 = (1 House : 1 User)
     house_win_ratio = Column(Integer, default=3)
 
@@ -202,7 +205,7 @@ class DailyCheckIn(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-# 🏆 🔴 አዲስ የተጨመረ፦ የሳምንታዊ ውድድር አሸናፊዎች ታሪክ መመዝገቢያ ጠረጴዛ
+# 🏆 የሳምንታዊ ውድድር አሸናፊዎች ታሪክ መመዝገቢያ ጠረጴዛ
 class LeaderboardRewardHistory(Base):
     __tablename__ = "leaderboard_rewards"
     __table_args__ = {'extend_existing': True}
