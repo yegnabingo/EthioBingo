@@ -22,60 +22,95 @@ WELCOME_IMAGE_URL = f"https://web-production-fd82a.up.railway.app/static/images/
 
 bot = TeleBot(BOT_TOKEN)
 
+# የቴሌግራም ተጠቃሚዎችን ጊዜያዊ የሪፈራል መረጃ መያዣ Dictionary
+USER_REF_CACHE = {}
+
 print(f"🎰 የYegnaኛ Bingo ቦት (@{BOT_USERNAME}) በሰላም ስራ ጀምሯል...")
 print("TELEGRAM MODULE LOADED")
 
 
-# 👥 ጀርባ ላይ አዲስ ተጫዋች በሪፈራል ጭምር የሚመዘግብ የ Thread ተግባር
-def register_user_background(telegram_id, telegram_name, first_name, referred_by=None):
+# 👥 ጀርባ ላይ አዲስ ተጫዋች በስልክ ቁጥር እና በሪፈራል ጭምር የሚመዘግብ የ Thread ተግባር
+def register_user_background(telegram_id, telegram_name, first_name, phone_number=None, referred_by=None):
     register_api_url = f"{BACKEND_URL}/api/users/register"
-    params = {
+    payload = {
         "telegram_id": str(telegram_id),
         "telegram_name": telegram_name,
-        "first_name": first_name
+        "first_name": first_name,
+        "phone_number": str(phone_number) if phone_number else None,
+        "referred_by": str(referred_by) if referred_by else None
     }
-    if referred_by:
-        params["referred_by"] = str(referred_by)
         
     try:
-        response = requests.post(register_api_url, params=params, timeout=10)
+        response = requests.post(register_api_url, json=payload, timeout=10)
         print(f"📡 Backend Register Response: {response.json()}")
     except Exception as e:
         print(f"❌ Failed to register user in background: {e}")
 
 
+# 1️⃣ /start ሲባል የሚመጣ መልእክት
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    chat_id = message.chat.id
     telegram_id = message.from_user.id
-    user_name = message.from_user.username if message.from_user.username else f"User_{str(telegram_id)[:5]}"
-    first_name = message.from_user.first_name if message.from_user.first_name else "ተጫዋች"
 
-    # 1️⃣ ከሊንኩ ላይ የጋባዥ ID (args) መኖሩን መፈተሽ (ለምሳሌ /start ref_123456)
-    referred_by = None
+    # ከሊንኩ ላይ የጋባዥ ID (args) መኖሩን መፈተሽ
     msg_text_parts = message.text.split()
     if len(msg_text_parts) > 1:
         ref_arg = msg_text_parts[1]
-        if ref_arg.startswith("ref_"):
-            referred_by = ref_arg.replace("ref_", "").strip()
-        else:
-            referred_by = ref_arg.strip()
-            
-        # የራሱን ID መጋበዣ ሊንክ መጠቀም እንዳይችል መከላከያ
-        if str(referred_by) == str(telegram_id):
-            referred_by = None
+        referred_by = ref_arg.replace("ref_", "").strip() if ref_arg.startswith("ref_") else ref_arg.strip()
+        if str(referred_by) != str(telegram_id):
+            USER_REF_CACHE[telegram_id] = referred_by
 
-    # 2️⃣ ምዝገባውን ቦቱን ሳይቀዘቅዝ (Freeze ሳይሆን) በThread ጀርባ ላይ ማከናወን
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    btn_register = types.KeyboardButton("📝 Register Now")
+    markup.add(btn_register)
+
+    welcome_msg = (
+        "🎉 እንኳን በሰላም ወደ ቴሌግራም ገፃችን መጡ\n\n"
+        "ለመቀጠል መጀመሪያ ይመዝገቡ ወይም ከታች Register Now የሚለውን ይጫኑ ።"
+    )
+    bot.send_message(message.chat.id, welcome_msg, reply_markup=markup)
+
+
+# 2️⃣ "📝 Register Now" ሲጫኑ የስልክ ቁጥር ጥያቄ ማሳያ
+@bot.message_handler(func=lambda message: message.text == "📝 Register Now")
+def ask_contact(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    btn_contact = types.KeyboardButton("📱 Share Contact", request_contact=True)
+    markup.add(btn_contact)
+
+    bot.send_message(
+        message.chat.id, 
+        "📱 ከታች ያለውን Share contact የሚለውን ይጫኑ", 
+        reply_markup=markup
+    )
+
+
+# 3️⃣ ተጠቃሚው የስልክ ቁጥሩን (Contact) ሲልከው
+@bot.message_handler(content_types=['contact'])
+def handle_contact(message):
+    chat_id = message.chat.id
+    telegram_id = message.from_user.id
+    phone_number = message.contact.phone_number
+    user_name = message.from_user.username if message.from_user.username else f"User_{str(telegram_id)[:5]}"
+    first_name = message.from_user.first_name if message.from_user.first_name else "ተጫዋች"
+
+    # የተቀመጠ ሪፈራል ካለ ማምጣት
+    referred_by = USER_REF_CACHE.pop(telegram_id, None)
+
+    # ጀርባ ላይ ወደ ባክኤንድ የመመዝገብ/የማዘመን ስራ
     threading.Thread(
         target=register_user_background,
-        args=(telegram_id, user_name, first_name, referred_by),
+        args=(telegram_id, user_name, first_name, phone_number, referred_by),
         daemon=True
     ).start()
 
-    # 3️⃣ የራሱን የጓደኛ መጋበዣ (Referral) ሊንክ በ Variable ብቻ ማዘጋጀት
+    # የቆዩ የኪቦርድ ቁልፎችን ማጥፊያ
+    remove_keyboard = types.ReplyKeyboardRemove()
+    bot.send_message(chat_id, "✅ ስልክ ቁጥርዎ በስኬት ተመዝግቧል!", reply_markup=remove_keyboard)
+
+    # የሪፈራል ሊንክ እና የሰላምታ መረጃ መላክ
     my_referral_link = f"https://t.me/{BOT_USERNAME}?start=ref_{telegram_id}"
 
-    # 4️⃣ ማራኪ የሰላምታ እና የሪፈራል ማብራሪያ ጽሑፍ በአንድ ላይ
     welcome_text = (
         f"👋 ሰላም <b>{first_name}</b>፣ ወደ <b>የኛ ቢንጎ (Yegna Bingo)</b> እንኳን በደህና መጡ! 🎉\n\n"
         "ኢትዮጵያ ውስጥ ምርጡን የቢንጎ ጨዋታ በቴሌግራም ሚኒ አፕ በቀላሉ ይጫወቱ። "
@@ -87,20 +122,14 @@ def send_welcome(message):
         f"🔗 <b>የእርሶ መጋበዣ ሊንክ፦</b>\n<code>{my_referral_link}</code>"
     )
 
-    # 5️⃣ የኢንላይን ቁልፎች (የሚኒ አፕ እና የሊንክ ማጋሪያ)
     markup = types.InlineKeyboardMarkup()
-    
-    # 🎮 ሚኒ አፑን የሚከፍት ቁልፍ
     btn_play = types.InlineKeyboardButton(text="🎮 Open Mini App (ክፈት)", web_app=types.WebAppInfo(url=MINI_APP_URL))
-    
-    # 🔗 ሊንኩን በቀጥታ በቴሌግራም ለጓደኞች ለማጋራት
     share_url = f"https://t.me/share/url?url={my_referral_link}&text=የቢንጎ%20ጌም%20ተጫውተህ%20ገንዘብ%20እንድታሸንፍ%20ጋብዤሃለሁ!%20በሊንኩ%20ገብተህ%20ተመዝገብ፦"
     btn_share = types.InlineKeyboardButton(text="🔗 Share Link (ለጓደኛህ አጋራ)", url=share_url)
     
     markup.add(btn_play, btn_share)
 
     try:
-        # 🖼️ ምስሉን፣ ፅሁፉን እና ቁልፎቹን በአንድ ላይ መላክ
         bot.send_photo(
             chat_id, 
             photo=WELCOME_IMAGE_URL, 
@@ -146,7 +175,7 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
                     message_id=call.message.message_id,
                     text=new_text,
                     parse_mode="HTML",
-                    reply_markup=None  # ቁልፎቹን ያጠፋል
+                    reply_markup=None
                 )
             except Exception as edit_err:
                 print(f"⚠️ Telegram message edit minor issue: {edit_err}")
@@ -175,8 +204,8 @@ def handle_admin_actions(call):
     
     admin_id_str = str(call.from_user.id).strip()
     action_data = call.data.split('_')
-    action = action_data[0]    # 'approve' ወይም 'reject'
-    tx_type = action_data[1]   # 'dep' ወይም 'with'
+    action = action_data[0]
+    tx_type = action_data[1]
     target_id = int(action_data[2])
 
     if tx_type == "dep":
