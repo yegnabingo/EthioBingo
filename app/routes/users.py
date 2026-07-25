@@ -2,6 +2,7 @@ import os
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from datetime import datetime, date
 from pydantic import BaseModel
 from typing import Optional
@@ -60,7 +61,6 @@ class AdminAction(BaseModel):
     message_id: Optional[int] = None
     admin_password: Optional[str] = None
 
-# 🎯 ለተጠቃሚ ምዝገባ የተዘጋጀ Schema
 class UserRegisterPayload(BaseModel):
     telegram_id: str
     telegram_name: Optional[str] = None
@@ -77,19 +77,51 @@ def get_user_profile(telegram_id: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="ተጠቃሚው አልተገኘም")
     
+    display_name = getattr(user, 'telegram_username', None) or user.telegram_name or user.first_name or f"User_{user.id}"
+
+    # 📜 የቅርብ ጊዜ የገንዘብ እንቅስቃሴዎችን ማዘጋጀት
+    recent_transactions = []
+    try:
+        deposits = db.query(Deposit).filter(Deposit.user_id == user.id).order_by(desc(Deposit.created_at)).limit(5).all()
+        for d in deposits:
+            recent_transactions.append({
+                "type": "deposit",
+                "title": "ገንዘብ ገቢ",
+                "amount": f"+{d.amount} ETB",
+                "status": getattr(d, 'status', 'completed'),
+                "date": d.created_at.strftime("%Y-%m-%d %H:%M") if hasattr(d, 'created_at') and d.created_at else ""
+            })
+
+        withdrawals = db.query(Withdrawal).filter(Withdrawal.user_id == user.id).order_by(desc(Withdrawal.created_at)).limit(5).all()
+        for w in withdrawals:
+            recent_transactions.append({
+                "type": "withdrawal",
+                "title": "ገንዘብ ወጪ",
+                "amount": f"-{w.amount} ETB",
+                "status": getattr(w, 'status', 'completed'),
+                "date": w.created_at.strftime("%Y-%m-%d %H:%M") if hasattr(w, 'created_at') and w.created_at else ""
+            })
+
+        recent_transactions = sorted(recent_transactions, key=lambda x: x['date'], reverse=True)[:5]
+    except Exception as e:
+        print(f"Transaction fetch error: {e}")
+        recent_transactions = []
+
     return {
         "success": True,
         "profile": {
             "telegram_id": user.telegram_id,
-            "telegram_name": user.telegram_name or user.first_name or f"User_{user.id}",
+            "telegram_name": display_name,
             "balance": getattr(user, "balance", 0.0) or 0.0,
             "gift_coin": getattr(user, "gift_coin", 0.0) or 0.0,
             "phone_number": getattr(user, "phone_number", None),
             "total_games_played": getattr(user, "total_games_played", 0) or 0,
             "total_games_won": getattr(user, "total_games_won", 0) or 0,
+            "total_wins": getattr(user, "total_games_won", 0) or 0,
             "total_winnings": getattr(user, "total_winnings", 0.0) or 0.0,
             "weekly_games_played": getattr(user, "weekly_games_played", 0) or 0,
-            "weekly_deposit_amount": getattr(user, "weekly_deposit_amount", 0.0) or 0.0
+            "weekly_deposit_amount": getattr(user, "weekly_deposit_amount", 0.0) or 0.0,
+            "transactions": recent_transactions
         }
     }
 
@@ -104,9 +136,10 @@ def get_leaderboard(db: Session = Depends(get_db)):
 
     leaderboard_data = []
     for rank, player in enumerate(top_players, 1):
+        display_name = getattr(player, 'telegram_username', None) or player.telegram_name or player.first_name or f"User_{player.id}"
         leaderboard_data.append({
             "rank": rank,
-            "telegram_name": player.telegram_name or player.first_name or f"User_{player.id}",
+            "telegram_name": display_name,
             "weekly_games": getattr(player, "weekly_games_played", 0) or 0,
             "weekly_deposits": getattr(player, "weekly_deposit_amount", 0.0) or 0.0
         })
@@ -155,7 +188,6 @@ def register_user(payload: UserRegisterPayload, db: Session = Depends(get_db)):
     
     existing = db.query(User).filter(User.telegram_id == tg_id_str).first()
     if existing:
-        # ስልክ ቁጥሩ ካለ ማዘመን (Update)
         if payload.phone_number and hasattr(existing, 'phone_number'):
             existing.phone_number = payload.phone_number
             db.commit()
