@@ -853,8 +853,19 @@ async function openProfileModal() {
             const data = await res.json();
             if (data.success && data.profile) {
                 const p = data.profile;
-                document.getElementById('prof-name').innerText = p.telegram_name || "ተጫዋች";
+                
+                // 📝 ቴሌግራም ስም (Telegram Name / First Name) ማሳያ
+                document.getElementById('prof-name').innerText = p.telegram_name || p.first_name || "ተጫዋች";
+                
+                // 🆔 ቴሌግራም ID
                 document.getElementById('prof-tg-id').innerText = `ID: ${p.telegram_id || myTelegramId}`;
+                
+                // 📱 🔴 አዲስ የተጨመረ፦ የስልክ ቁጥር ማሳያ (ካለ ያሳየል፣ ካለፈ '--' ይላል)
+                const phoneElem = document.getElementById('prof-phone');
+                if (phoneElem) {
+                    phoneElem.innerText = `ስልክ፦ ${p.phone_number ? p.phone_number : "አልተመዘገበም"}`;
+                }
+
                 document.getElementById('prof-balance').innerText = `${(p.balance || 0).toFixed(2)} ETB`;
                 document.getElementById('prof-gift').innerText = `${(p.gift_coin || 0).toFixed(2)} Coin`;
                 document.getElementById('prof-games').innerText = `${p.total_games_played || 0} ካርድ`;
@@ -863,7 +874,7 @@ async function openProfileModal() {
             }
         }
     } catch (e) {
-        console.error("❌ Profile Loading Error:", e);
+        console.error("Profile load error:", e);
     }
 }
 
@@ -889,7 +900,7 @@ async function openBonusModal() {
     }
 }
 
-// 3. 🏆 የሳምንቱን ምርጥ ተጫዋቾች (Leaderboard Top 10 - WINNINGS DISPLAY)
+// 3. 🏆 የሳምንቱን ምርጥ ተጫዋቾች (Leaderboard Top 10)
 async function openLeaderboardModal() {
     const modal = document.getElementById('leaderboardModal');
     if (modal) modal.style.display = 'flex';
@@ -903,30 +914,33 @@ async function openLeaderboardModal() {
             const list = Array.isArray(users) ? users : (users.leaderboard || users.users || []);
 
             if (list.length > 0) {
+                // 💡 የትኛውም Key ከባክኤንድ ቢመጣ የገንዘብ መጠኑን አውጥቶ የሚወስድ Helper Function
+                const getAmount = (u) => Number(u.weekly_deposits || u.total_winnings || u.weekly_games || 0);
+
                 // 1️⃣ TOP 3 (PODIUMS)
-                const top1 = list[0] || { telegram_name: '---', total_winnings: 0 };
-                const top2 = list[1] || { telegram_name: '---', total_winnings: 0 };
-                const top3 = list[2] || { telegram_name: '---', total_winnings: 0 };
+                const top1 = list[0] || { telegram_name: '---' };
+                const top2 = list[1] || { telegram_name: '---' };
+                const top3 = list[2] || { telegram_name: '---' };
 
                 // 🥇 1ኛ የወጣ
                 if (document.getElementById('rank1-name')) {
                     document.getElementById('rank1-name').innerText = top1.telegram_name || 'User';
-                    document.getElementById('rank1-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${Number(top1.total_winnings || 0).toLocaleString()} ETB</span>`;
+                    document.getElementById('rank1-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${getAmount(top1).toLocaleString()} ETB</span>`;
                 }
 
                 // 🥈 2ኛ የወጣ
                 if (document.getElementById('rank2-name')) {
                     document.getElementById('rank2-name').innerText = top2.telegram_name || 'User';
-                    document.getElementById('rank2-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${Number(top2.total_winnings || 0).toLocaleString()} ETB</span>`;
+                    document.getElementById('rank2-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${getAmount(top2).toLocaleString()} ETB</span>`;
                 }
 
                 // 🥉 3ኛ የወጣ
                 if (document.getElementById('rank3-name')) {
                     document.getElementById('rank3-name').innerText = top3.telegram_name || 'User';
-                    document.getElementById('rank3-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${Number(top3.total_winnings || 0).toLocaleString()} ETB</span>`;
+                    document.getElementById('rank3-cards').innerHTML = `<span style="background: #ffd700; color: #1e272e; padding: 2px 8px; border-radius: 10px; font-weight: 900; font-size: 11px;">${getAmount(top3).toLocaleString()} ETB</span>`;
                 }
 
-                // 2️⃣ ከ #4 እስከ #10 ያሉትን ማውጣት (1ኛ-3ኛ ሳይደገሙ ከ index 3 ጀምሮ ይቆርጣል)
+                // 2️⃣ ከ #4 እስከ #10 ያሉትን ማውጣት
                 const listContainer = document.getElementById('leaderboard-list');
                 if (listContainer) {
                     listContainer.innerHTML = "";
@@ -941,7 +955,7 @@ async function openLeaderboardModal() {
                                     <span style="border: 1px solid #2ed573; color: #ffffff; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;">${idx + 4}</span>
                                     <span style="font-size: 13px; font-weight: bold; color: #ffffff;">${user.telegram_name || 'User'}</span>
                                 </div>
-                                <span style="color: #2ed573; font-weight: 900; font-size: 13px;">${Number(user.total_winnings || 0).toLocaleString()} ETB</span>
+                                <span style="color: #2ed573; font-weight: 900; font-size: 13px;">${getAmount(user).toLocaleString()} ETB</span>
                             `;
                             listContainer.appendChild(row);
                         });
@@ -955,24 +969,3 @@ async function openLeaderboardModal() {
         console.error("❌ Leaderboard Loading Error:", e);
     }
 }
-
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) modal.style.display = 'none';
-}
-
-// 🚀 ሚኒ አፑ ከቴሌግራም ተነስቶ ሙሉ በሙሉ ሲጫን (የተዋሃደ Initialization)
-window.addEventListener('DOMContentLoaded', () => {
-    const tg = window.Telegram?.WebApp;
-    
-    if (tg) {
-        tg.expand(); 
-    }
-
-    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        const userId = tg.initDataUnsafe.user.id;
-        checkDailyBonus(userId);
-    } else {
-        console.log("⚠️ ቦቱ የተከፈተው ከቴሌግራም ሚኒ አፕ ውጪ ነው።");
-    }
-});
