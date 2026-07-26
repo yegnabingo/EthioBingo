@@ -346,6 +346,12 @@ function connectWebSocket() {
     ws.onclose = () => setTimeout(connectWebSocket, 2000);
 }
 
+// 🧠 ማርክ የተደረጉ ቁጥሮች እንዳይጠፉ በካርድ ቁጥር ደረጃ የሚይዝ State
+// structure: { cardNum: Set([12, 45, 60]) }
+if (typeof markedCellsMap === "undefined") {
+    var markedCellsMap = {};
+}
+
 // 🎴 1-200 የካርድ ቁልፎች መፍጠሪያ
 function generate200Cards() {
     const grid = document.getElementById("cardGrid");
@@ -486,6 +492,9 @@ function showToastMessage(message, type) {
 }
 
 function clear75Board() {
+    // አዲስ ጨዋታ ሲጀመር የነበሩ ማርኮችን ማጽዳት
+    markedCellsMap = {};
+
     const containers = {
         "b": document.getElementById("b-container"),
         "i": document.getElementById("i-container"),
@@ -528,6 +537,29 @@ function updateRecentBallsUI() {
         ballDiv.style.boxShadow = `0 0 10px ${color}`;
         recentRow.appendChild(ballDiv);
     }
+
+    // አዲስ ኳስ በተጠራ ቁጥር Auto Mark ከበራ ሁሉንም የተገዙ ካርዶች ቼክ አድርጎ በራስ-ሰር ማርክ ያደርጋል
+    if (isAutoMark && recentBallsList.length > 0) {
+        autoMarkAllBoughtCards();
+    }
+}
+
+// 🤖 Auto Mark Mode፡ የተጠሩት ኳሶች ሁሉንም ካርዶች ላይ ማርክ መደረጋቸውን የሚያረጋግጥ ተግባር
+function autoMarkAllBoughtCards() {
+    if (!selectedCards || selectedCards.length === 0) return;
+    
+    // የተጠሩትን ቁጥሮች በሙሉ አውጣ
+    const drawnNumbers = recentBallsList.map(b => b.num);
+
+    selectedCards.forEach(cardNum => {
+        if (!markedCellsMap[cardNum]) {
+            markedCellsMap[cardNum] = new Set();
+        }
+        // ከዚህ ቀደም የተደረጉት እንዳሉ ሆነው አዳዲስ የተጠሩትን ይጨምራል
+        drawnNumbers.forEach(num => {
+            markedCellsMap[cardNum].add(num);
+        });
+    });
 }
 
 async function renderMyBoughtCards() {
@@ -540,6 +572,19 @@ async function renderMyBoughtCards() {
         return;
     }
     const activeCardNum = selectedCards[currentCardIndex];
+
+    // ለዚህ ካርድ የመዝገብ ቦታ ካልተከፈተ ክፈትለች
+    if (!markedCellsMap[activeCardNum]) {
+        markedCellsMap[activeCardNum] = new Set();
+    }
+
+    // Auto Mark ከበራ የተጠሩትን ቁጥሮች ለዚህ ካርድ መዝግብ
+    if (isAutoMark) {
+        recentBallsList.forEach(b => {
+            markedCellsMap[activeCardNum].add(b.num);
+        });
+    }
+
     try {
         const res = await fetch(`/api/cards/get_matrix?card_number=${activeCardNum}`);
         const data = await res.json();
@@ -574,13 +619,20 @@ async function renderMyBoughtCards() {
                 if (cell === "FREE") {
                     html += `<div class="bingo-cell free-star">★</div>`;
                 } else {
+                    // ቁጥሩ በ Auto ወይም በ Manual ቀደም ሲል ማርክ ከተደረገ በቋሚነት ያበራል
+                    const isMarkedInState = markedCellsMap[activeCardNum].has(cell);
                     const isAlreadyDrawn = recentBallsList.some(b => b.num === cell);
-                    if (isAlreadyDrawn && isAutoMark) {
+
+                    if (isMarkedInState || (isAlreadyDrawn && isAutoMark)) {
                         let letterPrefix = cell <= 15 ? 'B' : cell <= 30 ? 'I' : cell <= 45 ? 'N' : cell <= 60 ? 'G' : 'O';
                         const savedColor = getBingoColor(letterPrefix);
-                        html += `<div class="bingo-cell cell-${cell} marked-auto" style="background:${savedColor} !important; color:#fff;">${cell}</div>`;
+                        
+                        // ወደ State መጨመሩን እርግጠኛ ሁን
+                        markedCellsMap[activeCardNum].add(cell);
+
+                        html += `<div class="bingo-cell cell-${cell} marked-auto" style="background:${savedColor} !important; color:#fff;" onclick="handleManualCellClick(this, ${cell}, ${activeCardNum})">${cell}</div>`;
                     } else {
-                        html += `<div class="bingo-cell cell-${cell}" onclick="handleManualCellClick(this, ${cell})">${cell}</div>`;
+                        html += `<div class="bingo-cell cell-${cell}" onclick="handleManualCellClick(this, ${cell}, ${activeCardNum})">${cell}</div>`;
                     }
                 }
             });
@@ -607,19 +659,29 @@ window.onload = () => {
 
 function toggleMarkingMode() {
     isAutoMark = !isAutoMark;
+    if (isAutoMark) {
+        autoMarkAllBoughtCards(); // ከባለሙያ ወደ Auto ሲቀየር አዳዲስ የተጠሩትን ማርክ ያደርጋል
+    }
     renderMyBoughtCards(); 
 }
 
-function handleManualCellClick(cellElement, cellNumber) {
-    if (isAutoMark) return;
+function handleManualCellClick(cellElement, cellNumber, activeCardNum) {
+    if (!activeCardNum) activeCardNum = selectedCards[currentCardIndex];
+    if (!markedCellsMap[activeCardNum]) markedCellsMap[activeCardNum] = new Set();
+
     const isBallDrawn = recentBallsList.some(b => b.num === cellNumber);
+
     if (isBallDrawn) {
+        // ቁጥሩ ከተጠራ ወደ መዝገብ ይገባል (አይጠፋም)
+        markedCellsMap[activeCardNum].add(cellNumber);
+
         let letterPrefix = cellNumber <= 15 ? 'B' : cellNumber <= 30 ? 'I' : cellNumber <= 45 ? 'N' : cellNumber <= 60 ? 'G' : 'O';
         const ballColor = getBingoColor(letterPrefix);
         cellElement.style.background = ballColor;
         cellElement.style.color = "#fff";
         cellElement.classList.add("marked-manual");
     } else {
+        // ያልተጠራ ቁጥር ከተነካ ለጥቂት ሰከንድ ቀይ አሳይቶ ይመለሳል (ወደ State አይገባም)
         const oldBg = cellElement.style.background;
         cellElement.style.background = "#ff4757";
         setTimeout(() => { cellElement.style.background = oldBg; }, 250);
