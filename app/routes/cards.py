@@ -49,8 +49,11 @@ def get_target_bot_card_count() -> int:
     else:
         return random.randint(20, 40)
 
-async def trigger_bot_card_purchases(game_id: int, bet_amount: float):
-    """🤖 ቦቱ በ 10 ETB ክፍል ብቻ በዘፈቀደ ላልተያዙ የካርድ ቁጥሮች ግዢ ይፈጽማል"""
+async def trigger_bot_card_purchases(game_id: int, bet_amount: float = 10.0):
+    """
+    🤖 ቦቱ በ 10 ETB ክፍል ብቻ በዘፈቀደ ላልተያዙ የካርድ ቁጥሮች ተራ በተራ ግዢ ይፈጽማል።
+    ✨ ካርዶቹ እውነተኛ ተጫዋቾች እንደሚገዙት ተራ በተራ በቦርዱ ላይ ቢጫ እየሆኑ ይታያሉ!
+    """
     if bet_amount != 10.0:
         return
 
@@ -83,7 +86,13 @@ async def trigger_bot_card_purchases(game_id: int, bet_amount: float):
 
         selected_bot_cards = random.sample(available_numbers, cards_to_buy_count)
 
+        # 🎭 እውነተኛ ለማስመሰል ካርዶቹን ተራ በተራ (በጥቂት ሚሊሰከንድ ልዩነት) መግዛት
         for card_num in selected_bot_cards:
+            # ጨዋታው አሁንም በስራ ላይ መሆኑን ማረጋገጥ
+            active_check = db.query(Game).filter(Game.id == game_id, Game.status.in_(["running", "waiting"])).first()
+            if not active_check:
+                break
+
             bot_card = PlayerCard(
                 game_id=game.id,
                 user_id=bot_user.id,
@@ -98,25 +107,31 @@ async def trigger_bot_card_purchases(game_id: int, bet_amount: float):
                 main_card.reserved_by = bot_user.id
                 main_card.current_game_id = game.id
 
-        db.commit()
+            db.commit()
 
-        all_taken = db.query(PlayerCard).filter(
-            PlayerCard.game_id == game.id,
-            PlayerCard.bet_amount == bet_amount
-        ).all()
-        taken_list = [c.card_number for c in all_taken]
+            # 📡 እያንዳንዱ ካርድ በተገዛ ቁጥር ለተጫዋቾች በየተራ ቢጫ ሆኖ እንዲታይ broadcast ማድረግ
+            all_taken = db.query(PlayerCard).filter(
+                PlayerCard.game_id == game.id,
+                PlayerCard.bet_amount == bet_amount
+            ).all()
+            taken_list = [c.card_number for c in all_taken]
 
-        await manager.broadcast({
-            "type": "taken_cards_update",
-            "bet_amount": bet_amount,
-            "taken_cards": taken_list
-        })
+            await manager.broadcast({
+                "type": "taken_cards_update",
+                "bet_amount": bet_amount,
+                "taken_cards": taken_list
+            })
+
+            # ⏱️ እውነተኛ ሰው እንደሚመርጥ ለማስመሰል ከ 0.2 እስከ 0.5 ሰከንድ ማረፍ
+            await asyncio.sleep(random.uniform(0.2, 0.5))
 
     except Exception as e:
-        db.rollback()
+        if db:
+            db.rollback()
         print(f"⚠️ Bot card purchase error: {e}")
     finally:
-        db.close()
+        if db:
+            db.close()
 
 
 # =========================================================
@@ -124,18 +139,26 @@ async def trigger_bot_card_purchases(game_id: int, bet_amount: float):
 # =========================================================
 
 @router.get("/status")
-def get_cards_status(bet_amount: float = Query(10.0, description="የተመረጠው ክፍል ውርርድ መጠን")):
+def get_cards_status(
+    background_tasks: BackgroundTasks,
+    bet_amount: float = Query(10.0, description="የተመረጠው ክፍል ውርርድ መጠን")
+):
     db = SessionLocal()
     try:
-        active_game = db.query(Game).order_by(Game.id.desc()).first()
+        active_game = db.query(Game).filter(Game.status.in_(["running", "waiting"])).order_by(Game.id.desc()).first()
         
-        if not active_game or active_game.status == "finished":
+        if not active_game:
             return []
             
         taken_cards = db.query(PlayerCard).filter(
             PlayerCard.game_id == active_game.id,
             PlayerCard.bet_amount == bet_amount
         ).all()
+
+        # 🤖 ተጫዋች ገፁን ሲከፍት ምንም ካርድ ካልተሸጠ አውቶማቲክ የቦት ግዢውን እንዲቀሰቅሰው ማድረግ
+        if bet_amount == 10.0 and len(taken_cards) == 0:
+            background_tasks.add_task(trigger_bot_card_purchases, active_game.id, bet_amount)
+
         return [c.card_number for c in taken_cards]
     except Exception:
         return []
@@ -194,14 +217,14 @@ async def pick_card(request: AdvancedPickCardRequest, background_tasks: Backgrou
         if total_available < request.bet_amount:
             return {"success": False, "message": f"በቂ ባላንስ የሎትም! የእርሶ ጠቅላላ ባላንስ {total_available} ETB ነው።"}
 
-        # 7. ክፍያ መቁረጥ (የበፊቱ logic እንዳለ ቀጥሏል)
+        # 7. ክፍያ መቁረጥ
         if (user.gift_coin or 0.0) >= request.bet_amount:
             user.gift_coin -= request.bet_amount
         else:
             remaining_fee = request.bet_amount - (user.gift_coin or 0.0)
             user.gift_coin = 0.0
             user.balance -= remaining_fee
-            user.wallet -= remaining_fee  # 👈 የቀደመው ሎጂክህ አልተነካም
+            user.wallet -= remaining_fee
 
         # 8. ካርዱን መመዝገብ
         new_player_card = PlayerCard(
