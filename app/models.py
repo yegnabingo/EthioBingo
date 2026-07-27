@@ -19,7 +19,9 @@ class User(Base):
     balance = Column(Float, default=0.0)    
     wallet = Column(Float, default=0.0)     
     gift_coin = Column(Float, default=0.0)  
-    
+
+    is_bot = Column(Boolean, default=False)
+
     # 🎁 የሪፈራል (የግብዣ ሲስተም) መቆጣጠሪያ ኮለም
     referred_by = Column(String, nullable=True) 
 
