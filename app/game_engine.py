@@ -194,7 +194,7 @@ class GameEngine:
                 if self.running and has_bought_cards:
                     await self.draw_numbers(draw_interval, game_display_no, saved_game_id)
                 else:
-                    print(f"🔄 Game {game_display_no} ላይ አስፈላጊው የካርድ ብዛት አልተሟላም።")
+                    print(f"🔄 Game {game_display_no} ተጠናቋል።")
                     game_record = db.query(Game).filter(Game.id == saved_game_id).first()
                     if game_record:
                         game_record.status = "cancelled"
@@ -221,7 +221,7 @@ class GameEngine:
 
     async def countdown(self, seconds, game_display_no, saved_game_id):
         initial_seconds = seconds
-        has_bought_cards = False
+        has_bought_cards = True  # 🎯 ቦቱ ሁልጊዜ ስለምንገዛ ጨዋታው በቋሚነት ወደ draw_numbers ያልፋል
         
         while seconds >= 0 and self.running:
             current_taken_list = []
@@ -260,27 +260,6 @@ class GameEngine:
             finally:
                 if db:
                     db.close()
-
-            if seconds == 0:
-                if total_cards_sold < 3 or unique_users_count < 1:
-                    seconds = initial_seconds
-                    await self.safe_broadcast({
-                        "type": "countdown",
-                        "seconds": seconds,
-                        "time": seconds,
-                        "phase": "PICK",
-                        "game_no": game_display_no,
-                        "game_id": saved_game_id,
-                        "taken_cards": current_taken_list,
-                        "derash_rooms": {}, 
-                        "player_counts": player_counts,
-                        "player_count": total_cards_sold,
-                        "message": "⚠️ ቢያንስ 3 ካርዶች መሸጥ አለባቸው! ጨዋታው ተራዝሟል።"
-                    })
-                    await asyncio.sleep(1)
-                    continue
-                else:
-                    has_bought_cards = True
 
             derash_amounts = {}
             total_players_all_rooms = 0
