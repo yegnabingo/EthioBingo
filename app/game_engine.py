@@ -171,7 +171,8 @@ class GameEngine:
                 settings = db.query(Setting).first()
 
                 countdown_seconds = settings.countdown_seconds if (settings and hasattr(settings, 'countdown_seconds')) else 30
-                draw_interval = settings.draw_interval if (settings and hasattr(settings, 'draw_interval')) else 3.0
+                # 🎯 በየ 5.0 ሰከንድ ኳስ እንዲጠራ የተስተካከለ (ነባሪው 5.0 ሰከንድ ነው)
+                draw_interval = settings.draw_interval if (settings and hasattr(settings, 'draw_interval')) else 5.0
 
                 game = Game(
                     status="running",
@@ -291,9 +292,12 @@ class GameEngine:
         if not saved_game_id:
             return
 
+        # 🎯 በየ 5.0 ሰከንድ ጥሪ መደረጉን እና ካልተቀየረ በትንሹ 5.0 ሰከንድ መሆኑን ማረጋገጥ
+        draw_interval = max(5.0, float(interval))
+
         numbers = list(range(1, 76))
         random.shuffle(numbers)
-        self.called_numbers = []
+        self.called_numbers = []  # 🎯 የቆዩ ጥሪዎች እንዳይደራረቡ ማጽዳት
 
         db: Session = None
         try:
@@ -428,7 +432,8 @@ class GameEngine:
                 if call_count >= max_draw_balls:
                     break
 
-                await asyncio.sleep(interval)
+                # ⏱️ እያንዳንዱ ኳስ ከወጣ በኋላ በትክክል 5 ሰከንድ እንዲቆይ ተደርጓል
+                await asyncio.sleep(draw_interval)
 
             if not winner_detected and self.running and target_house_wins > 0:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
