@@ -222,7 +222,7 @@ body {
 .letter.i { color: #ef4444; }
 .letter.n { color: #f59e0b; }
 .letter.g { color: #3b82f6; }
-.letter.o { color: #ec4899; }
+.letter.o { color: #a855f7; } /* 🎯 ከካርዱ ጋር ተመሳሳይ የሆነ ሐምራዊ (Purple) */
 
 .num-row {
     display: grid;
@@ -284,12 +284,12 @@ body {
     transform: scale(1.1);
 }
 
-/* O ረድፍ ሲበራ (ሮዝ/ፒንክ) */
+/* O ረድፍ ሲበራ (ሐምራዊ/Purple - ከካርዱ ጋር አንድ አይነት) */
 #o-container .board-num.drawn {
-    background: #ec4899 !important;
+    background: #a855f7 !important;
     color: #ffffff !important;
-    border-color: #ec4899 !important;
-    box-shadow: 0 0 10px #ec4899, 0 0 4px #ec4899;
+    border-color: #a855f7 !important;
+    box-shadow: 0 0 10px #a855f7, 0 0 4px #a855f7;
     transform: scale(1.1);
 }
 
@@ -299,16 +299,17 @@ body {
     justify-content: center;
     align-items: center;
     position: relative;
-    padding: 10px;
+    padding: 12px 10px;
     background: #11141a;
-    border-radius: 12px;
+    border-radius: 16px;
     margin-bottom: 15px;
-    min-height: 55px;
+    min-height: 70px; /* ትልቁ ኳስ በትክክል እንዲያርፍበት የተቀየረ */
 }
 
+/* ⚪ የቆዩት (ያለፉት) ኳሶች - አነስ ብለው ከበስተጀርባ እንዲሆኑ */
 .overlapping-ball {
-    width: 38px;
-    height: 38px;
+    width: 32px; /* መጠን ትንሽ አነስ ተደርጓል */
+    height: 32px;
     border-radius: 50%;
     color: white;
     display: flex;
@@ -316,26 +317,42 @@ body {
     justify-content: center;
     align-items: center;
     font-weight: bold;
-    border: 2px solid #fff;
-    margin-left: -10px;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    margin-left: -8px;
     position: relative;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    transition: transform 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+    transition: all 0.3s ease;
+    opacity: 0.85; /* ከቀጥታው ኳስ ጋር ለመለያየት ቀለል ያለ Opacity */
 }
-.overlapping-ball .b-letter { font-size: 9px; line-height: 1; opacity: 0.9; }
-.overlapping-ball .b-number { font-size: 14px; line-height: 1; }
+.overlapping-ball .b-letter { font-size: 8px; line-height: 1; opacity: 0.9; }
+.overlapping-ball .b-number { font-size: 12px; line-height: 1; font-weight: 800; }
 
+/* 🌟 አሁን የተጠራው (Live) ኳስ - በጣም ጎልቶና ጎልቶ የሚታይ ትልቅ ኳስ */
 .overlapping-ball.current-live-ball {
-    width: 48px;
-    height: 48px;
-    font-size: 16px;
-    margin-left: 0;
+    width: 60px !important;            /* ከ38/48px ወደ 60px በከፍተኛ ሁኔታ አድጓል */
+    height: 60px !important;
+    font-size: 18px;
+    margin-left: 6px;                  /* ከቀደሙት ኳሶች ተነጥሎ እንዲወጣ */
     z-index: 100;
-    transform: scale(1.1);
-    border: 3px solid #ffd700;
+    opacity: 1 !important;
+    border: 3px solid #ffd700 !important; /* የወርቅ ቀለም ቦርደር */
+    /* 🎯 የሚስብ የወርቅ እና የኒዮን ብሩህ glow effect */
+    box-shadow: 0 0 18px rgba(255, 215, 0, 0.8), 
+                0 0 8px rgba(255, 215, 0, 0.5),
+                0 6px 10px rgba(0,0,0,0.5);
+    transform: scale(1.08);
 }
-.overlapping-ball.current-live-ball .b-letter { font-size: 11px; }
-.overlapping-ball.current-live-ball .b-number { font-size: 18px; }
+
+.overlapping-ball.current-live-ball .b-letter { 
+    font-size: 13px !important; 
+    font-weight: 900;
+    letter-spacing: 0.5px;
+}
+.overlapping-ball.current-live-ball .b-number { 
+    font-size: 22px !important;        /* ቁጥሩ በጣም ጎልቶ እንዲነበብ */
+    font-weight: 900;
+    line-height: 1;
+}
 
 /* 🎴 የካርድ እና የጎን ፍላጻዎች ዋና መዋቅር ማስተካከያ */
 .main-slider-layout {
