@@ -9,7 +9,6 @@ from app.websocket_manager import manager
 from app.database import SessionLocal
 from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
-# 👤 ለቦት ተጫዋቾች የሚሆኑ የራንደም ተጫዋች ስሞች
 BOT_NAMES = [
     "user_45456", "user_61655", "user_98767", "user_65788", "user_76546", "user_43688",  
     "user_66856", "user_56488", "user_86545", "user_88786", "user_21456", "user_54321",
@@ -17,7 +16,6 @@ BOT_NAMES = [
 ]
 
 SUPPORTED_FEES = [10.0, 20.0, 50.0]
-# 🤖 ቦቱ የሚጫወተው በ 10 ETB ክፍል ብቻ ነው
 BOT_ALLOWED_FEES = [10.0]
 
 class GameEngine:
@@ -26,11 +24,9 @@ class GameEngine:
         self.running = False
         self.called_numbers = []
         self.current_game = None
-        # 📌 ለእያንዳንዱ ክፍል የቤት (House) ማሸነፊያ ቆጣሪ
         self.house_counters = {10.0: 0, 20.0: 0, 50.0: 0}
 
     def get_bot_user(self, db: Session):
-        """🤖 የቦት ተጫዋች በዳታቤዝ ውስጥ መኖሩን ያረጋግጣል፤ ከሌለ ይፈጥራል።"""
         bot = db.query(User).filter(User.telegram_id == "BOT_VIRTUAL_PLAYER").first()
         if not bot:
             bot = User(
@@ -49,9 +45,6 @@ class GameEngine:
         return bot
 
     def get_target_bot_card_count(self) -> int:
-        """
-        🕒 እንደ ሰዓቱ ተለዋዋጭ የሆነ የቦት ካርድ ብዛት ይወስናል (UTC+3)
-        """
         now = datetime.now(timezone.utc)
         hour = (now.hour + 3) % 24
 
@@ -63,9 +56,6 @@ class GameEngine:
             return random.randint(20, 40)
 
     async def auto_buy_bot_cards(self, game_id: int):
-        """
-        🤖 በ 10 ETB ክፍል ብቻ ቦቱ ካርዶችን በራስ-ሰር እንዲገዛ የሚያደርግ logic
-        """
         db: Session = None
         try:
             db = SessionLocal()
@@ -120,8 +110,7 @@ class GameEngine:
             preview = payload if isinstance(payload, dict) else str(payload)
             if isinstance(preview, dict):
                 preview = {k: preview.get(k) for k in list(preview)[:5]}
-            print(f"⬆️ broadcast attempt: {preview}")
-
+            
             maybe = None
             try:
                 maybe = manager.broadcast(payload)
@@ -171,7 +160,6 @@ class GameEngine:
                 settings = db.query(Setting).first()
 
                 countdown_seconds = settings.countdown_seconds if (settings and hasattr(settings, 'countdown_seconds')) else 30
-                # 🎯 በየ 5.0 ሰከንድ ኳስ እንዲጠራ የተስተካከለ (ነባሪው 4.0 ሰከንድ ነው)
                 draw_interval = settings.draw_interval if (settings and hasattr(settings, 'draw_interval')) else 4.0
 
                 game = Game(
@@ -185,8 +173,8 @@ class GameEngine:
                 db.refresh(game)
                 
                 saved_game_id = game.id
-                self.current_game = game
                 game_display_no = str(100000 + saved_game_id)
+                db.close() 
 
                 await self.auto_buy_bot_cards(saved_game_id)
                 
@@ -195,11 +183,12 @@ class GameEngine:
                 if self.running and has_bought_cards:
                     await self.draw_numbers(draw_interval, game_display_no, saved_game_id)
                 else:
-                    print(f"🔄 Game {game_display_no} ተጠናቋል።")
+                    db = SessionLocal()
                     game_record = db.query(Game).filter(Game.id == saved_game_id).first()
                     if game_record:
                         game_record.status = "cancelled"
                         db.commit()
+                    db.close()
 
                 await asyncio.sleep(2)
 
@@ -207,29 +196,28 @@ class GameEngine:
                 print(f"❌ Error in game loop iteration: {e}")
                 await asyncio.sleep(1)
             finally:
-                if db:
+                if saved_game_id:
+                    db_cleanup = SessionLocal()
                     try:
-                        if saved_game_id:
-                            db.query(Card).filter(Card.current_game_id == saved_game_id).update({
-                                Card.is_taken: False, 
-                                Card.reserved_by: None, 
-                                Card.current_game_id: None
-                            })
-                            db.commit()
-                        db.close()
+                        db_cleanup.query(Card).filter(Card.current_game_id == saved_game_id).update({
+                            Card.is_taken: False, 
+                            Card.reserved_by: None, 
+                            Card.current_game_id: None
+                        })
+                        db_cleanup.commit()
                     except Exception as e:
                         print(f"❌ Error resetting context assets: {e}")
+                    finally:
+                        db_cleanup.close()
 
     async def countdown(self, seconds, game_display_no, saved_game_id):
-        initial_seconds = seconds
-        has_bought_cards = True  # 🎯 ቦቱ ሁልጊዜ ስለምንገዛ ጨዋታው በቋሚነት ወደ draw_numbers ያልፋል
+        has_bought_cards = True
         
         while seconds >= 0 and self.running:
             current_taken_list = []
             comm_percent = 20.0
             player_counts = {fee: 0 for fee in SUPPORTED_FEES}
-            total_cards_sold = 0
-            unique_users_count = 0
+            total_players_all_rooms = 0
             
             db: Session = None
             try:
@@ -248,9 +236,6 @@ class GameEngine:
                     ).count()
                     player_counts[fee] = count
 
-                total_cards_sold = db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).count()
-                unique_users_count = db.query(PlayerCard.user_id).filter(PlayerCard.game_id == saved_game_id).distinct().count()
-
                 if saved_game_id:
                     game_record = db.query(Game).filter(Game.id == saved_game_id).first()
                     if game_record:
@@ -263,7 +248,6 @@ class GameEngine:
                     db.close()
 
             derash_amounts = {}
-            total_players_all_rooms = 0
             for fee, count in player_counts.items():
                 total_players_all_rooms += count
                 total_pool = count * fee
@@ -292,12 +276,10 @@ class GameEngine:
         if not saved_game_id:
             return
 
-        # 🎯 በየ 5.0 ሰከንድ ጥሪ መደረጉን እና ካልተቀየረ በትንሹ 4.0 ሰከንድ መሆኑን ማረጋገጥ
         draw_interval = max(4.0, float(interval))
-
         numbers = list(range(1, 76))
         random.shuffle(numbers)
-        self.called_numbers = []  # 🎯 የቆዩ ጥሪዎች እንዳይደራረቡ ማጽዳት
+        self.called_numbers = []
 
         db: Session = None
         try:
@@ -386,19 +368,23 @@ class GameEngine:
                         fee = w["bet_amount"]
                         if w["winner_id"] != bot_user.id:
                             self.house_counters[fee] = 0
-                            print(f"🎉 እውነተኛ ተጫዋች በ {fee} ብር ክፍል አሸንፏል! ቆጣሪው ጸድቷል።")
 
+                    # 🎯 የጠየቅከው የ winners_data እና broadcast ማስተካከያ እዚህ ይገኛል
                     winners_data = []
                     for w in winners_list:
-                        # 🎭 ቦቱ ከሆነ በዘበደለኛው (Random) የተዘጋጀ የተጫዋች ስም ይሰጠዋል
+                        # 🎭 ቦቱ ከሆነ የቀደመውን አሰራር እንዳለ ይከተላል
                         if w["winner_id"] == bot_user.id:
                             telegram_name = random.choice(BOT_NAMES)
+                            first_name = telegram_name
                         else:
+                            # 👤 የእውነተኛ ተጫዋች ከሆነ first_name እና telegram_name ይፈለጋል
                             user_record = db.query(User).filter(User.id == w["winner_id"]).first()
+                            first_name = user_record.first_name if user_record and user_record.first_name else None
                             telegram_name = user_record.telegram_name if user_record and user_record.telegram_name else f"user_{w['winner_id']}"
                         
                         winners_data.append({
                             "winner_id": w["winner_id"],
+                            "first_name": first_name,
                             "telegram_name": telegram_name,
                             "card_number": w["card_number"],
                             "room_fee": w["bet_amount"],
@@ -410,15 +396,20 @@ class GameEngine:
 
                     primary_winner = winners_data[0]
 
+                    # 🎯 ለዋናው አሸናፊ የሚሆን ስም
+                    display_winner_name = primary_winner["first_name"] or primary_winner["telegram_name"]
+
                     await self.safe_broadcast({
                         "type": "game_over",
                         "status": "WINNER_FOUND",
                         "result": "BINGO",
-                        "winner_name": primary_winner["telegram_name"],
+                        "first_name": primary_winner["first_name"],
+                        "winner_name": display_winner_name,
+                        "telegram_name": primary_winner["telegram_name"],
                         "winning_card": primary_winner["card_number"],
                         "prize": primary_winner["prize"],
                         "room_fee": primary_winner["room_fee"],
-                        "message": f"🎉 አሸናፊ፦ {primary_winner['telegram_name']} (ካርድ #{primary_winner['card_number']})!",
+                        "message": f"🎉 አሸናፊ፦ {display_winner_name} (ካርድ #{primary_winner['card_number']})!",
                         "card_number": primary_winner["card_number"],
                         "winner_id": primary_winner["winner_id"],
                         "winning_numbers": primary_winner["winning_numbers"], 
@@ -432,7 +423,6 @@ class GameEngine:
                 if call_count >= max_draw_balls:
                     break
 
-                # ⏱️ እያንዳንዱ ኳስ ከወጣ በኋላ በትክክል 4 ሰከንድ እንዲቆይ ተደርጓል
                 await asyncio.sleep(draw_interval)
 
             if not winner_detected and self.running and target_house_wins > 0:
@@ -442,16 +432,18 @@ class GameEngine:
                 for fee in active_rooms:
                     self.house_counters[fee] = self.house_counters.get(fee, 0) + 1
 
-                primary_bot_fee = active_rooms[0] if active_rooms else 10.0
+                primary_bot_fee = active_rooms[0] if len(active_rooms) > 0 else 10.0
                 bot_prize_display = derash_by_fee.get(str(int(primary_bot_fee)), 0)
 
                 await self.safe_broadcast({
                     "type": "game_over",
                     "status": "WINNER_FOUND",
                     "result": "BINGO",
+                    "first_name": winner_name,
                     "winner_name": winner_name,
+                    "telegram_name": winner_name,
                     "winning_card": result["card_number"],
-                    "prize": round(bot_prize_display, 2),
+                    "prize": round(float(bot_prize_display), 2),
                     "message": f"🎉 አሸናፊ፦ {winner_name} (ካርድ #{result['card_number']})!",
                     "card_number": result["card_number"],
                     "winner_id": result["winner_id"],
@@ -460,17 +452,18 @@ class GameEngine:
                     "winning_reason": result.get("winning_pattern", "ቢንጎ"),
                     "winners": [{
                         "winner_id": result["winner_id"],
+                        "first_name": winner_name,
                         "telegram_name": winner_name,
                         "card_number": result["card_number"],
                         "room_fee": primary_bot_fee,
-                        "prize": round(bot_prize_display, 2),
+                        "prize": round(float(bot_prize_display), 2),
                         "winning_numbers": result.get("winning_numbers", []),
                         "card_numbers": result.get("card_numbers", []),
                         "winning_reason": result.get("winning_pattern", "ቢንጎ")
                     }]
                 })
         except Exception as e:
-            print(f"❌ Error in draw_numbers execution tracking: {e}")
+            print(f"❌ Error in draw_numbers execution: {e}")
         finally:
             if db:
                 db.close()
@@ -574,7 +567,6 @@ class GameEngine:
         
         for w in detected_winners:
             if w["winner_id"] == bot_user.id:
-                # 🤖 ቦቱ ካሸነፈ ገንዘቡ ወደ አድሚን ገቢ ይደረጋል
                 admin_stats.house_balance += w["prize_share"]
             else:
                 user = db.query(User).filter(User.id == w["winner_id"]).first()
