@@ -15,6 +15,13 @@ BOT_NAMES = [
     "user_43677", "user_78646", "user_67655", "user_56787", "user_44565", "user_32743",
 ]
 
+# 📱 ለቦቶች ብቻ በRandom የሚመረጡ የኢትዮጵያ ስልክ ቁጥሮች
+BOT_PHONE_NUMBERS = [
+    "0911223344", "0912345678", "0923456789", "0934567890", "0945678901",
+    "0915678902", "0926789013", "0937890124", "0948901235", "0919012346",
+    "0711223344", "0712345678", "0723456789", "0798765432", "0787654321"
+]
+
 SUPPORTED_FEES = [10.0, 20.0, 50.0]
 BOT_ALLOWED_FEES = [10.0]
 
@@ -174,7 +181,7 @@ class GameEngine:
                 
                 saved_game_id = game.id
                 game_display_no = str(100000 + saved_game_id)
-                db.close() 
+                db.close()
 
                 await self.auto_buy_bot_cards(saved_game_id)
                 
@@ -369,23 +376,27 @@ class GameEngine:
                         if w["winner_id"] != bot_user.id:
                             self.house_counters[fee] = 0
 
-                    # 🎯 የጠየቅከው የ winners_data እና broadcast ማስተካከያ እዚህ ይገኛል
                     winners_data = []
                     for w in winners_list:
-                        # 🎭 ቦቱ ከሆነ የቀደመውን አሰራር እንዳለ ይከተላል
+                        # 🎭 ቦቱ ከሆነ Random telegram_name እና Random ስልክ ቁጥር ይዘጋጃል
                         if w["winner_id"] == bot_user.id:
                             telegram_name = random.choice(BOT_NAMES)
-                            first_name = telegram_name
+                            phone_number = random.choice(BOT_PHONE_NUMBERS)
                         else:
-                            # 👤 የእውነተኛ ተጫዋች ከሆነ first_name እና telegram_name ይፈለጋል
+                            # 👤 የእውነተኛ ተጫዋች ከሆነ ከዳታቤዝ ይወጣል
                             user_record = db.query(User).filter(User.id == w["winner_id"]).first()
-                            first_name = user_record.first_name if user_record and user_record.first_name else None
                             telegram_name = user_record.telegram_name if user_record and user_record.telegram_name else f"user_{w['winner_id']}"
+                            
+                            # የUser ስልክ በዳታቤዝ ካለ ይወሰዳል፤ ከሌለ "ስልክ አልተመዘገበም" ይላል
+                            if user_record and hasattr(user_record, 'phone_number') and user_record.phone_number:
+                                phone_number = user_record.phone_number
+                            else:
+                                phone_number = "ስልክ አልተመዘገበም"
                         
                         winners_data.append({
                             "winner_id": w["winner_id"],
-                            "first_name": first_name,
                             "telegram_name": telegram_name,
+                            "phone_number": phone_number,
                             "card_number": w["card_number"],
                             "room_fee": w["bet_amount"],
                             "prize": round(w["prize_share"], 2),
@@ -395,17 +406,15 @@ class GameEngine:
                         })
 
                     primary_winner = winners_data[0]
-
-                    # 🎯 ለዋናው አሸናፊ የሚሆን ስም
-                    display_winner_name = primary_winner["first_name"] or primary_winner["telegram_name"]
+                    display_winner_name = primary_winner["telegram_name"]
 
                     await self.safe_broadcast({
                         "type": "game_over",
                         "status": "WINNER_FOUND",
                         "result": "BINGO",
-                        "first_name": primary_winner["first_name"],
                         "winner_name": display_winner_name,
                         "telegram_name": primary_winner["telegram_name"],
+                        "phone_number": primary_winner["phone_number"],
                         "winning_card": primary_winner["card_number"],
                         "prize": primary_winner["prize"],
                         "room_fee": primary_winner["room_fee"],
@@ -428,6 +437,7 @@ class GameEngine:
             if not winner_detected and self.running and target_house_wins > 0:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 winner_name = random.choice(BOT_NAMES)
+                bot_phone = random.choice(BOT_PHONE_NUMBERS)
 
                 for fee in active_rooms:
                     self.house_counters[fee] = self.house_counters.get(fee, 0) + 1
@@ -439,9 +449,9 @@ class GameEngine:
                     "type": "game_over",
                     "status": "WINNER_FOUND",
                     "result": "BINGO",
-                    "first_name": winner_name,
                     "winner_name": winner_name,
                     "telegram_name": winner_name,
+                    "phone_number": bot_phone,
                     "winning_card": result["card_number"],
                     "prize": round(float(bot_prize_display), 2),
                     "message": f"🎉 አሸናፊ፦ {winner_name} (ካርድ #{result['card_number']})!",
@@ -452,8 +462,8 @@ class GameEngine:
                     "winning_reason": result.get("winning_pattern", "ቢንጎ"),
                     "winners": [{
                         "winner_id": result["winner_id"],
-                        "first_name": winner_name,
                         "telegram_name": winner_name,
+                        "phone_number": bot_phone,
                         "card_number": result["card_number"],
                         "room_fee": primary_bot_fee,
                         "prize": round(float(bot_prize_display), 2),
