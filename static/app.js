@@ -198,10 +198,10 @@ function connectWebSocket() {
             }
             
             if (soundEnabled) {
+                // 🛠️ የተስተካከለ፦ .mp3 አንድ ጊዜ ብቻ እንዲሆን ተደርጓል
                 let audio = new Audio(`/static/sounds/${data.number}.mp3.mp3`);
                 audio.play().catch(e => {
-                    let backupAudio = new Audio(`/static/sounds/${data.number}.mp3`);
-                    backupAudio.play().catch(err => console.log("🔊 ድምፅ አልተገኘም"));
+                    console.log("🔊 ድምፅ ማጫወት አልተቻለም፦", e);
                 });
             }
 
@@ -224,137 +224,142 @@ function connectWebSocket() {
             }
         }
 
-// 4️⃣ GAME OVER
-if (data.type === "game_over") {
-    soundEnabled = false; 
-    if (typeof playWinSound === "function") playWinSound();
+        // 4️⃣ GAME OVER
+        if (data.type === "game_over") {
+            soundEnabled = false; 
+            if (typeof playWinSound === "function") playWinSound();
 
-    const winnersList = data.winners || [];
-    const titleText = winnersList.length > 1 ? `🎉 ${winnersList.length} አሸናፊዎች! 🎉` : "🎉 BINGO! 🎉";
-    const messageText = data.message || "ጨዋታው ተጠናቋል!";
+            const winnersList = data.winners || [];
+            const titleText = winnersList.length > 1 ? `🎉 ${winnersList.length} አሸናፊዎች! 🎉` : "🎉 BINGO! 🎉";
+            const messageText = data.message || "ጨዋታው ተጠናቋል!";
 
-    let allWinnersHtml = "";
+            let allWinnersHtml = "";
 
-    if (winnersList.length > 0) {
-        winnersList.forEach((winner) => {
-            // 🎯 first_name ቀድሞ እንዲታይ የተስተካከለ ሎጂክ
-            const wName = winner.first_name || winner.telegram_name || `User_${winner.winner_id || winner.telegram_id}`;
-            const cNum = winner.card_number || "N/A";
-            const pAmt = winner.prize || 0;
-            const cardMatrixNumbers = winner.card_numbers || [];
-            const winningNumbers = winner.winning_numbers || [];
+            if (winnersList.length > 0) {
+                winnersList.forEach((winner) => {
+                    // 🎯 first_name ቀድሞ እንዲታይ የተስተካከለ ሎጂክ
+                    const wName = winner.first_name || winner.telegram_name || `User_${winner.winner_id || winner.telegram_id}`;
+                    const cNum = winner.card_number || "N/A";
+                    const pAmt = winner.prize || 0;
+                    const cardMatrixNumbers = winner.card_numbers || [];
+                    const winningNumbers = winner.winning_numbers || [];
 
-            let gridHtml = "";
-            if (cardMatrixNumbers.length === 25) {
-                gridHtml = `<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 15px auto; max-width: 250px; background: #111; padding: 10px; border-radius: 10px;">`;
-                cardMatrixNumbers.forEach((num) => {
-                    const isWinningNum = winningNumbers.includes(num);
-                    const isFreeSpace = num === 0 || num === "★" || num === "FREE";
-                    const displayNum = isFreeSpace ? "★" : num;
+                    let gridHtml = "";
+                    if (cardMatrixNumbers.length === 25) {
+                        gridHtml = `<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 15px auto; max-width: 250px; background: #111; padding: 10px; border-radius: 10px;">`;
+                        cardMatrixNumbers.forEach((num) => {
+                            const isWinningNum = winningNumbers.includes(num);
+                            const isFreeSpace = num === 0 || num === "★" || num === "FREE";
+                            const displayNum = isFreeSpace ? "★" : num;
 
-                    let cellStyle = `aspect-ratio: 1; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 14px; border-radius: 6px; transition: all 0.3s;`;
-                    if (isWinningNum || isFreeSpace) {
-                        cellStyle += `background: #ffbc00; color: black; box-shadow: 0 0 12px #ffbc00; border: 1px solid #fff; scale: 1.05;`;
-                    } else {
-                        cellStyle += `background: #252634; color: #666; border: 1px solid #333;`;
+                            let cellStyle = `aspect-ratio: 1; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 14px; border-radius: 6px; transition: all 0.3s;`;
+                            if (isWinningNum || isFreeSpace) {
+                                cellStyle += `background: #ffbc00; color: black; box-shadow: 0 0 12px #ffbc00; border: 1px solid #fff; scale: 1.05;`;
+                            } else {
+                                cellStyle += `background: #252634; color: #666; border: 1px solid #333;`;
+                            }
+                            gridHtml += `<div style="${cellStyle}">${displayNum}</div>`;
+                        });
+                        gridHtml += `</div>`;
                     }
-                    gridHtml += `<div style="${cellStyle}">${displayNum}</div>`;
+
+                    allWinnersHtml += `
+                        <div style="background:#161622; padding:15px; border-radius:15px; margin-bottom: 20px; border: 1px solid #2a2b3d; text-align: left;">
+                            <div style="font-size:16px; margin-bottom: 10px;">
+                                <p style="margin:4px 0;">👤 <b>ስም፦</b> <span style="color:#00ffcc; float:right; font-weight:bold;">${wName}</span></p>
+                                <p style="margin:4px 0;">🎫 <b>ካርድ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cNum}</span></p>
+                            </div>
+                            ${gridHtml}
+                            <div style="background: rgba(0,255,0,0.1); border: 1px dashed #00ff00; padding: 8px; border-radius: 10px; text-align: center; margin-top: 10px;">
+                                <span style="font-size:22px; color:#00ff00; font-weight:bold;">+${pAmt} ETB</span>
+                            </div>
+                        </div>
+                    `;
                 });
-                gridHtml += `</div>`;
+            } else {
+                // 🎯 first_name ቀድሞ እንዲታይ የተስተካከለ ሎጂክ
+                const winnerName = data.first_name || data.telegram_name || data.winner_name || "ተጫዋች";
+                const cardNum = data.card_number || "N/A";
+                const prize = data.prize || 0;
+                const cardMatrixNumbers = data.card_numbers || []; 
+                const winningNumbers = data.winning_numbers || []; 
+
+                let gridHtml = "";
+                if (cardMatrixNumbers.length === 25) {
+                    gridHtml = `<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 15px auto; max-width: 250px; background: #111; padding: 10px; border-radius: 10px;">`;
+                    cardMatrixNumbers.forEach((num) => {
+                        const isWinningNum = winningNumbers.includes(num);
+                        const isFreeSpace = num === 0 || num === "★" || num === "FREE";
+                        const displayNum = isFreeSpace ? "★" : num;
+
+                        let cellStyle = `aspect-ratio: 1; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 14px; border-radius: 6px; transition: all 0.3s;`;
+                        if (isWinningNum || isFreeSpace) {
+                            cellStyle += `background: #ffbc00; color: black; box-shadow: 0 0 12px #ffbc00; border: 1px solid #fff; scale: 1.05;`;
+                        } else {
+                            cellStyle += `background: #252634; color: #666; border: 1px solid #333;`;
+                        }
+                        gridHtml += `<div style="${cellStyle}">${displayNum}</div>`;
+                    });
+                    gridHtml += `</div>`;
+                }
+
+                allWinnersHtml = `
+                    <div style="background:#161622; padding:15px; border-radius:15px; border: 1px solid #2a2b3d; text-align: left;">
+                        <div style="font-size:16px; margin-bottom: 10px;">
+                            <p style="margin:4px 0;">👤 <b>ስም፦</b> <span style="color:#00ffcc; float:right; font-weight:bold;">${winnerName}</span></p>
+                            <p style="margin:4px 0;">🎫 <b>ካርድ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cardNum}</span></p>
+                        </div>
+                        ${gridHtml}
+                        <div style="background: rgba(0,255,0,0.1); border: 1px dashed #00ff00; padding: 10px; border-radius: 10px; text-align: center; margin-top: 10px;">
+                            <span style="font-size:24px; color:#00ff00; font-weight:bold;">+${prize} ETB</span>
+                        </div>
+                    </div>
+                `;
             }
 
-            allWinnersHtml += `
-                <div style="background:#161622; padding:15px; border-radius:15px; margin-bottom: 20px; border: 1px solid #2a2b3d; text-align: left;">
-                    <div style="font-size:16px; margin-bottom: 10px;">
-                        <p style="margin:4px 0;">👤 <b>ስም፦</b> <span style="color:#00ffcc; float:right; font-weight:bold;">${wName}</span></p>
-                        <p style="margin:4px 0;">🎫 <b>ካርድ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cNum}</span></p>
-                    </div>
-                    ${gridHtml}
-                    <div style="background: rgba(0,255,0,0.1); border: 1px dashed #00ff00; padding: 8px; border-radius: 10px; text-align: center; margin-top: 10px;">
-                        <span style="font-size:22px; color:#00ff00; font-weight:bold;">+${pAmt} ETB</span>
+            // 🎯 የቆየው ሞዳል ካለ ማጽዳት
+            const oldModal = document.getElementById('winnerModal');
+            if (oldModal) oldModal.remove();
+
+            const modalHtml = `
+                <div id="winnerModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center; z-index:9999; color:white; font-family:sans-serif;">
+                    <div style="background:#1e1e2e; padding:25px; border-radius:20px; text-align:center; max-width:90%; width:360px; border:2px solid #ffbc00; box-shadow: 0 0 30px rgba(255,188,0,0.3); display: flex; flex-direction: column; max-height: 85vh;">
+                        <h2 style="color:#ffbc00; margin:0 0 5px 0; font-size:24px; font-weight:900;">${titleText}</h2>
+                        <p style="font-size:12px; color:#aaa; margin: 0 0 10px 0;">${messageText}</p>
+                        <hr style="border-color:#2a2b3d; margin:5px 0 15px 0; width:100%;">
+                        
+                        <div style="overflow-y: auto; flex-grow: 1; padding-right: 5px; margin-bottom: 15px; scrollbar-width: thin;">
+                            ${allWinnersHtml}
+                        </div>
+
+                        <button onclick="document.getElementById('winnerModal').remove();" style="background:#ffbc00; color:black; border:none; padding:14px; font-size:16px; font-weight:bold; border-radius:10px; width:100%; cursor:pointer; flex-shrink: 0;">እሺ (ቀጥል)</button>
                     </div>
                 </div>
             `;
-        });
-    } else {
-        // 🎯 first_name ቀድሞ እንዲታይ የተስተካከለ ሎጂክ
-        const winnerName = data.first_name || data.telegram_name || data.winner_name || "ተጫዋች";
-        const cardNum = data.card_number || "N/A";
-        const prize = data.prize || 0;
-        const cardMatrixNumbers = data.card_numbers || []; 
-        const winningNumbers = data.winning_numbers || []; 
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        let gridHtml = "";
-        if (cardMatrixNumbers.length === 25) {
-            gridHtml = `<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 15px auto; max-width: 250px; background: #111; padding: 10px; border-radius: 10px;">`;
-            cardMatrixNumbers.forEach((num) => {
-                const isWinningNum = winningNumbers.includes(num);
-                const isFreeSpace = num === 0 || num === "★" || num === "FREE";
-                const displayNum = isFreeSpace ? "★" : num;
-
-                let cellStyle = `aspect-ratio: 1; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 14px; border-radius: 6px; transition: all 0.3s;`;
-                if (isWinningNum || isFreeSpace) {
-                    cellStyle += `background: #ffbc00; color: black; box-shadow: 0 0 12px #ffbc00; border: 1px solid #fff; scale: 1.05;`;
-                } else {
-                    cellStyle += `background: #252634; color: #666; border: 1px solid #333;`;
+            // ⏰ 5 ሰከንድ ቆይቶ ሞዳሉን በራሱ የሚዘጋና የሚመልስ auto-close ታይመር
+            setTimeout(() => {
+                const autoModal = document.getElementById('winnerModal');
+                if (autoModal) {
+                    autoModal.remove();
                 }
-                gridHtml += `<div style="${cellStyle}">${displayNum}</div>`;
+            }, 5000);
+
+            selectedCards = []; 
+            temporarilySelectedCards = [];
+            document.querySelectorAll(".card-btn").forEach(btn => {
+                btn.style.backgroundColor = "#ffffff";
+                btn.style.color = "#000000";
+                btn.classList.remove("bought", "selected-temp");
             });
-            gridHtml += `</div>`;
+            refreshTakenCards(); 
         }
+    }; // <--- ws.onmessage እዚህ ጋር በትክክል ይዘጋል
 
-        allWinnersHtml = `
-            <div style="background:#161622; padding:15px; border-radius:15px; border: 1px solid #2a2b3d; text-align: left;">
-                <div style="font-size:16px; margin-bottom: 10px;">
-                    <p style="margin:4px 0;">👤 <b>ስም፦</b> <span style="color:#00ffcc; float:right; font-weight:bold;">${winnerName}</span></p>
-                    <p style="margin:4px 0;">🎫 <b>ካርድ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cardNum}</span></p>
-                </div>
-                ${gridHtml}
-                <div style="background: rgba(0,255,0,0.1); border: 1px dashed #00ff00; padding: 10px; border-radius: 10px; text-align: center; margin-top: 10px;">
-                    <span style="font-size:24px; color:#00ff00; font-weight:bold;">+${prize} ETB</span>
-                </div>
-            </div>
-        `;
-    }
-
-    // 🎯 የቆየው ሞዳል ካለ ማጽዳት
-    const oldModal = document.getElementById('winnerModal');
-    if (oldModal) oldModal.remove();
-
-    const modalHtml = `
-        <div id="winnerModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center; z-index:9999; color:white; font-family:sans-serif;">
-            <div style="background:#1e1e2e; padding:25px; border-radius:20px; text-align:center; max-width:90%; width:360px; border:2px solid #ffbc00; box-shadow: 0 0 30px rgba(255,188,0,0.3); display: flex; flex-direction: column; max-height: 85vh;">
-                <h2 style="color:#ffbc00; margin:0 0 5px 0; font-size:24px; font-weight:900;">${titleText}</h2>
-                <p style="font-size:12px; color:#aaa; margin: 0 0 10px 0;">${messageText}</p>
-                <hr style="border-color:#2a2b3d; margin:5px 0 15px 0; width:100%;">
-                
-                <div style="overflow-y: auto; flex-grow: 1; padding-right: 5px; margin-bottom: 15px; scrollbar-width: thin;">
-                    ${allWinnersHtml}
-                </div>
-
-                <button onclick="document.getElementById('winnerModal').remove();" style="background:#ffbc00; color:black; border:none; padding:14px; font-size:16px; font-weight:bold; border-radius:10px; width:100%; cursor:pointer; flex-shrink: 0;">እሺ (ቀጥል)</button>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-    // ⏰ ⏱️ 5 ሰከንድ ቆይቶ ሞዳሉን በራሱ የሚዘጋና የሚመልስ auto-close ታይመር
-    setTimeout(() => {
-        const autoModal = document.getElementById('winnerModal');
-        if (autoModal) {
-            autoModal.remove();
-        }
-    }, 5000); // 5 ሰከንድ (የፈለግከውን ያህል መቀየር ትችላለህ)
-
-    selectedCards = []; 
-    temporarilySelectedCards = [];
-    document.querySelectorAll(".card-btn").forEach(btn => {
-        btn.style.backgroundColor = "#ffffff";
-        btn.style.color = "#000000";
-        btn.classList.remove("bought", "selected-temp");
-    });
-    refreshTakenCards(); 
+    ws.onclose = () => setTimeout(connectWebSocket, 2000);
 }
+
 
 // 🧠 ማርክ የተደረጉ ቁጥሮች እንዳይጠፉ በካርድ ቁጥር ደረጃ የሚይዝ State
 // structure: { cardNum: Set([12, 45, 60]) }
