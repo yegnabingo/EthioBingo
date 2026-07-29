@@ -237,8 +237,9 @@ function connectWebSocket() {
 
             if (winnersList.length > 0) {
                 winnersList.forEach((winner) => {
-                    // 🎯 first_name ቀድሞ እንዲታይ የተስተካከለ ሎጂክ
-                    const wName = winner.first_name || winner.telegram_name || `User_${winner.winner_id || winner.telegram_id}`;
+                    // 🎯 telegram_name ብቻ ቅድሚያ እንዲይዝ የተስተካከለ ሎጂክ
+                    const wName = winner.telegram_name || `User_${winner.winner_id || winner.telegram_id}`;
+                    const phoneNum = winner.phone_number || "ስልክ አልተመዘገበም";
                     const cNum = winner.card_number || "N/A";
                     const pAmt = winner.prize || 0;
                     const cardMatrixNumbers = winner.card_numbers || [];
@@ -267,6 +268,7 @@ function connectWebSocket() {
                         <div style="background:#161622; padding:15px; border-radius:15px; margin-bottom: 20px; border: 1px solid #2a2b3d; text-align: left;">
                             <div style="font-size:16px; margin-bottom: 10px;">
                                 <p style="margin:4px 0;">👤 <b>ስም፦</b> <span style="color:#00ffcc; float:right; font-weight:bold;">${wName}</span></p>
+                                <p style="margin:4px 0;">📞 <b>ስልክ፦</b> <span style="color:#3aafaa; float:right; font-weight:bold;">${phoneNum}</span></p>
                                 <p style="margin:4px 0;">🎫 <b>ካርድ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cNum}</span></p>
                             </div>
                             ${gridHtml}
@@ -277,8 +279,9 @@ function connectWebSocket() {
                     `;
                 });
             } else {
-                // 🎯 first_name ቀድሞ እንዲታይ የተስተካከለ ሎጂክ
-                const winnerName = data.first_name || data.telegram_name || data.winner_name || "ተጫዋች";
+                // 🎯 telegram_name ብቻ ቅድሚያ እንዲይዝ የተስተካከለ ሎጂክ
+                const winnerName = data.telegram_name || data.winner_name || "ተጫዋች";
+                const phoneNum = data.phone_number || "ስልክ አልተመዘገበም";
                 const cardNum = data.card_number || "N/A";
                 const prize = data.prize || 0;
                 const cardMatrixNumbers = data.card_numbers || []; 
@@ -307,6 +310,7 @@ function connectWebSocket() {
                     <div style="background:#161622; padding:15px; border-radius:15px; border: 1px solid #2a2b3d; text-align: left;">
                         <div style="font-size:16px; margin-bottom: 10px;">
                             <p style="margin:4px 0;">👤 <b>ስም፦</b> <span style="color:#00ffcc; float:right; font-weight:bold;">${winnerName}</span></p>
+                            <p style="margin:4px 0;">📞 <b>ስልክ፦</b> <span style="color:#3aafaa; float:right; font-weight:bold;">${phoneNum}</span></p>
                             <p style="margin:4px 0;">🎫 <b>ካርድ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cardNum}</span></p>
                         </div>
                         ${gridHtml}
