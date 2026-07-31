@@ -437,8 +437,22 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
 
         action_upper = payload.action.upper()
         if action_upper in ["APPROVE", "APPROVED"]:
+            # 🔍 ተጫዋቹ ከዚህ ቀደም የጸደቀ (Approved) ዲፖዚት እንዳለው መፈተሽ
+            prior_approved_deposits = db.query(Deposit).filter(
+                Deposit.user_id == user.id,
+                Deposit.status == "approved"
+            ).count()
+
+            bonus_amount = 0.0
+            # የመጀመሪያው Deposit ከሆነ ብቻ 25% ቦነስ መስጠት
+            if prior_approved_deposits == 0:
+                bonus_amount = deposit.amount * 0.25
+
+            # አጠቃላይ የሚደመረው መጠን (የዲፖዚት መጠን + 25% ቦነስ)
+            total_addition = deposit.amount + bonus_amount
+
             current_balance = getattr(user, "balance", 0.0) or 0.0
-            user.balance = current_balance + deposit.amount
+            user.balance = current_balance + total_addition
             user.wallet = user.balance
             
             user.weekly_deposit_amount = (getattr(user, "weekly_deposit_amount", 0.0) or 0.0) + deposit.amount
@@ -448,9 +462,13 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
             db.commit()
             
             if payload.message_id:
+                # መልዕክቱ ላይ ቦነስ ተጨምሮ እንደሆነ የሚያሳይ መረጃ ማካተት
+                bonus_text = f"\n🎁 <b>የመጀመሪያ ዲፖዚት ቦነስ (25%)፦</b> {bonus_amount} ETB" if bonus_amount > 0 else ""
+                
                 text = (
                     f"🟢 <b>የዲፖዚት ጥያቄ #{deposit.id} ጸድቋል!</b>\n\n"
-                    f"💰 <b>የተጨመረው መጠን፦</b> {deposit.amount} ETB\n"
+                    f"💰 <b>የተላከው መጠን፦</b> {deposit.amount} ETB{bonus_text}\n"
+                    f"💵 <b>አጠቃላይ የተጨመረው፦</b> {total_addition} ETB\n"
                     f"👤 <b>ተጫዋች ID፦</b> <code>{user.telegram_id}</code>\n"
                     f"🏦 <b>ባንክ፦</b> {deposit.method}\n"
                     f"👮‍♂️ <b>ያጸደቀው አድሚን፦</b> {active_admin_id}"
