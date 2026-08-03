@@ -9,3 +9,5 @@ websockets
 httpx
 requests
 pyTelegramBotAPI
+apscheduler
+pytz
