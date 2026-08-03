@@ -4,6 +4,8 @@ import requests
 import threading  # 💡 የባክኤንድ ጥያቄ ቦቱን Freeze እንዳያደርገው በThread ለማሰራት
 from datetime import datetime
 from telebot import TeleBot, types
+from apscheduler.schedulers.background import BackgroundScheduler
+import pytz
 
 # --------------------------------------------------------------------------
 # ⚙️ የቅንብር ክፍሎች (Railway ላይ ከተጫኑት Variables ብቻ የሚያነቡ)
@@ -18,12 +20,40 @@ BACKEND_URL = SERVER_URL
 MINI_APP_URL = SERVER_URL
 
 # 🖼️ የማቀባበያ ምስል ሊንክ
-WELCOME_IMAGE_URL = f"https://web-production-fd82a.up.railway.app/static/images/welcome.png"
+WELCOME_IMAGE_URL = f"{SERVER_URL}/static/images/welcome.png"
 
 bot = TeleBot(BOT_TOKEN)
 
 # የቴሌግራም ተጠቃሚዎችን ጊዜያዊ የሪፈራል መረጃ መያዣ Dictionary
 USER_REF_CACHE = {}
+
+# ማስታወቂያ የሚላክላቸው የቴሌግራም ተጠቃሚዎች መያዣ Set
+REGISTERED_USER_IDS = set()
+
+# 📢 የማስታወቂያ ጽሑፍ
+PROMO_TEXT = """🚨 ዛሬ የእርስዎ ቀን ሊሆን ይችላል! 🚨 
+
+🎁 50% FIRST DEPOSIT BONUS
+
+🎮 Yegna Bingo ይቀላቀሉ
+🏆 ዕድልዎን ይሞክሩ!
+
+🏆 በየሳምንቱ ለከፍተኛ ተጫዋቾች የሚሰጥ ልዩ ሽልማት ይዟል!
+
+🎁 Daily Bonus
+👥 Referral Bonus
+
+👥 Official Group
+https://t.me/Yegna_Bingo_Gift_Group
+
+📢 Official Channel
+https://t.me/Yegna_Bingo_public
+
+☎️ Customer Support
+👤 @YegnaaBingo_Support
+📞 +251 95 598 9803
+
+🔥 Yegna Bingo — ዛሬ ይጫወቱ፣ ዛሬ ያሸንፉ! 🍀💚"""
 
 print(f"🎰 የYegnaኛ Bingo ቦት (@{BOT_USERNAME}) በሰላም ስራ ጀምሯል...")
 print("TELEGRAM MODULE LOADED")
@@ -47,10 +77,52 @@ def register_user_background(telegram_id, telegram_name, first_name, phone_numbe
         print(f"❌ Failed to register user in background: {e}")
 
 
+# 📢 ማስታወቂያ ለሁሉም ተጠቃሚዎች መላኪያ ፋንክሽን
+def broadcast_promo_message():
+    print("📢 የማስታወቂያ ፕሮሞሽን ለተጠቃሚዎች መላክ ተጀምሯል...")
+    
+    # ከባክኤንድ ሁሉንም ተጠቃሚዎች ማምጣት ካለ በAPI ማምጣት ይቻላል
+    try:
+        res = requests.get(f"{BACKEND_URL}/api/users/all_ids", timeout=10)
+        if res.ok:
+            fetched_ids = res.json().get("user_ids", [])
+            for u_id in fetched_ids:
+                REGISTERED_USER_IDS.add(int(u_id))
+    except Exception as e:
+        print(f"⚠️ ከባክኤንድ User IDs ማምጣት አልተቻለም፦ {e}")
+
+    for user_id in list(REGISTERED_USER_IDS):
+        try:
+            bot.send_message(user_id, PROMO_TEXT, disable_web_page_preview=True)
+        except Exception as e:
+            print(f"⚠️ ለ User ID {user_id} ማስታወቂያ መላክ አልተቻለም፦ {e}")
+
+
+# ⏰ Scheduler ማዘጋጀት (ቀን 4:00፣ 8:00፣ 10:00 እና ማታ 12:00፣ 2:00፣ 4:00)
+def start_promo_scheduler():
+    ethiopia_tz = pytz.timezone("Africa/Addis_Ababa")
+    scheduler = BackgroundScheduler(timezone=ethiopia_tz)
+
+    # የኢትዮጵያ ሰዓት ወደ 24h format (ቀን 4=10, ቀን 8=14, ቀን 10=16, ማታ 12=18, ማታ 2=20, ማታ 4=22)
+    scheduled_hours = [10, 14, 16, 18, 20, 22]
+
+    for hour in scheduled_hours:
+        scheduler.add_job(
+            broadcast_promo_message,
+            trigger="cron",
+            hour=hour,
+            minute=0
+        )
+
+    scheduler.start()
+    print("⏰ የማስታወቂያ Scheduler በስኬት ተጀምሯል (በየቀኑ ቀን 4, 8, 10 እና ማታ 12, 2, 4 ይልካል)!")
+
+
 # 1️⃣ /start ሲባል የሚመጣ መልእክት
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     telegram_id = message.from_user.id
+    REGISTERED_USER_IDS.add(telegram_id)  # ለፕሮሞሽን እንዲመዘገብ
 
     # ከሊንኩ ላይ የጋባዥ ID (args) መኖሩን መፈተሽ
     msg_text_parts = message.text.split()
@@ -90,9 +162,10 @@ def ask_contact(message):
 def handle_contact(message):
     chat_id = message.chat.id
     telegram_id = message.from_user.id
+    REGISTERED_USER_IDS.add(telegram_id)
     phone_number = message.contact.phone_number
     user_name = message.from_user.username if message.from_user.username else f"User_{str(telegram_id)[:5]}"
-    first_name = message.from_user.first_name if message.from_user.first_name else "ተጫዋች"
+    first_name = message.from_user.first_name if message.from_user.first_name else message.from_user.username
 
     # የተቀመጠ ሪፈራል ካለ ማምጣት
     referred_by = USER_REF_CACHE.pop(telegram_id, None)
@@ -239,4 +312,6 @@ def handle_admin_actions(call):
     ).start()
 
 if __name__ == "__main__":
+    # Scheduler ማስጀመር
+    start_promo_scheduler()
     bot.infinity_polling(skip_pending=True)
