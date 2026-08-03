@@ -559,3 +559,15 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
         error_msg = f"❌ <b>ባክኤንድ ስህተት (Withdraw Approved)፦</b>\n<code>{str(e)}</code>"
         send_admin_notification(error_msg)
         return {"success": False, "message": f"Internal Server Error: {str(e)}"}
+
+# 📢 11. ለቦቱ ማስታወቂያ መላኪያ የሁሉም ተጠቃሚዎች ID ማውጫ API
+@router.get("/users/all_ids")
+def get_all_user_telegram_ids(db: Session = Depends(get_db)):
+    try:
+        users = db.query(User.telegram_id).all()
+        # ID ያላቸውን ተጠቃሚዎች ብቻ ለይቶ መላክ
+        user_ids = [u.telegram_id for u in users if u.telegram_id and str(u.telegram_id).strip().isdigit()]
+        return {"success": True, "user_ids": user_ids}
+    except Exception as e:
+        print(f"❌ Error fetching all user IDs: {e}")
+        return {"success": False, "user_ids": []}
