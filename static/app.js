@@ -132,7 +132,7 @@ function connectWebSocket() {
 
         // 1️⃣ PICK PHASE
         if ((data.type === "countdown" || data.type === "time_update") && data.phase === "PICK") {
-            soundEnabled = true; 
+            // 🛠️ የተስተካከለ፦ soundEnabled = true; እዚህ ጋር ተወግዷል (የተጫዋቹ መሪ ምርጫ እንዳይቀየር)
             document.getElementById("pickScreen").style.display = "block";
             if(document.getElementById("drawScreen")) document.getElementById("drawScreen").style.display = "none";
             
@@ -226,8 +226,8 @@ function connectWebSocket() {
 
         // 4️⃣ GAME OVER
         if (data.type === "game_over") {
-            soundEnabled = false; 
-            if (typeof playWinSound === "function") playWinSound();
+            // 🛠️ የተስተካከለ፦ soundEnabled = false; እዚህ ጋር ተወግዷል
+            if (soundEnabled && typeof playWinSound === "function") playWinSound();
 
             const winnersList = data.winners || [];
             const titleText = winnersList.length > 1 ? `🎉 ${winnersList.length} አሸናፊዎች! 🎉` : "🎉 BINGO! 🎉";
@@ -237,7 +237,6 @@ function connectWebSocket() {
 
             if (winnersList.length > 0) {
                 winnersList.forEach((winner) => {
-                    // 🎯 telegram_name ብቻ ቅድሚያ እንዲይዝ የተስተካከለ ሎጂክ
                     const wName = winner.telegram_name || `User_${winner.winner_id || winner.telegram_id}`;
                     const phoneNum = winner.phone_number || "ስልክ አልተመዘገበም";
                     const cNum = winner.card_number || "N/A";
@@ -279,7 +278,6 @@ function connectWebSocket() {
                     `;
                 });
             } else {
-                // 🎯 telegram_name ብቻ ቅድሚያ እንዲይዝ የተስተካከለ ሎጂክ
                 const winnerName = data.telegram_name || data.winner_name || "ተጫዋች";
                 const phoneNum = data.phone_number || "ስልክ አልተመዘገበም";
                 const cardNum = data.card_number || "N/A";
@@ -321,7 +319,6 @@ function connectWebSocket() {
                 `;
             }
 
-            // 🎯 የቆየው ሞዳል ካለ ማጽዳት
             const oldModal = document.getElementById('winnerModal');
             if (oldModal) oldModal.remove();
 
@@ -342,7 +339,6 @@ function connectWebSocket() {
             `;
             document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-            // ⏰ 5 ሰከንድ ቆይቶ ሞዳሉን በራሱ የሚዘጋና የሚመልስ auto-close ታይመር
             setTimeout(() => {
                 const autoModal = document.getElementById('winnerModal');
                 if (autoModal) {
@@ -359,7 +355,7 @@ function connectWebSocket() {
             });
             refreshTakenCards(); 
         }
-    }; // <--- ws.onmessage እዚህ ጋር በትክክል ይዘጋል
+    };
 
     ws.onclose = () => setTimeout(connectWebSocket, 2000);
 }
