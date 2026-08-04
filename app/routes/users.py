@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime, date
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 from app.database import SessionLocal
 from app.models import User, Deposit, Withdrawal, Game, DailyCheckIn, PlayerCard
@@ -15,7 +15,7 @@ router = APIRouter(
     tags=["Users"]
 )
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE"))
 ADMIN_TELEGRAM_ID = str(os.getenv("ADMIN_TELEGRAM_ID", "")).strip()
 
 def get_db():
@@ -150,19 +150,30 @@ def get_bonus_info(telegram_id: str, db: Session = Depends(get_db)):
 @router.post("/users/register")
 def register_user(payload: UserRegisterPayload, db: Session = Depends(get_db)):
     tg_id_str = str(payload.telegram_id).strip()
-    if not tg_id_str.isdigit():
+    if not tg_id_str:
         return {"success": False, "message": "Invalid Telegram ID."}
     
     existing = db.query(User).filter(User.telegram_id == tg_id_str).first()
     if existing:
-        # ስልክ ቁጥሩ ካለ ማዘመን (Update)
+        # 📌 የተጠቃሚው ስልክ ቁጥር ወይም ስም ከተላከ ማዘመን (Update)
+        updated = False
         if payload.phone_number and hasattr(existing, 'phone_number'):
-            existing.phone_number = payload.phone_number
+            existing.phone_number = str(payload.phone_number).strip()
+            updated = True
+        if payload.telegram_name:
+            existing.telegram_name = payload.telegram_name
+            updated = True
+        if payload.first_name:
+            existing.first_name = payload.first_name
+            updated = True
+        
+        if updated:
             db.commit()
 
         user_balance = getattr(existing, "balance", 0.0) or 0.0
         return {
-            "success": True, "message": "ተጠቃሚው አስቀድሞ ተመዝግቧል፤ መረጃው ዘምኗል።",
+            "success": True, 
+            "message": "ተጠቃሚው አስቀድሞ ተመዝግቧል፤ መረጃው ዘምኗል።",
             "user": {
                 "telegram_id": existing.telegram_id, 
                 "balance": user_balance, 
@@ -173,7 +184,7 @@ def register_user(payload: UserRegisterPayload, db: Session = Depends(get_db)):
         }
     
     ref_id_str = None
-    if payload.referred_by and str(payload.referred_by).strip().isdigit():
+    if payload.referred_by and str(payload.referred_by).strip():
         ref_id_str = str(payload.referred_by).strip()
         if ref_id_str == tg_id_str:
             ref_id_str = None
@@ -190,7 +201,7 @@ def register_user(payload: UserRegisterPayload, db: Session = Depends(get_db)):
     }
 
     if hasattr(User, 'phone_number'):
-        user_kwargs["phone_number"] = payload.phone_number
+        user_kwargs["phone_number"] = str(payload.phone_number).strip() if payload.phone_number else None
 
     new_user = User(**user_kwargs)
     db.add(new_user)
@@ -279,7 +290,7 @@ def get_user(telegram_id: str, db: Session = Depends(get_db)):
 @router.post("/users/deposit")
 def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
-    if not tg_id_str.isdigit():
+    if not tg_id_str:
         return {"success": False, "message": "Invalid Telegram ID."}
     
     user = db.query(User).filter(User.telegram_id == tg_id_str).first()
@@ -346,7 +357,7 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
 @router.post("/users/withdraw")
 def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
-    if not tg_id_str.isdigit():
+    if not tg_id_str:
         return {"success": False, "message": "Invalid Telegram ID."}
     
     user = db.query(User).filter(User.telegram_id == tg_id_str).first()
@@ -560,13 +571,20 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
         send_admin_notification(error_msg)
         return {"success": False, "message": f"Internal Server Error: {str(e)}"}
 
-# 📢 11. ለቦቱ ማስታወቂያ መላኪያ የሁሉም ተጠቃሚዎች ID ማውጫ API
+
+# 📢 11. ለቦቱ ማስታወቂያ መላኪያ የሁሉም ተጠቃሚዎች ID ማውጫ API (የተስተካከለ)
 @router.get("/users/all_ids")
 def get_all_user_telegram_ids(db: Session = Depends(get_db)):
     try:
         users = db.query(User.telegram_id).all()
-        # ID ያላቸውን ተጠቃሚዎች ብቻ ለይቶ መላክ
-        user_ids = [u.telegram_id for u in users if u.telegram_id and str(u.telegram_id).strip().isdigit()]
+        # 📌 Telegram ID ያላቸውንና ባዶ ያልሆኑትን ተጠቃሚዎች በሙሉ አጣርቶ መላክ
+        user_ids = []
+        for u in users:
+            if u.telegram_id:
+                clean_id = str(u.telegram_id).strip()
+                if clean_id:
+                    user_ids.append(clean_id)
+                    
         return {"success": True, "user_ids": user_ids}
     except Exception as e:
         print(f"❌ Error fetching all user IDs: {e}")
