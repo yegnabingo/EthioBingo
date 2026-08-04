@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import requests
 import threading  # 💡 የባክኤንድ ጥያቄ ቦቱን Freeze እንዳያደርገው በThread ለማሰራት
 from datetime import datetime
@@ -14,7 +15,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOK
 BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "").strip().replace("@", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123456789")
 
-# 🔗 የባክኤንድ አድራሻ (ሁሉም ከ SERVER_URL ተነስተው በVariable ብቻ ይሰራሉ)
+# 🔗 የባክኤንድ አድራሻ
 SERVER_URL = os.getenv("SERVER_URL", "https://web-production-fd82a.up.railway.app").rstrip('/')
 BACKEND_URL = SERVER_URL
 MINI_APP_URL = SERVER_URL
@@ -26,9 +27,6 @@ bot = TeleBot(BOT_TOKEN)
 
 # የቴሌግራም ተጠቃሚዎችን ጊዜያዊ የሪፈራል መረጃ መያዣ Dictionary
 USER_REF_CACHE = {}
-
-# ማስታወቂያ የሚላክላቸው የቴሌግራም ተጠቃሚዎች መያዣ Set
-REGISTERED_USER_IDS = set()
 
 # 📢 የማስታወቂያ ጽሑፍ
 PROMO_TEXT = """🚨 ዛሬ የእርስዎ ቀን ሊሆን ይችላል! 🚨 
@@ -77,25 +75,49 @@ def register_user_background(telegram_id, telegram_name, first_name, phone_numbe
         print(f"❌ Failed to register user in background: {e}")
 
 
-# 📢 ማስታወቂያ ለሁሉም ተጠቃሚዎች መላኪያ ፋንክሽን
+# 📢 ማስታወቂያ ለሁሉም ተጠቃሚዎች መላኪያ ፋንክሽን (የተስተካከለ እና ደህንነቱ የተጠበቀ)
 def broadcast_promo_message():
     print("📢 የማስታወቂያ ፕሮሞሽን ለተጠቃሚዎች መላክ ተጀምሯል...")
     
-    # ከባክኤንድ ሁሉንም ተጠቃሚዎች ማምጣት ካለ በAPI ማምጣት ይቻላል
+    user_ids = []
+    # 1. ከባክኤንድ ዳታቤዝ የሁሉንም ተጠቃሚዎች ID ማምጣት
     try:
         res = requests.get(f"{BACKEND_URL}/api/users/all_ids", timeout=10)
-        if res.ok:
-            fetched_ids = res.json().get("user_ids", [])
-            for u_id in fetched_ids:
-                REGISTERED_USER_IDS.add(int(u_id))
+        if res.status_code == 200:
+            data = res.json()
+            # የ API መልስ array ወይም object እንደሆነ መለየት
+            if isinstance(data, list):
+                user_ids = data
+            elif isinstance(data, dict):
+                user_ids = data.get("user_ids", [])
+            print(f"📊 በአጠቃላይ {len(user_ids)} ተጠቃሚዎች ከዳታቤዝ ተገኝተዋል")
+        else:
+            print(f"⚠️ ከባክኤንድ User IDs ማምጣት አልተቻለም Status: {res.status_code}")
     except Exception as e:
-        print(f"⚠️ ከባክኤንድ User IDs ማምጣት አልተቻለም፦ {e}")
+        print(f"❌ ከባክኤንድ ጋር መገናኘት አልተቻለም፦ {e}")
 
-    for user_id in list(REGISTERED_USER_IDS):
+    if not user_ids:
+        print("⚠️ ምንም የሚላክላቸው ተጠቃሚዎች አልተገኙም!")
+        return
+
+    success_count = 0
+    fail_count = 0
+
+    # 2. ለተጠቃሚዎች በየተራ መላክ
+    for u_id in user_ids:
+        if not u_id:
+            continue
         try:
-            bot.send_message(user_id, PROMO_TEXT, disable_web_page_preview=True)
+            target_chat_id = str(u_id).strip()
+            bot.send_message(target_chat_id, PROMO_TEXT, disable_web_page_preview=True)
+            success_count += 1
+            time.sleep(0.05)  # Telegram Rate Limit እንዳይይዘን ትንሽ ማረፍ
         except Exception as e:
-            print(f"⚠️ ለ User ID {user_id} ማስታወቂያ መላክ አልተቻለም፦ {e}")
+            # 💡 ቦቱን Block ላደረጉ ወይም ለአጠፉ አካውንቶች Exception ተይዞ ያልፋል
+            fail_count += 1
+            print(f"⚠️ ለ User ID {u_id} ማስታወቂያ መላክ አልተቻለም (Skipped)፦ {e}")
+
+    print(f"🎉 ማስታወቂያ ተልኮ ተጠናቋል! ስኬታማ፦ {success_count}፣ የከሸፉ፦ {fail_count}")
 
 
 # ⏰ Scheduler ማዘጋጀት (ቀን 4:00፣ 8:00፣ 10:00 እና ማታ 12:00፣ 2:00፣ 4:00)
@@ -122,7 +144,6 @@ def start_promo_scheduler():
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     telegram_id = message.from_user.id
-    REGISTERED_USER_IDS.add(telegram_id)  # ለፕሮሞሽን እንዲመዘገብ
 
     # ከሊንኩ ላይ የጋባዥ ID (args) መኖሩን መፈተሽ
     msg_text_parts = message.text.split()
@@ -162,7 +183,6 @@ def ask_contact(message):
 def handle_contact(message):
     chat_id = message.chat.id
     telegram_id = message.from_user.id
-    REGISTERED_USER_IDS.add(telegram_id)
     phone_number = message.contact.phone_number
     user_name = message.from_user.username if message.from_user.username else f"User_{str(telegram_id)[:5]}"
     first_name = message.from_user.first_name if message.from_user.first_name else message.from_user.username
