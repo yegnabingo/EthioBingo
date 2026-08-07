@@ -9,13 +9,13 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import pytz
 
 # --------------------------------------------------------------------------
-# ⚙️ የቅንብር ክፍሎች (Railway ላይ ከተጫኑት Variables ብቻ የሚያነቡ)
+# ⚙️ የቅንብር ክፍሎች
 # --------------------------------------------------------------------------
 BOT_TOKEN = os.getenv("BOT_TOKEN", os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE"))
 BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "").strip().replace("@", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123456789")
 
-# 🔗 የባክኤንድ አድራሻ (ከ Railway ወደ Render ተቀይሯል)
+# 🔗 የባክኤንድ አድራሻ (ለ Render Webhook የተስተካከለ)
 SERVER_URL = os.getenv("SERVER_URL", "https://ethiobingo-jk6x.onrender.com").rstrip('/')
 BACKEND_URL = SERVER_URL
 MINI_APP_URL = SERVER_URL
@@ -75,7 +75,7 @@ def register_user_background(telegram_id, telegram_name, first_name, phone_numbe
         print(f"❌ Failed to register user in background: {e}")
 
 
-# 📢 ማስታወቂያ ለሁሉም ተጠቃሚዎች መላኪያ ፋንክሽን (የተስተካከለ እና ደህንነቱ የተጠበቀ)
+# 📢 ማስታወቂያ ለሁሉም ተጠቃሚዎች መላኪያ ፋንክሽን
 def broadcast_promo_message():
     print("📢 የማስታወቂያ ፕሮሞሽን ለተጠቃሚዎች መላክ ተጀምሯል...")
     
@@ -85,7 +85,6 @@ def broadcast_promo_message():
         res = requests.get(f"{BACKEND_URL}/api/users/all_ids", timeout=10)
         if res.status_code == 200:
             data = res.json()
-            # የ API መልስ array ወይም object እንደሆነ መለየት
             if isinstance(data, list):
                 user_ids = data
             elif isinstance(data, dict):
@@ -113,30 +112,37 @@ def broadcast_promo_message():
             success_count += 1
             time.sleep(0.05)  # Telegram Rate Limit እንዳይይዘን ትንሽ ማረፍ
         except Exception as e:
-            # 💡 ቦቱን Block ላደረጉ ወይም ለአጠፉ አካውንቶች Exception ተይዞ ያልፋል
             fail_count += 1
             print(f"⚠️ ለ User ID {u_id} ማስታወቂያ መላክ አልተቻለም (Skipped)፦ {e}")
 
     print(f"🎉 ማስታወቂያ ተልኮ ተጠናቋል! ስኬታማ፦ {success_count}፣ የከሸፉ፦ {fail_count}")
 
 
+# Global Scheduler object እንዳይደገም
+_promo_scheduler = None
+
 # ⏰ Scheduler ማዘጋጀት (ቀን 4:00፣ 8:00፣ 10:00 እና ማታ 12:00፣ 2:00፣ 4:00)
 def start_promo_scheduler():
-    ethiopia_tz = pytz.timezone("Africa/Addis_Ababa")
-    scheduler = BackgroundScheduler(timezone=ethiopia_tz)
+    global _promo_scheduler
+    if _promo_scheduler and _promo_scheduler.running:
+        print("⏰ Scheduler አప్పటిሁሩ በመሮጥ ላይ ነው፤ ድጋሚ አልተጀመረም።")
+        return
 
-    # የኢትዮጵያ ሰዓት ወደ 24h format (ቀን 4=10, ቀን 8=14, ቀን 10=16, ማታ 12=18, ማታ 2=20, ማታ 4=22)
+    ethiopia_tz = pytz.timezone("Africa/Addis_Ababa")
+    _promo_scheduler = BackgroundScheduler(timezone=ethiopia_tz)
+
+    # የኢትዮጵያ ሰዓት በ 24h format (ቀን 4=10, ቀን 8=14, ቀን 10=16, ማታ 12=18, ማታ 2=20, ማታ 4=22)
     scheduled_hours = [10, 14, 16, 18, 20, 22]
 
     for hour in scheduled_hours:
-        scheduler.add_job(
+        _promo_scheduler.add_job(
             broadcast_promo_message,
             trigger="cron",
             hour=hour,
             minute=0
         )
 
-    scheduler.start()
+    _promo_scheduler.start()
     print("⏰ የማስታወቂያ Scheduler በስኬት ተጀምሯል (በየቀኑ ቀን 4, 8, 10 እና ማታ 12, 2, 4 ይልካል)!")
 
 
@@ -331,7 +337,8 @@ def handle_admin_actions(call):
         daemon=True
     ).start()
 
-if __name__ == "__main__":
-    # Scheduler ማስጀመር
+# 💡 ሞጁሉ በሚጫንበት ጊዜ Scheduler-ኡን በራስ-ሰር ማስጀመር
+try:
     start_promo_scheduler()
-    print("🚀 Telegram module initialized in Webhook mode. Polling disabled.")
+except Exception as e:
+    print(f"⚠️ Scheduler start failure: {e}")
