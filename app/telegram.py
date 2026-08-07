@@ -21,7 +21,7 @@ BACKEND_URL = SERVER_URL
 MINI_APP_URL = SERVER_URL
 
 # 🖼️ የማቀባበያ ምስል ሊንክ
-WELCOME_IMAGE_URL = f"{SERVER_URL}/static/images/welcome.png.jpeg"
+WELCOME_IMAGE_URL = f"{SERVER_URL}/static/images/welcome.jpeg"
 
 bot = TeleBot(BOT_TOKEN)
 
