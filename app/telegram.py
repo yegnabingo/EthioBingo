@@ -15,8 +15,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOK
 BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "").strip().replace("@", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123456789")
 
-# 🔗 የባክኤንድ አድራሻ
-SERVER_URL = os.getenv("SERVER_URL", "https://web-production-fd82a.up.railway.app").rstrip('/')
+# 🔗 የባክኤንድ አድራሻ (ከ Railway ወደ Render ተቀይሯል)
+SERVER_URL = os.getenv("SERVER_URL", "https://ethiobingo-jk6x.onrender.com").rstrip('/')
 BACKEND_URL = SERVER_URL
 MINI_APP_URL = SERVER_URL
 
