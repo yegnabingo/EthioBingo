@@ -334,4 +334,4 @@ def handle_admin_actions(call):
 if __name__ == "__main__":
     # Scheduler ማስጀመር
     start_promo_scheduler()
-    bot.infinity_polling(skip_pending=True)
+    print("🚀 Telegram module initialized in Webhook mode. Polling disabled.")
