@@ -1,12 +1,12 @@
 import os
 import sys
 import asyncio
-import threading
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from telebot import types
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(CURRENT_DIR)
@@ -23,30 +23,13 @@ from app.websocket_manager import manager
 from app.game_engine import engine as bingo_engine
 from app.telegram import bot
 
-
 Base.metadata.create_all(bind=db_engine)
-
-
-def start_bot():
-    print("🤖 Telegram Bot Started")
-
-    while True:
-        try:
-            bot.infinity_polling(
-                skip_pending=True,
-                timeout=60,
-                long_polling_timeout=30
-            )
-        except Exception as e:
-            print(f"❌ Telegram Bot Error: {e}")
-            import time
-            time.sleep(5)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("=" * 50)
-    print("🎯 Pick & Win V3 Startup")
+    print("🎯 Pick & Win V3 Startup (Webhook Mode)")
     print("=" * 50)
 
     try:
@@ -58,12 +41,6 @@ async def lifespan(app: FastAPI):
     game_task = asyncio.create_task(
         bingo_engine.start_game()
     )
-
-    bot_thread = threading.Thread(
-        target=start_bot,
-        daemon=True
-    )
-    bot_thread.start()
 
     yield
 
@@ -78,6 +55,20 @@ app = FastAPI(
     version="3.0.0",
     lifespan=lifespan
 )
+
+# --------------------------------------------------------------------------
+# 🔗 Telegram Webhook Endpoint
+# --------------------------------------------------------------------------
+@app.post("/webhook")
+async def telegram_webhook(request: Request):
+    try:
+        json_str = await request.body()
+        update = types.Update.de_json(json_str.decode('utf-8'))
+        bot.process_new_updates([update])
+        return Response(status_code=200)
+    except Exception as e:
+        print(f"❌ Webhook Error: {e}")
+        return Response(status_code=500)
 
 
 @app.websocket("/ws")
