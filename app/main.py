@@ -7,6 +7,7 @@ from fastapi import FastAPI, WebSocket, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from telebot import types
+from sqlalchemy import text
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(CURRENT_DIR)
@@ -34,7 +35,14 @@ async def lifespan(app: FastAPI):
 
     try:
         initialize_database()
-        print("✅ Database Initialization Complete.")
+
+        # 🔴 አዲስ የተጨመሩትን Columns በራስ-ሰር ዳታቤዝ ላይ መጨመሪያ (Auto-Migration)
+        with db_engine.connect() as conn:
+            conn.execute(text("ALTER TABLE games ADD COLUMN IF NOT EXISTS winners_info TEXT DEFAULT '[]';"))
+            conn.execute(text("ALTER TABLE player_cards ADD COLUMN IF NOT EXISTS card_data TEXT;"))
+            conn.commit()
+
+        print("✅ Database Initialization & Migration Complete.")
     except Exception as e:
         print("Database Error:", e)
 
