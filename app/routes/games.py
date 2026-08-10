@@ -1,13 +1,27 @@
+import json
 import random
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Game, User, PlayerCard, Setting
+from app.models import Game, User, PlayerCard, Setting, Card
 
 router = APIRouter(
     prefix="/api/games",
     tags=["Games"]
 )
+
+# 🤖 የቦቶች ስም እና ስልክ ዝርዝር (ከ game_engine.py ጋር የተጣጣመ)
+BOT_NAMES = [
+    "user_45456", "user_61655", "user_98767", "user_65788", "user_76546", "user_43688",  
+    "user_66856", "user_56488", "user_86545", "user_88786", "user_21456", "user_54321",
+    "user_43677", "user_78646", "user_67655", "user_56787", "user_44565", "user_32743"
+]
+
+BOT_PHONE_NUMBERS = [
+    "251911223344", "251912345678", "251923456789", "251934567890", "251945678901",
+    "251915678902", "251926789013", "251937890124", "251948901235", "251919012346",
+    "0711223344", "0712345678", "0720456789", "0713535455", "0777878685"
+]
 
 
 def get_db():
@@ -107,3 +121,70 @@ def current_game(
         "derash": round(derash_money, 2),         # Derash (ካሸነፈ የሚደርሰው የ 80% ብር)
         "total_pool": total_pool_money
     }
+
+
+# 📜 6. ያለፉትን ጨዋታዎች እና የአሸናፊዎችን መረጃ የሚመልስ API (አዲስ የተጨመረ)
+@router.get("/history/{telegram_id}")
+def get_game_history(telegram_id: str, db: Session = Depends(get_db)):
+    tg_id_str = str(telegram_id).strip()
+    user = db.query(User).filter(User.telegram_id == tg_id_str).first()
+    if not user:
+        return {"success": False, "history": []}
+
+    # 1. ያለፉትን 10 ያለቁ ጨዋታዎች ማውጣት
+    recent_games = db.query(Game).filter(Game.status == "finished").order_by(Game.id.desc()).limit(10).all()
+
+    history_data = []
+
+    for g in recent_games:
+        # ተጫዋቹ በዚህ ጨዋታ የመረጣቸውን/የገዛቸውን ካርዶች መፈለግ
+        user_cards = db.query(PlayerCard.card_number).filter(
+            PlayerCard.game_id == g.id,
+            PlayerCard.user_id == user.id
+        ).all()
+        user_card_numbers = [c[0] for c in user_cards]
+
+        # የአሸናፊውን መረጃ ማዘጋጀት
+        winner_info = None
+        if g.winner_id is not None:
+            winner_user = db.query(User).filter(User.id == g.winner_id).first()
+            
+            # አሸናፊው ቦት ከሆነ ወይም እውነተኛ ተጫዋች ከሆነ መረጃውን መለየት
+            if winner_user and winner_user.telegram_id == "BOT_VIRTUAL_PLAYER":
+                w_name = random.choice(BOT_NAMES)
+                w_phone = random.choice(BOT_PHONE_NUMBERS)
+            elif winner_user:
+                w_name = winner_user.telegram_name or winner_user.first_name or f"user_{winner_user.id}"
+                w_phone = getattr(winner_user, 'phone_number', "ያልተመዘገበ") or "ያልተመዘገበ"
+            else:
+                w_name = random.choice(BOT_NAMES)
+                w_phone = random.choice(BOT_PHONE_NUMBERS)
+
+            # የአሸናፊው ካርድ Grid ዳታ ከ Card table ማውጣት
+            winning_card_grid = None
+            if g.winning_card:
+                try:
+                    first_win_card_num = int(str(g.winning_card).split(',')[0])
+                    card_obj = db.query(Card).filter(Card.card_number == first_win_card_num).first()
+                    if card_obj and card_obj.data:
+                        winning_card_grid = json.loads(card_obj.data) if isinstance(card_obj.data, str) else card_obj.data
+                except Exception:
+                    winning_card_grid = None
+
+            winner_info = {
+                "winner_name": w_name,
+                "winner_phone": w_phone,
+                "winning_card_number": g.winning_card or "N/A",
+                "prize": g.prize or 0.0,
+                "drawn_balls": json.loads(g.drawn_balls) if g.drawn_balls else [],
+                "card_grid": winning_card_grid
+            }
+
+        history_data.append({
+            "game_id": g.id,
+            "game_no": getattr(g, "game_no", str(100000 + g.id)),
+            "user_picked_cards": user_card_numbers,
+            "winner": winner_info
+        })
+
+    return {"success": True, "history": history_data}
