@@ -410,7 +410,7 @@ class GameEngine:
                         winners_data.append(winner_payload)
                         raw_winners_to_save.append(winner_payload)
 
-                    # 💾 ታሪክ (History) ላይ ተመሳሳይ ስም እንዲያሳይ ዳታቤዙ ውስጥ መመዝገቡን ማረጋገጥ
+                    # 💾 ታሪክ (History) ላይ ሁሉንም አሸናፊዎች ማስቀመጥ
                     game_record = db.query(Game).filter(Game.id == saved_game_id).first()
                     if game_record:
                         game_record.winners_info = json.dumps(raw_winners_to_save)
@@ -445,53 +445,59 @@ class GameEngine:
 
                 await asyncio.sleep(draw_interval)
 
+            # 🏠 HOUSE WIN (ቦቱ የሚያሸንፍበት ሁኔታ)
             if not winner_detected and self.running and target_house_wins > 0:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
-                winner_name = random.choice(BOT_NAMES)
-                bot_phone = random.choice(BOT_PHONE_NUMBERS)
-
+                
+                bot_winners_list = []
                 for fee in active_rooms:
                     self.house_counters[fee] = self.house_counters.get(fee, 0) + 1
+                    winner_name = random.choice(BOT_NAMES)
+                    bot_phone = random.choice(BOT_PHONE_NUMBERS)
+                    bot_prize_display = derash_by_fee.get(str(int(fee)), 0)
 
-                primary_bot_fee = active_rooms[0] if len(active_rooms) > 0 else 10.0
-                bot_prize_display = derash_by_fee.get(str(int(primary_bot_fee)), 0)
+                    bot_winners_list.append({
+                        "winner_id": result["winner_id"],
+                        "telegram_name": winner_name,
+                        "winner_name": winner_name,
+                        "phone_number": bot_phone,
+                        "card_number": result["card_number"],
+                        "winning_card_number": result["card_number"],
+                        "room_fee": fee,
+                        "prize": round(float(bot_prize_display), 2),
+                        "winning_numbers": result.get("winning_numbers", []),
+                        "card_numbers": result.get("card_numbers", []),
+                        "winning_reason": result.get("winning_pattern", "ቢንጎ")
+                    })
 
-                bot_winner_payload = {
-                    "winner_id": result["winner_id"],
-                    "telegram_name": winner_name,
-                    "winner_name": winner_name,
-                    "phone_number": bot_phone,
-                    "card_number": result["card_number"],
-                    "winning_card_number": result["card_number"],
-                    "room_fee": primary_bot_fee,
-                    "prize": round(float(bot_prize_display), 2),
-                    "winning_numbers": result.get("winning_numbers", []),
-                    "card_numbers": result.get("card_numbers", []),
-                    "winning_reason": result.get("winning_pattern", "ቢንጎ")
+                primary_bot = bot_winners_list[0] if bot_winners_list else {
+                    "winner_id": result["winner_id"], "telegram_name": "BOT", "phone_number": "N/A",
+                    "card_number": result["card_number"], "room_fee": 10.0, "prize": 0.0,
+                    "winning_numbers": [], "card_numbers": [], "winning_reason": "ቢንጎ"
                 }
 
-                # 💾 ታሪክ (History) ላይ ተመሳሳይ ስም እንዲያሳይ ዳታቤዙ ውስጥ መመዝገቡን ማረጋገጥ
+                # 💾 ታሪክ (History) ላይ በትክክል እንዲመዘገብ የተስተካከለ
                 game_record = db.query(Game).filter(Game.id == saved_game_id).first()
                 if game_record:
-                    game_record.winners_info = json.dumps([bot_winner_payload])
+                    game_record.winners_info = json.dumps(bot_winners_list)
                     db.commit()
 
                 await self.safe_broadcast({
                     "type": "game_over",
                     "status": "WINNER_FOUND",
                     "result": "BINGO",
-                    "winner_name": winner_name,
-                    "telegram_name": winner_name,
-                    "phone_number": bot_phone,
-                    "winning_card": result["card_number"],
-                    "prize": round(float(bot_prize_display), 2),
-                    "message": f"🎉 አሸናፊ፦ {winner_name} (ካርድ #{result['card_number']})!",
-                    "card_number": result["card_number"],
-                    "winner_id": result["winner_id"],
+                    "winner_name": primary_bot["telegram_name"],
+                    "telegram_name": primary_bot["telegram_name"],
+                    "phone_number": primary_bot["phone_number"],
+                    "winning_card": primary_bot["card_number"],
+                    "prize": primary_bot["prize"],
+                    "message": f"🎉 አሸናፊ፦ {primary_bot['telegram_name']} (ካርድ #{primary_bot['card_number']})!",
+                    "card_number": primary_bot["card_number"],
+                    "winner_id": primary_bot["winner_id"],
                     "winning_numbers": result.get("winning_numbers", []),
                     "card_numbers": result.get("card_numbers", []),
                     "winning_reason": result.get("winning_pattern", "ቢንጎ"),
-                    "winners": [bot_winner_payload]
+                    "winners": bot_winners_list
                 })
         except Exception as e:
             print(f"❌ Error in draw_numbers execution: {e}")
@@ -548,6 +554,7 @@ class GameEngine:
                     })
         
         if detected_winners:
+            # 🎯 በአንድ Room ውስጥ ያሉ የአሸናፊዎችን ብዛት መቁጠር
             room_winner_counts = {}
             for w in detected_winners:
                 f = w["bet_amount"]
@@ -556,6 +563,7 @@ class GameEngine:
             settings = db.query(Setting).first()
             comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
             
+            # 🎯 ከአንድ በላይ አሸናፊ ካለ 80% ደራሽን መክፈል፣ አንድ ብቻ ካለ ሙሉ 80% መስጠት
             for w in detected_winners:
                 f = w["bet_amount"]
                 room_total_pool = pools_by_fee.get(f, 0)
