@@ -11,31 +11,26 @@ class User(Base):
     telegram_id = Column(String, unique=True, index=True)
     telegram_name = Column(String, nullable=True)
     first_name = Column(String, nullable=True)
-    
-    # 📱 🔴 አዲስ የተጨመረ፦ የስልክ ቁጥር መመዝገቢያ
     phone_number = Column(String, nullable=True, index=True)
 
-    # 💡 በሚኒ አፑ እና በዳታቤዙ መካከል ያለውን ግጭት ለመፍታት
     balance = Column(Float, default=0.0)    
     wallet = Column(Float, default=0.0)     
     gift_coin = Column(Float, default=0.0)  
 
     is_bot = Column(Boolean, default=False)
-
-    # 🎁 የሪፈራል (የግብዣ ሲስተም) መቆጣጠሪያ ኮለም
     referred_by = Column(String, nullable=True) 
 
     is_admin = Column(Boolean, default=False)
     is_banned = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # 🎯 🔴 ለ Profile፣ Bonus እና Leaderboard የሚሆኑ ቆጣሪዎች
-    total_games_played = Column(Integer, default=0)     # በአጠቃላይ የተጫወታቸው ካርዶች ብዛት
-    total_games_won = Column(Integer, default=0)        # በአጠቃላይ ያሸነፋቸው ጨዋታዎች ብዛት
-    total_winnings = Column(Float, default=0.0)         # በአጠቃላይ ያሸነፈው የብር መጠን
+    # 🎯 Profile, Bonus & Leaderboard Counters
+    total_games_played = Column(Integer, default=0)     
+    total_games_won = Column(Integer, default=0)        
+    total_winnings = Column(Float, default=0.0)         
 
-    weekly_games_played = Column(Integer, default=0)    # በሳምንቱ የተጫወታቸው ካርዶች ብዛት
-    weekly_deposit_amount = Column(Float, default=0.0)  # በሳምንቱ ያስገባው የብር መጠን
+    weekly_games_played = Column(Integer, default=0)    
+    weekly_deposit_amount = Column(Float, default=0.0)  
 
 
 class Deposit(Base):
@@ -80,7 +75,7 @@ class Card(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     card_number = Column(Integer, unique=True, index=True) 
-    data = Column(Text) 
+    data = Column(Text)  # 5x5 Grid Numbers (JSON format)
     is_taken = Column(Boolean, default=False)
     current_game_id = Column(Integer, nullable=True)
     reserved_by = Column(Integer, nullable=True)
@@ -91,9 +86,10 @@ class PlayerCard(Base):
     __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
-    game_id = Column(Integer, index=True)
-    user_id = Column(Integer, index=True)
+    game_id = Column(Integer, ForeignKey("games.id"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
     card_number = Column(Integer)
+    card_data = Column(Text, nullable=True)  # 🔴 ተጨምሯል፦ የካርዱ 5x5 Matrix JSON (History ላይ ቀጥታ ለማሳየት)
     bet_amount = Column(Float, default=0.0)  
     is_winner = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -107,11 +103,14 @@ class Game(Base):
     status = Column(String, default="waiting") 
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
-    winner_id = Column(Integer, nullable=True)
-    # 📌 String ተደርጓል፤ ምክንያቱም ከአንድ በላይ አሸናፊ ሲኖር "105,106" ተብሎ ሊጻፍ ይችላል
-    winning_card = Column(String, nullable=True) 
-    prize = Column(Float, default=0.0)
     
+    winner_id = Column(Integer, nullable=True) 
+    winning_card = Column(String, nullable=True)  # ለቀደሙት "101,102"
+    
+    # 🔴 አዲስ የተጨመረ፦ የብዙ አሸናፊዎችን ሙሉ መረጃ (Name, Phone, Prize, Card Numbers) በ JSON የሚይዝ
+    winners_info = Column(Text, default="[]") 
+    
+    prize = Column(Float, default=0.0)
     total_players = Column(Integer, default=0)
     total_pool = Column(Float, default=0.0)
     taken_cards = Column(Text, default="[]") 
@@ -123,7 +122,7 @@ class Transaction(Base):
     __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
     amount = Column(Float)
     transaction_type = Column(String) 
     status = Column(String, default="pending")
@@ -144,9 +143,6 @@ class Setting(Base):
     min_withdraw = Column(Float, default=50.0)
     jackpot_percent = Column(Float, default=10.0)
     is_registration_open = Column(Boolean, default=True)
-    
-    # 📌 የቤት (House) ማሸነፊያ Ratio መቆጣጠሪያ 
-    # 3 = (3 House : 1 User), 2 = (2 House : 1 User), 1 = (1 House : 1 User)
     house_win_ratio = Column(Integer, default=3)
 
 
@@ -196,7 +192,6 @@ class AdminStats(Base):
     total_commission = Column(Float, default=0.0)
 
 
-# 🎁 የዕለታዊ ስጦታ (Daily Check-in) መቆጣጠሪያ ጠረጴዛ
 class DailyCheckIn(Base):
     __tablename__ = "daily_checkins"
     __table_args__ = {'extend_existing': True}
@@ -207,16 +202,15 @@ class DailyCheckIn(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-# 🏆 የሳምንታዊ ውድድር አሸናፊዎች ታሪክ መመዝገቢያ ጠረጴዛ
 class LeaderboardRewardHistory(Base):
     __tablename__ = "leaderboard_rewards"
     __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    rank = Column(Integer, nullable=False)             # 1ኛ፣ 2ኛ፣ ወይም 3ኛ
-    reward_amount = Column(Float, nullable=False)      # የተሸለመው የብር መጠን
-    games_count = Column(Integer, default=0)           # ያሸነፈበት የካርድ/የጨዋታ ብዛት
+    rank = Column(Integer, nullable=False)             
+    reward_amount = Column(Float, nullable=False)      
+    games_count = Column(Integer, default=0)           
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")
