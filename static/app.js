@@ -1066,7 +1066,7 @@ async function openLeaderboardModal() {
     }
 }
 
-// 📜 1. History Modal መክፈቻ Function (ለብዙ አሸናፊዎች እና ቀጥታ ለተመሳሳይ Data Mapping)
+// 📜 1. History Modal መክፈቻ Function (ያለ ተጨማሪ Popup - ንፁህ አቀራረብ)
 async function openHistoryModal() {
     const modal = document.getElementById('historyModal');
     const container = document.getElementById('historyListContainer');
@@ -1093,30 +1093,21 @@ async function openHistoryModal() {
                     ? item.user_picked_cards.join(', ') 
                     : 'ምንም ካርድ አልተገዛም';
 
-                // ከአንድ በላይ አሸናፊዎች ካሉ የሁሉም ዝርዝር መያዣ
                 const winnersList = item.winners || (item.winner ? [item.winner] : []);
                 let winnersHtml = '';
 
                 if (winnersList.length > 0) {
                     winnersList.forEach((winner, index) => {
-                        // Game Over ላይ ይታይ የነበረውን ሙሉ የ Card Grid/Numbers እና Drawn Balls መረጃ ወደ Popup ማስተላፈያ
-                        const winnerDataPayload = {
-                            winner_name: winner.winner_name || winner.telegram_name || "ተጫዋች",
-                            phone_number: winner.phone_number || winner.winner_phone || "ስልክ አልተመዘገበም",
-                            winning_card_number: winner.winning_card_number || winner.card_number || "N/A",
-                            prize: winner.prize || 0,
-                            card_numbers: winner.card_numbers || (winner.card_grid ? winner.card_grid.flat() : []),
-                            winning_numbers: winner.winning_numbers || winner.drawn_balls || item.drawn_balls || []
-                        };
-
-                        const winnerDataStr = encodeURIComponent(JSON.stringify(winnerDataPayload));
+                        const winnerName = winner.winner_name || winner.telegram_name || "ተጫዋች";
+                        const prize = winner.prize || 0;
+                        const cardNum = winner.winning_card_number || winner.card_number || "N/A";
 
                         winnersHtml += `
                             <div class="winner-info" style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding-top:4px; ${index > 0 ? 'border-top: 1px dashed #4b6584;' : ''}">
-                                <span>🏆 አሸናፊ፦ <b>${winnerDataPayload.winner_name}</b> (+${winnerDataPayload.prize} ETB)</span>
-                                <button onclick="showWinnerCardDetails('${winnerDataStr}')" style="background:#2ed573; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px; cursor:pointer; font-weight:bold;">
-                                    👁 ካርድ #${winnerDataPayload.winning_card_number}
-                                </button>
+                                <span>🏆 አሸናፊ፦ <b style="color:#2ed573;">${winnerName}</b> (+${prize} ETB)</span>
+                                <div style="background:#2ed573; color:white; padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; display:flex; align-items:center; gap:4px;">
+                                    👁 ካርድ #${cardNum}
+                                </div>
                             </div>
                         `;
                     });
@@ -1145,62 +1136,7 @@ async function openHistoryModal() {
     }
 }
 
-// 🎉 2. Game Over ላይ የታየውን ቀጥታ History Popup ላይ ማሳያ Function
-function showWinnerCardDetails(encodedWinnerData) {
-    try {
-        const winner = JSON.parse(decodeURIComponent(encodedWinnerData));
-
-        const wName = winner.winner_name;
-        const wPhone = winner.phone_number;
-        const cNum = winner.winning_card_number;
-        const prize = winner.prize;
-
-        document.getElementById('popupWinnerSubtitle').innerText = `🎉 አሸናፊ፦ ${wName} (ካርድ #${cNum})!`;
-        document.getElementById('popupWinnerName').innerText = wName;
-        document.getElementById('popupWinnerPhone').innerText = wPhone;
-        document.getElementById('popupWinnerCardNum').innerText = `#${cNum}`;
-        document.getElementById('popupPrizeAmount').innerText = `+${prize} ETB`;
-
-        const gridContainer = document.getElementById('popupCardGrid');
-        gridContainer.innerHTML = '';
-
-        let matrixList = winner.card_numbers || [];
-        const winningSet = new Set((winner.winning_numbers || []).map(Number));
-
-        if (matrixList.length === 25) {
-            matrixList.forEach(val => {
-                const cell = document.createElement('div');
-                cell.className = 'grid-cell-5x5';
-
-                const isFree = val === 0 || val === 'FREE' || val === 'free' || val === '★';
-                const isWinningNum = winningSet.has(Number(val));
-
-                if (isFree) {
-                    cell.innerText = '★';
-                    cell.classList.add('free');
-                } else {
-                    cell.innerText = val;
-                    if (isWinningNum) {
-                        cell.classList.add('marked');
-                        cell.style.background = '#ffbc00';
-                        cell.style.color = '#000000';
-                        cell.style.boxShadow = '0 0 10px #ffbc00';
-                        cell.style.borderColor = '#ffffff';
-                    }
-                }
-                gridContainer.appendChild(cell);
-            });
-        } else {
-            gridContainer.innerHTML = '<div style="grid-column: span 5; color:#a4b0be; font-size:12px;">የካርዱ Matrix መረጃ አልተገኘም።</div>';
-        }
-
-        document.getElementById('winnerCardPopupModal').style.display = 'flex';
-    } catch (e) {
-        console.error("Winner popup error:", e);
-    }
-}
-
-// ❌ 3. Modals መዝጊያ General Function
+// ❌ 2. Modal መዝጊያ Function
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.style.display = 'none';
