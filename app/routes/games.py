@@ -110,7 +110,7 @@ def current_game(
     }
 
 
-# 📜 6. ያለፉትን ጨዋታዎች እና የአሸናፊዎችን መረጃ የሚመልስ API
+# 📜 6. ያለፉትን ጨዋታዎች እና የሁሉንም አሸናፊዎች መረጃ የሚመልስ API
 @router.get("/history/{telegram_id}")
 def get_game_history(telegram_id: str, db: Session = Depends(get_db)):
     tg_id_str = str(telegram_id).strip()
@@ -131,41 +131,41 @@ def get_game_history(telegram_id: str, db: Session = Depends(get_db)):
         ).all()
         user_card_numbers = [c[0] for c in user_cards]
 
-        # የአሸናፊውን መረጃ ማዘጋጀት
-        winner_info = None
+        # 🎯 የሁሉንም አሸናፊዎች መረጃ የሚይዝ List/Array
+        winners_list = []
         
-        # 🔴 1. በቅድሚያ game_engine.py የፃፈውን winners_info የማንበብ ሎጂክ
+        # 🔴 1. በቅድሚያ game_engine.py የፃፈውን winners_info (ባለብዙ አሸናፊዎች) የማንበብ ሎጂክ
         if hasattr(g, 'winners_info') and g.winners_info:
             try:
                 raw_winners = json.loads(g.winners_info)
                 if isinstance(raw_winners, list) and len(raw_winners) > 0:
-                    first_w = raw_winners[0]
-                    
-                    winning_card_grid = None
-                    win_card_num = first_w.get("winning_card_number") or first_w.get("card_number")
-                    if win_card_num:
-                        try:
-                            card_obj = db.query(Card).filter(Card.card_number == int(win_card_num)).first()
-                            if card_obj and card_obj.data:
-                                winning_card_grid = json.loads(card_obj.data) if isinstance(card_obj.data, str) else card_obj.data
-                        except Exception:
-                            winning_card_grid = None
+                    # 🔄 በዙሩ ያሸነፉትን የሁሉም ተጫዋቾች መረጃ በ Loop መሰብሰብ
+                    for w_item in raw_winners:
+                        winning_card_grid = None
+                        win_card_num = w_item.get("winning_card_number") or w_item.get("card_number")
+                        if win_card_num:
+                            try:
+                                card_obj = db.query(Card).filter(Card.card_number == int(win_card_num)).first()
+                                if card_obj and card_obj.data:
+                                    winning_card_grid = json.loads(card_obj.data) if isinstance(card_obj.data, str) else card_obj.data
+                            except Exception:
+                                winning_card_grid = None
 
-                    winner_info = {
-                        "winner_name": first_w.get("winner_name") or first_w.get("telegram_name") or "ተጫዋች",
-                        "winner_phone": first_w.get("phone_number", "ያልተመዘገበ"),
-                        "winning_card_number": win_card_num or "N/A",
-                        "prize": first_w.get("prize", 0.0),
-                        "drawn_balls": json.loads(g.drawn_balls) if g.drawn_balls else [],
-                        "card_grid": winning_card_grid
-                    }
+                        winners_list.append({
+                            "winner_name": w_item.get("winner_name") or w_item.get("telegram_name") or "ተጫዋች",
+                            "winner_phone": w_item.get("phone_number", "ያልተመዘገበ"),
+                            "winning_card_number": win_card_num or "N/A",
+                            "prize": w_item.get("prize", 0.0),
+                            "drawn_balls": json.loads(g.drawn_balls) if g.drawn_balls else [],
+                            "card_grid": winning_card_grid
+                        })
             except Exception as e:
                 print("Error parsing winners_info in history route:", e)
 
-        # 🔴 2. winners_info ከሌለ (Fallback)
-        if not winner_info and g.winner_id is not None:
+        # 🔴 2. winners_info ከሌለ ወይም ባዶ ከሆነ (Fallback)
+        if not winners_list and g.winner_id is not None:
             winner_user = db.query(User).filter(User.id == g.winner_id).first()
-            w_name = winner_user.telegram_name or winner_user.first_name if winner_user else "ተጫዋች"
+            w_name = (winner_user.telegram_name or winner_user.first_name) if winner_user else "ተጫዋች"
             w_phone = getattr(winner_user, 'phone_number', "ያልተመዘገበ") if winner_user else "ያልተመዘገበ"
 
             winning_card_grid = None
@@ -178,20 +178,21 @@ def get_game_history(telegram_id: str, db: Session = Depends(get_db)):
                 except Exception:
                     winning_card_grid = None
 
-            winner_info = {
+            winners_list.append({
                 "winner_name": w_name,
                 "winner_phone": w_phone,
                 "winning_card_number": g.winning_card or "N/A",
                 "prize": g.prize or 0.0,
                 "drawn_balls": json.loads(g.drawn_balls) if g.drawn_balls else [],
                 "card_grid": winning_card_grid
-            }
+            })
 
         history_data.append({
             "game_id": g.id,
             "game_no": getattr(g, "game_no", str(100000 + g.id)),
             "user_picked_cards": user_card_numbers,
-            "winner": winner_info
+            "winners": winners_list,  # 👈 የሁሉም አሸናፊዎች Array
+            "winner": winners_list[0] if winners_list else None # 👈 ለአሮጌ Frontend ተኳሃኝነት
         })
 
     return {"success": True, "history": history_data}
