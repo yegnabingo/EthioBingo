@@ -163,6 +163,29 @@
             margin-bottom: 8px;
             border-left: 4px solid #2ed573;
         }
+
+        /* 📜 History Item Styling */
+        .history-item {
+            background: #2f3542;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #ffd700;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 12px;
+        }
+        .history-item .game-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            color: #ffffff;
+            border-bottom: 1px dashed #4b6584;
+            padding-bottom: 4px;
+        }
+        .history-item .user-cards {
+            color: #a4b0be;
+        }
     </style>
 </head>
 <body>
@@ -278,7 +301,7 @@
 
 </div>
 
-<!-- 📱 የታችኛው BOTTOM NAVIGATION BAR (History Button የተጨመረበት) -->
+<!-- 📱 የታችኛው BOTTOM NAVIGATION BAR -->
 <div class="bottom-nav">
     <button class="nav-item" onclick="openProfileModal()">
         <span class="icon">👤</span>
@@ -295,7 +318,6 @@
         <span>Rank</span>
     </button>
 
-    <!-- 🔴 አዲስ የተጨመረ History Button -->
     <button class="nav-item" onclick="openHistoryModal()">
         <span class="icon">📜</span>
         <span>History</span>
@@ -393,7 +415,7 @@
     </div>
 </div>
 
-<!-- 👤 PROFILE MODAL (የተሟላ መረጃ እና Transaction History ያለው) -->
+<!-- 👤 PROFILE MODAL -->
 <div id="profileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; color: white;">
     <div style="background: #1e272e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d; padding-bottom: 10px; margin-bottom: 15px;">
@@ -454,7 +476,6 @@
             <button onclick="closeModal('leaderboardModal')" style="background: none; border: none; color: #ff4757; font-size: 24px; cursor: pointer; font-weight: bold;">×</button>
         </div>
 
-        <!-- 🥇 🥈 🥉 TOP 3 PODIUM -->
         <div class="podium-container" id="podium-section">
             <div class="podium-card rank-2">
                 <div style="font-size: 11px; color: #c0c0c0; font-weight: bold;">2</div>
@@ -474,14 +495,13 @@
             </div>
         </div>
 
-        <!-- 4-10 LIST -->
         <div id="leaderboard-list">
             <!-- ጃቫስክሪፕት በ app.js በኩል እዚህ ይሞላዋል -->
         </div>
     </div>
 </div>
 
-<!-- 📜 HISTORY MODAL (አዲስ የተጨመረ) -->
+<!-- 📜 HISTORY MODAL -->
 <div id="historyModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; color: white;">
     <div style="background: #1e272e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d; padding-bottom: 10px; margin-bottom: 15px;">
@@ -491,33 +511,6 @@
         <div id="historyListContainer" style="display: flex; flex-direction: column; gap: 10px;">
             <!-- የታሪክ ዝርዝሮች በ app.js እዚህ ዳይናሚክ ይጫናሉ -->
         </div>
-    </div>
-</div>
-
-<!-- 🎉 WINNER CARD POPUP MODAL (አዲስ የተጨመረ) -->
-<div id="winnerCardPopupModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10001; justify-content: center; align-items: center; color: white;">
-    <div style="background: #1e272e; border: 2px solid #2ed573; border-radius: 12px; padding: 20px; width: 90%; max-width: 380px; box-shadow: 0 10px 25px rgba(46, 213, 115, 0.4); text-align: center; max-height: 90vh; overflow-y: auto;">
-        <div style="font-size: 24px; font-weight: bold; color: #ffd700; margin-bottom: 5px;">🎉 BINGO! 🎉</div>
-        <div id="popupWinnerSubtitle" style="font-size: 13px; color: #a4b0be; margin-bottom: 10px;">
-            🎉 አሸናፊ፦ user_65788 (ካርድ #172)!
-        </div>
-
-        <hr style="border: 0; border-top: 1px solid #3d3d3d; margin: 10px 0;" />
-
-        <div style="font-size: 13px; text-align: left; background: #2f3542; padding: 10px; border-radius: 8px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
-            <div>👤 ስም፦ <span id="popupWinnerName" style="color: #2ed573; font-weight: bold;">user_65788</span></div>
-            <div>📞 ስልክ፦ <span id="popupWinnerPhone" style="color: #2ed573; font-weight: bold;">251911223344</span></div>
-            <div>🎫 ካርድ፦ <span id="popupWinnerCardNum" style="color: #ffd700; font-weight: bold;">#172</span></div>
-        </div>
-
-        <!-- 5x5 Bingo Grid Matrix -->
-        <div id="popupCardGrid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; background: #2f3542; padding: 8px; border-radius: 8px; margin-bottom: 15px;">
-            <!-- በ JS ዳይናሚክ ይፈጠራል -->
-        </div>
-
-        <div id="popupPrizeAmount" style="background: #2ed573; color: white; padding: 8px; border-radius: 6px; font-size: 16px; font-weight: bold; margin-bottom: 12px;">+0 ETB</div>
-
-        <button onclick="closeModal('winnerCardPopupModal')" style="width: 100%; background: #ffd700; color: #1e272e; border: none; padding: 10px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 14px;">እሺ (ቀጥል)</button>
     </div>
 </div>
 
