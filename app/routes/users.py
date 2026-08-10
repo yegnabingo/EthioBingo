@@ -136,9 +136,9 @@ def get_bonus_info(telegram_id: str, db: Session = Depends(get_db)):
             "title": "🎁 ሳምንታዊ የልዩ ሽልማት ውድድር",
             "description": "በየሳምንቱ ብዙ ካርዶችን በመግዛት ከ 1 እስከ 3 ለወጡ ተጫዋቾች የሚሰጥ ልዩ የገንዘብ ሽልማት!",
             "prizes": [
-                {"rank": "1ኛ የወጣ", "reward": "500 ETB"},
-                {"rank": "2ኛ የወጣ", "reward": "300 ETB"},
-                {"rank": "3ኛ የወጣ", "reward": "150 ETB"}
+                {"rank": "1ኛ የወጣ", "reward": "5000 ETB"},
+                {"rank": "2ኛ የወጣ", "reward": "3000 ETB"},
+                {"rank": "3ኛ የወጣ", "reward": "1000 ETB"}
             ],
             "user_current_rank": user_rank,
             "user_weekly_games": user_weekly_games
