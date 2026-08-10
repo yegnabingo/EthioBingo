@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 
 # -------------------------
@@ -29,7 +29,7 @@ class UserResponse(BaseModel):
 
 
 # -------------------------
-# 📜 Transaction History Schema (🆕 ለ Profile Modal የተጨመረ)
+# 📜 Transaction History Schema
 # -------------------------
 class TransactionHistoryItem(BaseModel):
     id: int
@@ -43,7 +43,7 @@ class TransactionHistoryItem(BaseModel):
 
 
 # -------------------------
-# 👤 Profile Full Response Schema (🆕 ለ UI Profile Modal)
+# 👤 Profile Full Response Schema
 # -------------------------
 class UserProfileResponse(BaseModel):
     id: int
@@ -62,7 +62,7 @@ class UserProfileResponse(BaseModel):
 
 
 # -------------------------
-# 🏆 Leaderboard / Rank Schema (🆕 ለ UI Rank Modal)
+# 🏆 Leaderboard / Rank Schema
 # -------------------------
 class LeaderboardUserResponse(BaseModel):
     rank: Optional[int] = None
@@ -133,6 +133,32 @@ class WithdrawResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# -------------------------
+# 🎯 🆕 Winner & Game History Schemas (ለ History Modal የተጨመሩ)
+# -------------------------
+class WinnerDetailSchema(BaseModel):
+    winner_name: str
+    phone_number: Optional[str] = "ስልክ አልተመዘገበም"
+    winning_card_number: Any
+    prize: float
+    card_numbers: List[Any] = []     # የ 5x5 Grid 25 ቁጥሮች
+    winning_numbers: List[int] = []  # ያሸነፈበት መስመር የተጠሩ ቁጥሮች
+
+
+class GameHistoryItem(BaseModel):
+    game_id: int
+    game_no: int
+    user_picked_cards: List[int] = []
+    winners: List[WinnerDetailSchema] = []
+    drawn_balls: List[int] = []
+    finished_at: Optional[str] = None
+
+
+class GameHistoryResponse(BaseModel):
+    success: bool
+    history: List[GameHistoryItem] = []
 
 
 # -------------------------
