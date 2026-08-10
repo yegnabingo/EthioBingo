@@ -36,10 +36,11 @@ class GameEngine:
     def get_bot_user(self, db: Session):
         bot = db.query(User).filter(User.telegram_id == "BOT_VIRTUAL_PLAYER").first()
         if not bot:
+            default_bot_name = random.choice(BOT_NAMES)
             bot = User(
                 telegram_id="BOT_VIRTUAL_PLAYER",
-                telegram_name="System Bot",
-                first_name="Virtual Player",
+                telegram_name=default_bot_name,
+                first_name=default_bot_name,
                 balance=9999999.0,
                 wallet=0.0,
                 gift_coin=0.0
@@ -377,8 +378,9 @@ class GameEngine:
                             self.house_counters[fee] = 0
 
                     winners_data = []
+                    raw_winners_to_save = []
                     for w in winners_list:
-                        # 🎭 ቦቱ ከሆነ Random telegram_name እና Random ስልክ ቁጥር ይዘጋጃል
+                        # 🎭 ቦቱ ከሆነ Random user_ name እና Random ስልክ ቁጥር ይዘጋጃል
                         if w["winner_id"] == bot_user.id:
                             telegram_name = random.choice(BOT_NAMES)
                             phone_number = random.choice(BOT_PHONE_NUMBERS)
@@ -387,23 +389,32 @@ class GameEngine:
                             user_record = db.query(User).filter(User.id == w["winner_id"]).first()
                             telegram_name = user_record.telegram_name if user_record and user_record.telegram_name else f"user_{w['winner_id']}"
                             
-                            # የUser ስልክ በዳታቤዝ ካለ ይወሰዳል፤ ከሌለ "ስልክ አልተመዘገበም" ይላል
                             if user_record and hasattr(user_record, 'phone_number') and user_record.phone_number:
                                 phone_number = user_record.phone_number
                             else:
                                 phone_number = "ስልክ አልተመዘገበም"
                         
-                        winners_data.append({
+                        winner_payload = {
                             "winner_id": w["winner_id"],
                             "telegram_name": telegram_name,
+                            "winner_name": telegram_name,
                             "phone_number": phone_number,
                             "card_number": w["card_number"],
+                            "winning_card_number": w["card_number"],
                             "room_fee": w["bet_amount"],
                             "prize": round(w["prize_share"], 2),
                             "winning_numbers": w["winning_numbers"],
                             "card_numbers": w["card_numbers"],
                             "winning_reason": w["winning_pattern"]
-                        })
+                        }
+                        winners_data.append(winner_payload)
+                        raw_winners_to_save.append(winner_payload)
+
+                    # 💾 ታሪክ (History) ላይ ተመሳሳይ ስም እንዲያሳይ ዳታቤዙ ውስጥ መመዝገቡን ማረጋገጥ
+                    game_record = db.query(Game).filter(Game.id == saved_game_id).first()
+                    if game_record:
+                        game_record.winners_info = json.dumps(raw_winners_to_save)
+                        db.commit()
 
                     primary_winner = winners_data[0]
                     display_winner_name = primary_winner["telegram_name"]
@@ -445,6 +456,26 @@ class GameEngine:
                 primary_bot_fee = active_rooms[0] if len(active_rooms) > 0 else 10.0
                 bot_prize_display = derash_by_fee.get(str(int(primary_bot_fee)), 0)
 
+                bot_winner_payload = {
+                    "winner_id": result["winner_id"],
+                    "telegram_name": winner_name,
+                    "winner_name": winner_name,
+                    "phone_number": bot_phone,
+                    "card_number": result["card_number"],
+                    "winning_card_number": result["card_number"],
+                    "room_fee": primary_bot_fee,
+                    "prize": round(float(bot_prize_display), 2),
+                    "winning_numbers": result.get("winning_numbers", []),
+                    "card_numbers": result.get("card_numbers", []),
+                    "winning_reason": result.get("winning_pattern", "ቢንጎ")
+                }
+
+                # 💾 ታሪክ (History) ላይ ተመሳሳይ ስም እንዲያሳይ ዳታቤዙ ውስጥ መመዝገቡን ማረጋገጥ
+                game_record = db.query(Game).filter(Game.id == saved_game_id).first()
+                if game_record:
+                    game_record.winners_info = json.dumps([bot_winner_payload])
+                    db.commit()
+
                 await self.safe_broadcast({
                     "type": "game_over",
                     "status": "WINNER_FOUND",
@@ -460,17 +491,7 @@ class GameEngine:
                     "winning_numbers": result.get("winning_numbers", []),
                     "card_numbers": result.get("card_numbers", []),
                     "winning_reason": result.get("winning_pattern", "ቢንጎ"),
-                    "winners": [{
-                        "winner_id": result["winner_id"],
-                        "telegram_name": winner_name,
-                        "phone_number": bot_phone,
-                        "card_number": result["card_number"],
-                        "room_fee": primary_bot_fee,
-                        "prize": round(float(bot_prize_display), 2),
-                        "winning_numbers": result.get("winning_numbers", []),
-                        "card_numbers": result.get("card_numbers", []),
-                        "winning_reason": result.get("winning_pattern", "ቢንጎ")
-                    }]
+                    "winners": [bot_winner_payload]
                 })
         except Exception as e:
             print(f"❌ Error in draw_numbers execution: {e}")
