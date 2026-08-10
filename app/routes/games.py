@@ -10,19 +10,6 @@ router = APIRouter(
     tags=["Games"]
 )
 
-# 🤖 የቦቶች ስም እና ስልክ ዝርዝር (ከ game_engine.py ጋር የተጣጣመ)
-BOT_NAMES = [
-    "user_45456", "user_61655", "user_98767", "user_65788", "user_76546", "user_43688",  
-    "user_66856", "user_56488", "user_86545", "user_88786", "user_21456", "user_54321",
-    "user_43677", "user_78646", "user_67655", "user_56787", "user_44565", "user_32743"
-]
-
-BOT_PHONE_NUMBERS = [
-    "251911223344", "251912345678", "251923456789", "251934567890", "251945678901",
-    "251915678902", "251926789013", "251937890124", "251948901235", "251919012346",
-    "0711223344", "0712345678", "0720456789", "0713535455", "0777878685"
-]
-
 
 def get_db():
     db = SessionLocal()
@@ -123,7 +110,7 @@ def current_game(
     }
 
 
-# 📜 6. ያለፉትን ጨዋታዎች እና የአሸናፊዎችን መረጃ የሚመልስ API (አዲስ የተጨመረ)
+# 📜 6. ያለፉትን ጨዋታዎች እና የአሸናፊዎችን መረጃ የሚመልስ API
 @router.get("/history/{telegram_id}")
 def get_game_history(telegram_id: str, db: Session = Depends(get_db)):
     tg_id_str = str(telegram_id).strip()
@@ -146,21 +133,41 @@ def get_game_history(telegram_id: str, db: Session = Depends(get_db)):
 
         # የአሸናፊውን መረጃ ማዘጋጀት
         winner_info = None
-        if g.winner_id is not None:
-            winner_user = db.query(User).filter(User.id == g.winner_id).first()
-            
-            # አሸናፊው ቦት ከሆነ ወይም እውነተኛ ተጫዋች ከሆነ መረጃውን መለየት
-            if winner_user and winner_user.telegram_id == "BOT_VIRTUAL_PLAYER":
-                w_name = random.choice(BOT_NAMES)
-                w_phone = random.choice(BOT_PHONE_NUMBERS)
-            elif winner_user:
-                w_name = winner_user.telegram_name or winner_user.first_name or f"user_{winner_user.id}"
-                w_phone = getattr(winner_user, 'phone_number', "ያልተመዘገበ") or "ያልተመዘገበ"
-            else:
-                w_name = random.choice(BOT_NAMES)
-                w_phone = random.choice(BOT_PHONE_NUMBERS)
+        
+        # 🔴 1. በቅድሚያ game_engine.py የፃፈውን winners_info የማንበብ ሎጂክ
+        if hasattr(g, 'winners_info') and g.winners_info:
+            try:
+                raw_winners = json.loads(g.winners_info)
+                if isinstance(raw_winners, list) and len(raw_winners) > 0:
+                    first_w = raw_winners[0]
+                    
+                    winning_card_grid = None
+                    win_card_num = first_w.get("winning_card_number") or first_w.get("card_number")
+                    if win_card_num:
+                        try:
+                            card_obj = db.query(Card).filter(Card.card_number == int(win_card_num)).first()
+                            if card_obj and card_obj.data:
+                                winning_card_grid = json.loads(card_obj.data) if isinstance(card_obj.data, str) else card_obj.data
+                        except Exception:
+                            winning_card_grid = None
 
-            # የአሸናፊው ካርድ Grid ዳታ ከ Card table ማውጣት
+                    winner_info = {
+                        "winner_name": first_w.get("winner_name") or first_w.get("telegram_name") or "ተጫዋች",
+                        "winner_phone": first_w.get("phone_number", "ያልተመዘገበ"),
+                        "winning_card_number": win_card_num or "N/A",
+                        "prize": first_w.get("prize", 0.0),
+                        "drawn_balls": json.loads(g.drawn_balls) if g.drawn_balls else [],
+                        "card_grid": winning_card_grid
+                    }
+            except Exception as e:
+                print("Error parsing winners_info in history route:", e)
+
+        # 🔴 2. winners_info ከሌለ (Fallback)
+        if not winner_info and g.winner_id is not None:
+            winner_user = db.query(User).filter(User.id == g.winner_id).first()
+            w_name = winner_user.telegram_name or winner_user.first_name if winner_user else "ተጫዋች"
+            w_phone = getattr(winner_user, 'phone_number', "ያልተመዘገበ") if winner_user else "ያልተመዘገበ"
+
             winning_card_grid = None
             if g.winning_card:
                 try:
