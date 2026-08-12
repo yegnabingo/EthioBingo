@@ -68,13 +68,16 @@ class GameEngine:
 
         # ከቀኑ 7:00 እስከ ሌሊቱ 6:00 (ከ13:00 እስከ 23:59)
         elif 13 <= hour <= 23:
-            return random.randint(50, 100)
+            return random.randint(100, 150)
 
         # ከሌሊቱ 6:00 እስከ ጠዋቱ 12:00 (ከ0:00 እስከ 5:59)
         else:
             return random.randint(30, 60)
 
     async def auto_buy_bot_cards(self, game_id: int):
+        """
+        🤖 ቦቱ በ30 ሰከንድ ቆጠራ ውስጥ ካርዶችን ተራ በተራ እና በፍጥነት (Fast Progressive Purchase) እንዲገዛ የተደረገ ማስተካከያ::
+        """
         db: Session = None
         try:
             db = SessionLocal()
@@ -98,8 +101,15 @@ class GameEngine:
                 if needed > 0:
                     available_numbers = [num for num in range(1, 201) if num not in taken_numbers]
                     if available_numbers:
-                        cards_to_buy = random.sample(available_numbers, min(needed, len(available_numbers)))
+                        cards_to_buy_count = min(needed, len(available_numbers))
+                        cards_to_buy = random.sample(available_numbers, cards_to_buy_count)
+                        
+                        # ⚡ በየተራ በጥቂት ሚሊሰከንዶች ልዩነት (Fast Loop) በመግዛት ተጫዋቾች ገጹ ላይ ሲመጡ ቢጫ ሆኖ እንዲያዩት ማድረግ
                         for c_num in cards_to_buy:
+                            active_check = db.query(Game).filter(Game.id == game_id, Game.status.in_(["running", "waiting"])).first()
+                            if not active_check:
+                                break
+
                             p_card = PlayerCard(
                                 game_id=game_id,
                                 user_id=bot_user.id,
@@ -114,8 +124,25 @@ class GameEngine:
                                 main_card.reserved_by = bot_user.id
                                 main_card.current_game_id = game_id
 
-            db.commit()
-            print(f"🤖 Auto-bought bot cards for Game ID {game_id} in 10 ETB room.")
+                            db.commit()
+
+                            # 📡 የተገዙትን ካርዶች ለሁሉም ተጫዋቾች በWebSocket ማሰራጨት
+                            all_taken = db.query(PlayerCard).filter(
+                                PlayerCard.game_id == game_id,
+                                PlayerCard.bet_amount == fee
+                            ).all()
+                            taken_list = [c.card_number for c in all_taken]
+
+                            await self.safe_broadcast({
+                                "type": "taken_cards_update",
+                                "bet_amount": fee,
+                                "taken_cards": taken_list
+                            })
+
+                            # ⏱️ 30 ሰከንድ ሳያልቅበት በፍጥነት እንዲጨርስ ከ 0.05 እስከ 0.15 ሰከንድ ብቻ ማረፍ
+                            await asyncio.sleep(random.uniform(0.05, 0.15))
+
+            print(f"🤖 Fast auto-bought bot cards completed for Game ID {game_id}.")
         except Exception as e:
             if db:
                 db.rollback()
@@ -195,7 +222,8 @@ class GameEngine:
                 game_display_no = str(100000 + saved_game_id)
                 db.close()
 
-                await self.auto_buy_bot_cards(saved_game_id)
+                # 🚀 የቦት ግዢን በBackground Task ማስጀመር (የ30 ሰከንድ Countdown እንዳይዘጋይ)
+                asyncio.create_task(self.auto_buy_bot_cards(saved_game_id))
                 
                 has_bought_cards = await self.countdown(countdown_seconds, game_display_no, saved_game_id)
 
@@ -391,12 +419,10 @@ class GameEngine:
                     winners_data = []
                     raw_winners_to_save = []
                     for w in winners_list:
-                        # 🎭 ቦቱ ከሆነ Random user_ name እና Random ስልክ ቁጥር ይዘጋጃል
                         if w["winner_id"] == bot_user.id:
                             telegram_name = random.choice(BOT_NAMES)
                             phone_number = random.choice(BOT_PHONE_NUMBERS)
                         else:
-                            # 👤 የእውነተኛ ተጫዋች ከሆነ ከዳታቤዝ ይወጣል
                             user_record = db.query(User).filter(User.id == w["winner_id"]).first()
                             telegram_name = user_record.telegram_name if user_record and user_record.telegram_name else f"user_{w['winner_id']}"
                             
@@ -421,7 +447,6 @@ class GameEngine:
                         winners_data.append(winner_payload)
                         raw_winners_to_save.append(winner_payload)
 
-                    # 💾 ታሪክ (History) ላይ ሁሉንም አሸናፊዎች ማስቀመጥ
                     game_record = db.query(Game).filter(Game.id == saved_game_id).first()
                     if game_record:
                         game_record.winners_info = json.dumps(raw_winners_to_save)
@@ -456,7 +481,6 @@ class GameEngine:
 
                 await asyncio.sleep(draw_interval)
 
-            # 🏠 HOUSE WIN (ቦቱ የሚያሸንፍበት ሁኔታ)
             if not winner_detected and self.running and target_house_wins > 0:
                 result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
                 
@@ -487,7 +511,6 @@ class GameEngine:
                     "winning_numbers": [], "card_numbers": [], "winning_reason": "ቢንጎ"
                 }
 
-                # 💾 ታሪክ (History) ላይ በትክክል እንዲመዘገብ የተስተካከለ
                 game_record = db.query(Game).filter(Game.id == saved_game_id).first()
                 if game_record:
                     game_record.winners_info = json.dumps(bot_winners_list)
@@ -565,7 +588,6 @@ class GameEngine:
                     })
         
         if detected_winners:
-            # 🎯 በአንድ Room ውስጥ ያሉ የአሸናፊዎችን ብዛት መቁጠር
             room_winner_counts = {}
             for w in detected_winners:
                 f = w["bet_amount"]
@@ -574,7 +596,6 @@ class GameEngine:
             settings = db.query(Setting).first()
             comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
             
-            # 🎯 ከአንድ በላይ አሸናፊ ካለ 80% ደራሽን መክፈል፣ አንድ ብቻ ካለ ሙሉ 80% መስጠት
             for w in detected_winners:
                 f = w["bet_amount"]
                 room_total_pool = pools_by_fee.get(f, 0)
