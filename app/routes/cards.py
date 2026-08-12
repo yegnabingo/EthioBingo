@@ -38,16 +38,19 @@ def get_bot_user(db):
     return bot
 
 def get_target_bot_card_count() -> int:
-    """🕒 እንደ ሰዓቱ ተለዋዋጭ የሆነ የቦት ካርድ ብዛት ይወስናል (UTC+3)"""
+    """🕒 በውይይታችን መሰረት የተስተካከለ ሰዓትን መሰረት ያደረገ የቦት ካርድ ብዛት (UTC+3)"""
     now = datetime.datetime.utcnow() + datetime.timedelta(hours=3)
     hour = now.hour
 
-    if 6 <= hour < 18:
-        return random.randint(30, 50)
-    elif 18 <= hour <= 23:
-        return random.randint(15, 30)
+    # ከጠዋቱ 12:00 እስከ ቀኑ 7:00 (ከ6:00 እስከ 12:59)
+    if 6 <= hour < 13:
+        return random.randint(40, 80)
+    # ከቀኑ 7:00 እስከ ሌሊቱ 6:00 (ከ13:00 እስከ 23:59)
+    elif 13 <= hour <= 23:
+        return random.randint(100, 150)
+    # ከሌሊቱ 6:00 እስከ ጠዋቱ 12:00 (ከ0:00 እስከ 5:59)
     else:
-        return random.randint(20, 40)
+        return random.randint(30, 60)
 
 async def trigger_bot_card_purchases(game_id: int, bet_amount: float = 10.0):
     """
@@ -86,9 +89,8 @@ async def trigger_bot_card_purchases(game_id: int, bet_amount: float = 10.0):
 
         selected_bot_cards = random.sample(available_numbers, cards_to_buy_count)
 
-        # 🎭 እውነተኛ ለማስመሰል ካርዶቹን ተራ በተራ (በጥቂት ሚሊሰከንድ ልዩነት) መግዛት
+        # 🎭 እውነተኛ ለማስመሰል ካርዶቹን ተራ በተራ (በጥቂት ሰከንድ ልዩነት) መግዛት
         for card_num in selected_bot_cards:
-            # ጨዋታው አሁንም በስራ ላይ መሆኑን ማረጋገጥ
             active_check = db.query(Game).filter(Game.id == game_id, Game.status.in_(["running", "waiting"])).first()
             if not active_check:
                 break
@@ -122,8 +124,8 @@ async def trigger_bot_card_purchases(game_id: int, bet_amount: float = 10.0):
                 "taken_cards": taken_list
             })
 
-            # ⏱️ እውነተኛ ሰው እንደሚመርጥ ለማስመሰል ከ 0.2 እስከ 0.5 ሰከንድ ማረፍ
-            await asyncio.sleep(random.uniform(0.2, 0.5))
+            # ⏱️ ተፈጥሮአዊ እንዲመስል በየካርዱ መካከል ከ 0.4 እስከ 1.2 ሰከንድ ማረፍ
+            await asyncio.sleep(random.uniform(0.05, 0.15))
 
     except Exception as e:
         if db:
@@ -155,8 +157,12 @@ def get_cards_status(
             PlayerCard.bet_amount == bet_amount
         ).all()
 
-        # 🤖 ተጫዋች ገፁን ሲከፍት ምንም ካርድ ካልተሸጠ አውቶማቲክ የቦት ግዢውን እንዲቀሰቅሰው ማድረግ
-        if bet_amount == 10.0 and len(taken_cards) == 0:
+        bot_user = get_bot_user(db)
+        bot_current_count = sum(1 for c in taken_cards if c.user_id == bot_user.id)
+        target_count = get_target_bot_card_count()
+
+        # 🤖 የቦቱ ካርድ መጠን ከዒላማው ያነሰ ከሆነ ባክግራውንድ ላይ ገዢ እንዲቀጥል ማነሳሳት
+        if bet_amount == 10.0 and bot_current_count < target_count:
             background_tasks.add_task(trigger_bot_card_purchases, active_game.id, bet_amount)
 
         return [c.card_number for c in taken_cards]
@@ -170,11 +176,9 @@ def get_cards_status(
 async def pick_card(request: AdvancedPickCardRequest, background_tasks: BackgroundTasks):
     db = SessionLocal()
     try:
-        # 1. ውርርዱ የተፈቀደ መሆኑን ማረጋገጥ
         if request.bet_amount not in [10.0, 20.0, 50.0]:
             return {"success": False, "message": "ያልተፈቀደ የውርርድ መጠን! እባክህ 10፣ 20 ወይም 50 ይምረጡ።"}
 
-        # 2. ተጫዋቹን መፈለግ
         user = db.query(User).filter(User.telegram_id == request.telegram_id).first()
         if not user:
             user = User(
@@ -189,12 +193,10 @@ async def pick_card(request: AdvancedPickCardRequest, background_tasks: Backgrou
             db.commit()
             db.refresh(user)
 
-        # 3. ንቁ ጨዋታ መኖሩን ማረጋገጥ
         game = db.query(Game).filter(Game.status.in_(["running", "waiting"])).order_by(Game.id.desc()).first()
         if not game:
             return {"success": False, "message": "በአሁኑ ሰዓት ምንም የነቃ ጨዋታ የለም። እባክህ አዲስ ዙር ጠብቅ።"}
 
-        # 4. Max 5 Cards Check
         already_bought_count = db.query(PlayerCard).filter(
             PlayerCard.game_id == game.id,
             PlayerCard.user_id == user.id
@@ -203,7 +205,6 @@ async def pick_card(request: AdvancedPickCardRequest, background_tasks: Backgrou
         if already_bought_count >= 5:
             return {"success": False, "message": "በአንድ ጨዋታ መግዛት የሚችሉት ከፍተኛው የካርድ መጠን 5 ብቻ ነው!"}
 
-        # 5. Card Already Taken Check
         card_taken = db.query(PlayerCard).filter(
             PlayerCard.game_id == game.id,
             PlayerCard.card_number == request.card_number,
@@ -211,13 +212,11 @@ async def pick_card(request: AdvancedPickCardRequest, background_tasks: Backgrou
         ).first()
         if card_taken:
             return {"success": False, "message": f"ካርድ ቁጥር {request.card_number} በ {int(request.bet_amount)} ብር ክፍል አስቀድሞ ተይዟል!"}
- 
-        # 6. Balance Check
+
         total_available = (user.balance or 0.0) + (user.gift_coin or 0.0)
         if total_available < request.bet_amount:
             return {"success": False, "message": f"በቂ ባላንስ የሎትም! የእርሶ ጠቅላላ ባላንስ {total_available} ETB ነው።"}
 
-        # 7. ክፍያ መቁረጥ
         if (user.gift_coin or 0.0) >= request.bet_amount:
             user.gift_coin -= request.bet_amount
         else:
@@ -226,7 +225,6 @@ async def pick_card(request: AdvancedPickCardRequest, background_tasks: Backgrou
             user.balance -= remaining_fee
             user.wallet -= remaining_fee
 
-        # 8. ካርዱን መመዝገብ
         new_player_card = PlayerCard(
             game_id=game.id,
             user_id=user.id,
@@ -241,13 +239,11 @@ async def pick_card(request: AdvancedPickCardRequest, background_tasks: Backgrou
             main_card.reserved_by = user.id
             main_card.current_game_id = game.id
         
-        # 9. የጨዋታ ቆጣሪዎችን ማሳደግ
         user.total_games_played = (user.total_games_played or 0) + 1
         user.weekly_games_played = (user.weekly_games_played or 0) + 1
 
         db.commit()
 
-        # 🤖 ቦት በ 10 ብር ክፍል ብቻ እንዲሳተፍ ማድረግ
         if request.bet_amount == 10.0:
             background_tasks.add_task(trigger_bot_card_purchases, game.id, request.bet_amount)
 
