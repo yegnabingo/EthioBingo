@@ -2,11 +2,10 @@ import os
 import sys
 import time
 import requests
-import threading  # 💡 የባክኤንድ ጥያቄ ቦቱን Freeze እንዳያደርገው በThread ለማሰራት
+import threading
 from datetime import datetime
 from telebot import TeleBot, types
-from apscheduler.schedulers.background import BackgroundScheduler
-import pytz
+from telebot.apihelper import ApiTelegramException
 
 # --------------------------------------------------------------------------
 # ⚙️ የቅንብር ክፍሎች
@@ -14,6 +13,7 @@ import pytz
 BOT_TOKEN = os.getenv("BOT_TOKEN", os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE"))
 BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "").strip().replace("@", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123456789")
+ADMIN_TELEGRAM_ID = os.getenv("ADMIN_TELEGRAM_ID", "").strip()
 
 # 🔗 የባክኤንድ አድራሻ (ለ Render Webhook የተስተካከለ)
 SERVER_URL = os.getenv("SERVER_URL", "https://ethiobingo-jk6x.onrender.com").rstrip('/')
@@ -28,32 +28,7 @@ bot = TeleBot(BOT_TOKEN)
 # የቴሌግራም ተጠቃሚዎችን ጊዜያዊ የሪፈራል መረጃ መያዣ Dictionary
 USER_REF_CACHE = {}
 
-# 📢 የማስታወቂያ ጽሑፍ
-PROMO_TEXT = """🚨 ዛሬ የእርስዎ ቀን ሊሆን ይችላል! 🚨 
-
-🎁 50% FIRST DEPOSIT BONUS
-
-🎮 Yegna Bingo ይቀላቀሉ
-🏆 ዕድልዎን ይሞክሩ!
-
-🏆 በየሳምንቱ ለከፍተኛ ተጫዋቾች የሚሰጥ ልዩ ሽልማት ይዟል!
-
-🎁 Daily Bonus
-👥 Referral Bonus
-
-👥 Official Group
-https://t.me/Yegna_Bingo_Gift_Group
-
-📢 Official Channel
-https://t.me/Yegna_Bingo_public
-
-☎️ Customer Support
-👤 @YegnaaBingo_Support
-📞 +251 95 598 9803
-
-🔥 Yegna Bingo — ዛሬ ይጫወቱ፣ ዛሬ ያሸንፉ! 🍀💚"""
-
-print(f"🎰 የYegnaኛ Bingo ቦት (@{BOT_USERNAME}) በሰላም ስራ ጀምሯል...")
+print(f"🎰 የYegna Bingo ቦት (@{BOT_USERNAME}) በሰላም ስራ ጀምሯል...")
 print("TELEGRAM MODULE LOADED")
 
 
@@ -75,12 +50,11 @@ def register_user_background(telegram_id, telegram_name, first_name, phone_numbe
         print(f"❌ Failed to register user in background: {e}")
 
 
-# 📢 ማስታወቂያ ለሁሉም ተጠቃሚዎች መላኪያ ፋንክሽን
-def broadcast_promo_message():
+# 📢 በThread ውስጥ የሚሮጥ ማስታወቂያ ወይም ቦነስ ለሁሉም ተጠቃሚዎች መላኪያ ፋንክሽን
+def broadcast_worker(text_message, reply_markup=None):
     print("📢 የማስታወቂያ ፕሮሞሽን ለተጠቃሚዎች መላክ ተጀምሯል...")
     
     user_ids = []
-    # 1. ከባክኤንድ ዳታቤዝ የሁሉንም ተጠቃሚዎች ID ማምጣት
     try:
         res = requests.get(f"{BACKEND_URL}/api/users/all_ids", timeout=10)
         if res.status_code == 200:
@@ -102,48 +76,26 @@ def broadcast_promo_message():
     success_count = 0
     fail_count = 0
 
-    # 2. ለተጠቃሚዎች በየተራ መላክ
     for u_id in user_ids:
         if not u_id:
             continue
         try:
             target_chat_id = str(u_id).strip()
-            bot.send_message(target_chat_id, PROMO_TEXT, disable_web_page_preview=True)
+            bot.send_message(
+                target_chat_id, 
+                text_message, 
+                parse_mode="HTML", 
+                reply_markup=reply_markup, 
+                disable_web_page_preview=True
+            )
             success_count += 1
-            time.sleep(0.05)  # Telegram Rate Limit እንዳይይዘን ትንሽ ማረፍ
+            time.sleep(0.04)  # Rate limit (ከ 30 msg/sec እንዳያልፍ)
+        except ApiTelegramException as te:
+            fail_count += 1
         except Exception as e:
             fail_count += 1
-            print(f"⚠️ ለ User ID {u_id} ማስታወቂያ መላክ አልተቻለም (Skipped)፦ {e}")
 
     print(f"🎉 ማስታወቂያ ተልኮ ተጠናቋል! ስኬታማ፦ {success_count}፣ የከሸፉ፦ {fail_count}")
-
-
-# Global Scheduler object እንዳይደገም
-_promo_scheduler = None
-
-# ⏰ Scheduler ማዘጋጀት (ቀን 4:00፣ 8:00፣ 10:00 እና ማታ 12:00፣ 2:00፣ 4:00)
-def start_promo_scheduler():
-    global _promo_scheduler
-    if _promo_scheduler and _promo_scheduler.running:
-        print("⏰ Scheduler አప్పటిሁሩ በመሮጥ ላይ ነው፤ ድጋሚ አልተጀመረም።")
-        return
-
-    ethiopia_tz = pytz.timezone("Africa/Addis_Ababa")
-    _promo_scheduler = BackgroundScheduler(timezone=ethiopia_tz)
-
-    # የኢትዮጵያ ሰዓት በ 24h format (ቀን 4=10, ቀን 8=14, ቀን 10=16, ማታ 12=18, ማታ 2=20, ማታ 4=22)
-    scheduled_hours = [10, 14, 16, 18, 20, 22]
-
-    for hour in scheduled_hours:
-        _promo_scheduler.add_job(
-            broadcast_promo_message,
-            trigger="cron",
-            hour=hour,
-            minute=0
-        )
-
-    _promo_scheduler.start()
-    print("⏰ የማስታወቂያ Scheduler በስኬት ተጀምሯል (በየቀኑ ቀን 4, 8, 10 እና ማታ 12, 2, 4 ይልካል)!")
 
 
 # 1️⃣ /start ሲባል የሚመጣ መልእክት
@@ -151,7 +103,6 @@ def start_promo_scheduler():
 def send_welcome(message):
     telegram_id = message.from_user.id
 
-    # ከሊንኩ ላይ የጋባዥ ID (args) መኖሩን መፈተሽ
     msg_text_parts = message.text.split()
     if len(msg_text_parts) > 1:
         ref_arg = msg_text_parts[1]
@@ -193,21 +144,17 @@ def handle_contact(message):
     user_name = message.from_user.username if message.from_user.username else f"User_{str(telegram_id)[:5]}"
     first_name = message.from_user.first_name if message.from_user.first_name else message.from_user.username
 
-    # የተቀመጠ ሪፈራል ካለ ማምጣት
     referred_by = USER_REF_CACHE.pop(telegram_id, None)
 
-    # ጀርባ ላይ ወደ ባክኤንድ የመመዝገብ/የማዘመን ስራ
     threading.Thread(
         target=register_user_background,
         args=(telegram_id, user_name, first_name, phone_number, referred_by),
         daemon=True
     ).start()
 
-    # የቆዩ የኪቦርድ ቁልፎችን ማጥፊያ
     remove_keyboard = types.ReplyKeyboardRemove()
     bot.send_message(chat_id, "✅ ስልክ ቁጥርዎ በስኬት ተመዝግቧል!", reply_markup=remove_keyboard)
 
-    # የሪፈራል ሊንክ እና የሰላምታ መረጃ መላክ
     my_referral_link = f"https://t.me/{BOT_USERNAME}?start=ref_{telegram_id}"
 
     welcome_text = (
@@ -241,11 +188,131 @@ def handle_contact(message):
         bot.send_message(chat_id, welcome_text, parse_mode="HTML", reply_markup=markup)
 
 
-# 🛠️ ማስተካከያ ሎጂክ ለባክኤንድ ጥያቄ (Thread ውስጥ የሚሮጥ)
+# 📢 4️⃣ ADMIN COMMAND: /broadcast <የመልእክት ጽሁፍ>
+@bot.message_handler(commands=['broadcast'])
+def handle_broadcast_command(message):
+    telegram_id = str(message.from_user.id)
+    
+    if ADMIN_TELEGRAM_ID and telegram_id != ADMIN_TELEGRAM_ID:
+        bot.reply_to(message, "⛔ ይህንን ማድረግ የሚችለው አድሚን ብቻ ነው!")
+        return
+
+    parts = message.text.split(maxsplit=1)
+    if len(parts) < 2:
+        bot.reply_to(message, "⚠️ እባክዎን የመልእክት ጽሁፍ ያስገቡ!\nምሳሌ፦ `/broadcast ዛሬ የ 50% ቦነስ አዘጋጅተናል!`", parse_mode="Markdown")
+        return
+
+    promo_msg = parts[1]
+    bot.reply_to(message, "🚀 የማስታወቂያ መልእክቱ በጀርባ ለሁሉም ተጠቃሚዎች መላክ ተጀምሯል...")
+
+    threading.Thread(
+        target=broadcast_worker,
+        args=(promo_msg, None),
+        daemon=True
+    ).start()
+
+
+# 🎁 5️⃣ ADMIN COMMAND: /create_bonus <amount> <max_users>
+@bot.message_handler(commands=['create_bonus'])
+def handle_create_bonus_command(message):
+    telegram_id = str(message.from_user.id)
+    
+    if ADMIN_TELEGRAM_ID and telegram_id != ADMIN_TELEGRAM_ID:
+        bot.reply_to(message, "⛔ ይህንን ማድረግ የሚችለው አድሚን ብቻ ነው!")
+        return
+
+    parts = message.text.split()
+    if len(parts) < 3:
+        bot.reply_to(
+            message, 
+            "⚠️ አጠቃቀም ስህተት ነው!\nምሳሌ፦ `/create_bonus 50 50`\n(ማለትም፦ ለ 50 ሰዎች የ 50 ብር ቦነስ)",
+            parse_mode="Markdown"
+        )
+        return
+
+    try:
+        amount = float(parts[1])
+        max_claims = int(parts[2])
+    except ValueError:
+        bot.reply_to(message, "❌ እባክዎን ትክክለኛ ቁጥር ያስገቡ!")
+        return
+
+    # ባክኤንድ API ላይ አዲስ ቦነስ መመዝገብ
+    url = f"{BACKEND_URL}/api/users/admin/create-bonus"
+    payload = {
+        "admin_telegram_id": telegram_id,
+        "amount": amount,
+        "max_claims": max_claims
+    }
+
+    try:
+        res = requests.post(url, json=payload, timeout=10)
+        res_data = res.json()
+
+        if res.status_code == 200 and res_data.get("success"):
+            bonus_code = res_data.get("code")
+            bot.reply_to(message, f"✅ የ {amount} ETB ቦነስ ለ {max_claims} ሰዎች ተፈጥሯል። ለሁሉም ተጠቃሚዎች መልእክቱ እየተላከ ነው...")
+
+            # በምስሉ ላይ ያለው ዓይነት ማራኪ ቦነስ ማስታወቂያ ጽሁፍ
+            promo_text = (
+                f"🔥 <b>የጨዋታው ደንብ ጣሪያ ነክቷል!</b> 🎲\n\n"
+                f"⚡️🔥 ሜዳው በደስ ሞቋል! Yegna Bingo ላይ አሁኑኑ ተቀላቅለው የጨዋታ ትኩሳት ጋር አብረው ይደመቁ! 🚀\n\n"
+                f"ይፍጠኑ! ሻምፒዮን! ቶሎ ካልደረሱ የ Yegna Bingo ፈጣን የ <b>{amount} ETB</b> ቦነስ ስጦታ ያልቃል! 🎁"
+            )
+
+            markup = types.InlineKeyboardMarkup()
+            btn_claim = types.InlineKeyboardButton(
+                text="🎁 ክሌም አድርግ (Claim)", 
+                callback_data=f"claim_bonus_{bonus_code}"
+            )
+            markup.add(btn_claim)
+
+            # በጀርባ ለሁሉም ተጠቃሚዎች መላክ
+            threading.Thread(
+                target=broadcast_worker,
+                args=(promo_text, markup),
+                daemon=True
+            ).start()
+        else:
+            bot.reply_to(message, f"❌ ስህተት፦ {res_data.get('message', 'ቦነስ መፍጠር አልተቻለም')}")
+    except Exception as e:
+        bot.reply_to(message, f"❌ ከሰርቨር ጋር መገናኘት አልተቻለም፦ {e}")
+
+
+# 🎁 6️⃣ USER CALLBACK: Claim Bonus Button ሲጫኑ
+@bot.callback_query_handler(func=lambda call: call.data.startswith('claim_bonus_'))
+def handle_claim_bonus_callback(call):
+    telegram_id = str(call.from_user.id)
+    bonus_code = call.data.replace("claim_bonus_", "").strip()
+
+    url = f"{BACKEND_URL}/api/users/claim-bonus"
+    payload = {
+        "telegram_id": telegram_id,
+        "code": bonus_code
+    }
+
+    try:
+        res = requests.post(url, json=payload, timeout=10)
+        res_data = res.json()
+
+        if res.status_code == 200 and res_data.get("success"):
+            msg = res_data.get("message", "🎉 ቦነሱ በስኬት ተጨምሯል!")
+            bot.answer_callback_query(
+                call.id, 
+                text=msg, 
+                show_alert=True
+            )
+        else:
+            msg = res_data.get("message", "ቦነሱን መቀበል አልተቻለም")
+            bot.answer_callback_query(call.id, text=f"⚠️ {msg}", show_alert=True)
+    except Exception as e:
+        bot.answer_callback_query(call.id, text="❌ ከሰርቨር ጋር መገናኘት አልተቻለም።", show_alert=True)
+
+
+# 🛠️ የባክኤንድ ጥያቄ በThread የሚያስኬድ
 def send_admin_action_to_backend(call, url, payload, headers, target_id, action, tx_type):
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=15)
-        print(f"📊 Response Status: {response.status_code}")
         
         try:
             res_data = response.json()
@@ -253,8 +320,6 @@ def send_admin_action_to_backend(call, url, payload, headers, target_id, action,
             res_data = {"success": False, "message": response.text}
 
         if response.status_code == 200 and res_data.get("success"):
-            print(f"✅ Action successfully handled by backend for ID #{target_id}")
-            
             label = "Deposit" if tx_type == "dep" else "Withdrawal"
             alert_text = f"✅ {label} #{target_id} approved successfully!" if action == "approve" else f"❌ {label} #{target_id} rejected & balance refunded"
             try:
@@ -329,16 +394,9 @@ def handle_admin_actions(call):
         }
 
     headers = {"Content-Type": "application/json"}
-    print(f"📡 Requesting: {url}")
     
     threading.Thread(
         target=send_admin_action_to_backend, 
         args=(call, url, payload, headers, target_id, action, tx_type),
         daemon=True
     ).start()
-
-# 💡 ሞጁሉ በሚጫንበት ጊዜ Scheduler-ኡን በራስ-ሰር ማስጀመር
-try:
-    start_promo_scheduler()
-except Exception as e:
-    print(f"⚠️ Scheduler start failure: {e}")
