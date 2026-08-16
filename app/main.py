@@ -18,12 +18,15 @@ if PARENT_DIR not in sys.path:
 if CURRENT_DIR not in sys.path:
     sys.path.append(CURRENT_DIR)
 
+# 🔴 አዲሶቹ Tables (Bonus, BonusClaim ወዘተ) እንዲታወቁ models እዚህ ጋር አስፈላጊ ነው
+import app.models as models 
 from app.database import Base, engine as db_engine
 from app.init_db import initialize_database
 from app.websocket_manager import manager
 from app.game_engine import engine as bingo_engine
 from app.telegram import bot
 
+# 🚀 አዲስ ያልነበሩ Tables ካሉ በራሱ በዳታቤዙ ላይ ይፈጥራቸዋል (ነባር ዳታ ሳይነካ)
 Base.metadata.create_all(bind=db_engine)
 
 
@@ -40,6 +43,12 @@ async def lifespan(app: FastAPI):
         with db_engine.connect() as conn:
             conn.execute(text("ALTER TABLE games ADD COLUMN IF NOT EXISTS winners_info TEXT DEFAULT '[]';"))
             conn.execute(text("ALTER TABLE player_cards ADD COLUMN IF NOT EXISTS card_data TEXT;"))
+            
+            # ነባር ጥንቃቄዎች (በ users, deposits, withdrawals ሰንጠረዥ ላይ አዲስ ነገር ካለ)
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS gift_coin FLOAT DEFAULT 0.0;"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_games_played INTEGER DEFAULT 0;"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_deposit_amount FLOAT DEFAULT 0.0;"))
+            
             conn.commit()
 
         print("✅ Database Initialization & Migration Complete.")
