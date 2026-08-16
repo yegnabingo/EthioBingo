@@ -1,5 +1,6 @@
 import os
 import requests
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime, date
@@ -7,7 +8,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from app.database import SessionLocal
-from app.models import User, Deposit, Withdrawal, Game, DailyCheckIn, PlayerCard
+from app.models import User, Deposit, Withdrawal, Game, DailyCheckIn, PlayerCard, Bonus, BonusClaim
 from app.schemas import DepositCreate, WithdrawCreate 
 
 router = APIRouter(
@@ -17,7 +18,11 @@ router = APIRouter(
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE"))
 ADMIN_TELEGRAM_ID = str(os.getenv("ADMIN_TELEGRAM_ID", "")).strip()
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "123456789")
 
+# --------------------------------------------------------------------------
+# 🔗 Database Dependency
+# --------------------------------------------------------------------------
 def get_db():
     db = SessionLocal()
     try:
@@ -25,7 +30,15 @@ def get_db():
     finally:
         db.close()
 
+
+# --------------------------------------------------------------------------
+# 📢 Helper Functions for Telegram Integration
+# --------------------------------------------------------------------------
 def send_admin_notification(text: str, reply_markup=None):
+    if not ADMIN_TELEGRAM_ID:
+        print("⚠️ ADMIN_TELEGRAM_ID አልተዋቀረም!")
+        return
+        
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": ADMIN_TELEGRAM_ID, "text": text, "parse_mode": "HTML"}
     if reply_markup:
@@ -39,7 +52,7 @@ def send_admin_notification(text: str, reply_markup=None):
 def _telegram_edit_message_sync(chat_id: str, message_id: int, text: str):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
     payload = {
-        "chat_id": chat_id,
+        "chat_id": str(chat_id),
         "message_id": message_id,
         "text": text,
         "parse_mode": "HTML"
@@ -50,6 +63,10 @@ def _telegram_edit_message_sync(chat_id: str, message_id: int, text: str):
     except Exception as e:
         print(f"❌ Telegram Edit Exception: {e}")
 
+
+# --------------------------------------------------------------------------
+# 📝 Pydantic Schemas
+# --------------------------------------------------------------------------
 class AdminAction(BaseModel):
     id: Optional[int] = None
     deposit_id: Optional[int] = None
@@ -60,7 +77,6 @@ class AdminAction(BaseModel):
     message_id: Optional[int] = None
     admin_password: Optional[str] = None
 
-# 🎯 ለተጠቃሚ ምዝገባ የተዘጋጀ Schema
 class UserRegisterPayload(BaseModel):
     telegram_id: str
     telegram_name: Optional[str] = None
@@ -68,6 +84,20 @@ class UserRegisterPayload(BaseModel):
     phone_number: Optional[str] = None
     referred_by: Optional[str] = None
 
+class CreateBonusPayload(BaseModel):
+    admin_telegram_id: str
+    amount: float
+    max_claims: int
+    admin_password: Optional[str] = None
+
+class ClaimBonusPayload(BaseModel):
+    telegram_id: str
+    code: str
+
+
+# --------------------------------------------------------------------------
+# 🚀 API Endpoints
+# --------------------------------------------------------------------------
 
 # 👤 1. የተጫዋች ፕሮፋይል መረጃ ማሳያ API (Profile Modal)
 @router.get("/users/profile/{telegram_id}")
@@ -155,7 +185,6 @@ def register_user(payload: UserRegisterPayload, db: Session = Depends(get_db)):
     
     existing = db.query(User).filter(User.telegram_id == tg_id_str).first()
     if existing:
-        # 📌 የተጠቃሚው ስልክ ቁጥር ወይም ስም ከተላከ ማዘመን (Update)
         updated = False
         if payload.phone_number and hasattr(existing, 'phone_number'):
             existing.phone_number = str(payload.phone_number).strip()
@@ -208,10 +237,11 @@ def register_user(payload: UserRegisterPayload, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
+    # 👥 ሪፈራል ካለ ለጋበዘው ሰው 2.0 ETB መስጠት
     if ref_id_str:
         referrer = db.query(User).filter(User.telegram_id == ref_id_str).first()
         if referrer:
-            referrer.gift_coin = (referrer.gift_coin or 0.0) + 2.0
+            referrer.gift_coin = (getattr(referrer, "gift_coin", 0.0) or 0.0) + 2.0
             db.commit()
             print(f"🎉 Referral Bonus! User {ref_id_str} received 2.0 ETB bonus for inviting {tg_id_str}")
     
@@ -247,10 +277,10 @@ def user_daily_checkin(telegram_id: str, db: Session = Depends(get_db)):
         return {
             "success": False, 
             "message": "⚠️ የዛሬውን የስጦታ መጫወቻዎን ቀድመው ወስደዋል! እባክዎ ነገ በድጋሚ ይመለሱ።",
-            "gift_coin": user.gift_coin
+            "gift_coin": getattr(user, "gift_coin", 0.0) or 0.0
         }
         
-    user.gift_coin = (user.gift_coin or 0.0) + 10.0
+    user.gift_coin = (getattr(user, "gift_coin", 0.0) or 0.0) + 10.0
     new_checkin = DailyCheckIn(user_id=user.id, checked_date=today_date)
     db.add(new_checkin)
     db.commit()
@@ -288,7 +318,7 @@ def get_user(telegram_id: str, db: Session = Depends(get_db)):
 
 # 💰 7. ተጫዋች ከሚኒ አፕ ላይ ዲፖዚት ሲያደርግ
 @router.post("/users/deposit")
-def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
+def user_deposit_request(req: DepositCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
     if not tg_id_str:
         return {"success": False, "message": "Invalid Telegram ID."}
@@ -349,13 +379,13 @@ def user_deposit_request(req: DepositCreate, db: Session = Depends(get_db)):
         f"📝 <b>የባንክ SMS መረጃ፦</b>\n<code>{req.sms_data}</code>"
     )
     
-    send_admin_notification(msg_text, reply_markup=inline_keyboard)
+    background_tasks.add_task(send_admin_notification, msg_text, inline_keyboard)
     return {"success": True, "message": "የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል!"}
 
 
 # 📤 8. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ
 @router.post("/users/withdraw")
-def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
+def user_withdraw_request(req: WithdrawCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
     if not tg_id_str:
         return {"success": False, "message": "Invalid Telegram ID."}
@@ -413,10 +443,10 @@ def user_withdraw_request(req: WithdrawCreate, db: Session = Depends(get_db)):
         f"🏦 ባንክ፦ {req.bank_name}\n"
         f"💳 የባንክ አካውንት፦ <code>{req.account_number}</code>\n"
         f"💰 የገንዘብ መጠን፦ <b>{req.amount} ETB</b>\n\n"
-        f"<i>ይህንን ብር በባንክ ልከው ሲያበቁ 'Paid' የሚለውን ይጫኑ።</i>"
+        f"<i>ይህንን ብር በባንክ ልከው ሲያበቁ 'APPROVED' የሚለውን ይጫኑ።</i>"
     )
 
-    send_admin_notification(msg_text, reply_markup=inline_keyboard)
+    background_tasks.add_task(send_admin_notification, msg_text, inline_keyboard)
     return {"success": True, "message": "የማውጫ ጥያቄዎ ተመዝግቧል!"}
 
 
@@ -448,18 +478,16 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
 
         action_upper = payload.action.upper()
         if action_upper in ["APPROVE", "APPROVED"]:
-            # 🔍 ተጫዋቹ ከዚህ ቀደም የጸደቀ (Approved) ዲፖዚት እንዳለው መፈተሽ
             prior_approved_deposits = db.query(Deposit).filter(
                 Deposit.user_id == user.id,
                 Deposit.status == "approved"
             ).count()
 
+            # የመጀመሪያ ጊዜ ዲፖዚት ከሆነ 25% ቦነስ መስጠት
             bonus_amount = 0.0
-            # የመጀመሪያው Deposit ከሆነ ብቻ 25% ቦነስ መስጠት
             if prior_approved_deposits == 0:
                 bonus_amount = deposit.amount * 0.25
 
-            # አጠቃላይ የሚደመረው መጠን (የዲፖዚት መጠን + 25% ቦነስ)
             total_addition = deposit.amount + bonus_amount
 
             current_balance = getattr(user, "balance", 0.0) or 0.0
@@ -473,7 +501,6 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
             db.commit()
             
             if payload.message_id:
-                # መልዕክቱ ላይ ቦነስ ተጨምሮ እንደሆነ የሚያሳይ መረጃ ማካተት
                 bonus_text = f"\n🎁 <b>የመጀመሪያ ዲፖዚት ቦነስ (25%)፦</b> {bonus_amount} ETB" if bonus_amount > 0 else ""
                 
                 text = (
@@ -572,12 +599,11 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
         return {"success": False, "message": f"Internal Server Error: {str(e)}"}
 
 
-# 📢 11. ለቦቱ ማስታወቂያ መላኪያ የሁሉም ተጠቃሚዎች ID ማውጫ API (የተስተካከለ)
+# 📢 11. ለቦቱ ማስታወቂያ መላኪያ የሁሉም ተጠቃሚዎች ID ማውጫ API
 @router.get("/users/all_ids")
 def get_all_user_telegram_ids(db: Session = Depends(get_db)):
     try:
         users = db.query(User.telegram_id).all()
-        # 📌 Telegram ID ያላቸውንና ባዶ ያልሆኑትን ተጠቃሚዎች በሙሉ አጣርቶ መላክ
         user_ids = []
         for u in users:
             if u.telegram_id:
@@ -589,3 +615,84 @@ def get_all_user_telegram_ids(db: Session = Depends(get_db)):
     except Exception as e:
         print(f"❌ Error fetching all user IDs: {e}")
         return {"success": False, "user_ids": []}
+
+
+# 🎁 12. አድሚን ቦነስ ሲፈጥር (Admin Create Bonus API)
+@router.post("/users/admin/create-bonus")
+def create_bonus(payload: CreateBonusPayload, db: Session = Depends(get_db)):
+    is_valid_admin = False
+    if payload.admin_telegram_id and ADMIN_TELEGRAM_ID and str(payload.admin_telegram_id).strip() == ADMIN_TELEGRAM_ID:
+        is_valid_admin = True
+    elif payload.admin_password and payload.admin_password == ADMIN_PASSWORD:
+        is_valid_admin = True
+
+    if not is_valid_admin:
+        return {"success": False, "message": "Unauthorized admin action"}
+
+    unique_code = str(uuid.uuid4())[:8]
+    
+    new_bonus = Bonus(
+        code=unique_code,
+        amount=payload.amount,
+        max_claims=payload.max_claims,
+        claimed_count=0,
+        is_active=True
+    )
+    db.add(new_bonus)
+    db.commit()
+    db.refresh(new_bonus)
+
+    return {
+        "success": True,
+        "code": unique_code,
+        "amount": payload.amount,
+        "max_claims": payload.max_claims,
+        "message": "Bonus created successfully"
+    }
+
+
+# 🎁 13. ተጠቃሚዎች ቦነስ Claim ሲያደርጉ (User Claim Bonus API)
+@router.post("/users/claim-bonus")
+def claim_bonus(payload: ClaimBonusPayload, db: Session = Depends(get_db)):
+    tg_id_str = str(payload.telegram_id).strip()
+    user = db.query(User).filter(User.telegram_id == tg_id_str).first()
+    if not user:
+        return {"success": False, "message": "ተጠቃሚው አልተገኘም!"}
+
+    bonus = db.query(Bonus).filter(Bonus.code == payload.code, Bonus.is_active == True).first()
+    if not bonus:
+        return {"success": False, "message": "ይህ ቦነስ የለም ወይም ተዘግቷል!"}
+
+    if bonus.claimed_count >= bonus.max_claims:
+        bonus.is_active = False
+        db.commit()
+        return {"success": False, "message": "ይቅርታ! የቦነሱ ቦታ ሙሉ በሙሉ ተይዟል።"}
+
+    # ተጠቃሚው ቀድሞ Claim ማድረጉን መፈተሽ
+    existing_claim = db.query(BonusClaim).filter(
+        BonusClaim.bonus_id == bonus.id,
+        BonusClaim.user_id == user.id
+    ).first()
+
+    if existing_claim:
+        return {"success": False, "message": "ይህንን ቦነስ ቀድመው ወስደዋል!"}
+
+    # ቦነሱን ለተጠቃሚው መስጠት
+    current_bal = getattr(user, "balance", 0.0) or 0.0
+    user.balance = current_bal + bonus.amount
+    user.wallet = user.balance
+    bonus.claimed_count += 1
+
+    if bonus.claimed_count >= bonus.max_claims:
+        bonus.is_active = False
+
+    new_claim = BonusClaim(bonus_id=bonus.id, user_id=user.id)
+    db.add(new_claim)
+    db.commit()
+
+    return {
+        "success": True,
+        "amount": bonus.amount,
+        "new_balance": user.balance,
+        "message": f"🎉 የ {bonus.amount} ETB ቦነስ በስኬት አካውንትዎ ላይ ተጨምሯል!"
+    }
