@@ -292,7 +292,19 @@ def user_daily_checkin(telegram_id: str, db: Session = Depends(get_db)):
     }
 
 
-# 🔍 6. የተጫዋቹን የዋሌት መረጃ መፈተሻ API
+# 📢 6. ለቦቱ ማስታወቂያ መላኪያ የሁሉም ተጠቃሚዎች ID ማውጫ API (የተስተካከለ)
+@router.get("/users/all_ids")
+def get_all_user_telegram_ids(db: Session = Depends(get_db)):
+    try:
+        users = db.query(User.telegram_id).all()
+        user_ids = [str(u.telegram_id).strip() for u in users if u.telegram_id and str(u.telegram_id).strip()]
+        return user_ids
+    except Exception as e:
+        print(f"❌ Error fetching all user IDs: {e}")
+        return []
+
+
+# 🔍 7. የተጫዋቹን የዋሌት መረጃ መፈተሻ API
 @router.get("/users/{telegram_id}")
 def get_user(telegram_id: str, db: Session = Depends(get_db)):
     tg_id_str = str(telegram_id).strip()
@@ -316,7 +328,7 @@ def get_user(telegram_id: str, db: Session = Depends(get_db)):
     }
 
 
-# 💰 7. ተጫዋች ከሚኒ አፕ ላይ ዲፖዚት ሲያደርግ
+# 💰 8. ተጫዋች ከሚኒ አፕ ላይ ዲፖዚት ሲያደርግ
 @router.post("/users/deposit")
 def user_deposit_request(req: DepositCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
@@ -383,7 +395,7 @@ def user_deposit_request(req: DepositCreate, background_tasks: BackgroundTasks, 
     return {"success": True, "message": "የማስገቢያ ጥያቄዎ በተሳካ ሁኔታ ለአድሚን ተልኳል!"}
 
 
-# 📤 8. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ
+# 📤 9. ተጫዋች ከሚኒ አፕ ላይ ዊዝድሮው ሲያደርግ
 @router.post("/users/withdraw")
 def user_withdraw_request(req: WithdrawCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     tg_id_str = str(req.telegram_id).strip()
@@ -450,7 +462,7 @@ def user_withdraw_request(req: WithdrawCreate, background_tasks: BackgroundTasks
     return {"success": True, "message": "የማውጫ ጥያቄዎ ተመዝግቧል!"}
 
 
-# 👮‍♂️ 9. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Deposit)
+# 👮‍♂️ 10. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Deposit)
 @router.post("/deposit/admin/approve")
 def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
@@ -533,7 +545,7 @@ def admin_approve_deposit(payload: AdminAction, background_tasks: BackgroundTask
         return {"success": False, "message": f"Internal Server Error: {str(e)}"}
 
 
-# 👮‍♂️ 10. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Withdraw)
+# 👮‍♂️ 11. አድሚኑ ከቴሌግራም ላይ APPROVE/REJECT ሲያደርግ (Withdraw)
 @router.post("/withdraw/admin/approve")
 def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
@@ -597,24 +609,6 @@ def admin_approve_withdraw(payload: AdminAction, background_tasks: BackgroundTas
         error_msg = f"❌ <b>ባክኤንድ ስህተት (Withdraw Approved)፦</b>\n<code>{str(e)}</code>"
         send_admin_notification(error_msg)
         return {"success": False, "message": f"Internal Server Error: {str(e)}"}
-
-
-# 📢 11. ለቦቱ ማስታወቂያ መላኪያ የሁሉም ተጠቃሚዎች ID ማውጫ API
-@router.get("/users/all_ids")
-def get_all_user_telegram_ids(db: Session = Depends(get_db)):
-    try:
-        users = db.query(User.telegram_id).all()
-        user_ids = []
-        for u in users:
-            if u.telegram_id:
-                clean_id = str(u.telegram_id).strip()
-                if clean_id:
-                    user_ids.append(clean_id)
-                    
-        return {"success": True, "user_ids": user_ids}
-    except Exception as e:
-        print(f"❌ Error fetching all user IDs: {e}")
-        return {"success": False, "user_ids": []}
 
 
 # 🎁 12. አድሚን ቦነስ ሲፈጥር (Admin Create Bonus API)
