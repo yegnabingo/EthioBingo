@@ -1141,3 +1141,57 @@ function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.style.display = 'none';
 }
+
+// ==========================================================================
+// 📺 ADSGRAM REWARD VIDEO INTEGRATION
+// ==========================================================================
+
+// 1. Adsgram SDK በራሱ ጊዜ መጫኑን ማረጋገጫ
+(function initAdsgramSDK() {
+    if (!document.getElementById("adsgram-sdk-script")) {
+        const script = document.createElement("script");
+        script.id = "adsgram-sdk-script";
+        script.src = "https://sad.adsgram.ai/js/sad.min.js";
+        script.async = true;
+        document.head.appendChild(script);
+    }
+})();
+
+// 2. HTML ላይ ላለው button (playAdsgramAd) የተዘጋጀ ፈንክሽን
+async function playAdsgramAd() {
+    if (!window.Adsgram) {
+        showToastMessage("⚠️ Adsgram ማስታወቂያ ገና አልተጫነም! እባክዎ ትንሽ ቆይተው ይሞክሩ።", "error");
+        return;
+    }
+
+    try {
+        // Adsgram controller initialization (Block ID: 43326)
+        const AdController = window.Adsgram.init({ blockId: "43326" });
+        const result = await AdController.show();
+
+        // ተጫዋቹ ማስታወቂያውን እስከ መጨረሻው ካየ በኋላ የሚሰራ
+        if (result && result.done) {
+            showToastMessage("🎉 ማስታወቂያውን ስለጨረሱ ሽልማቱ እየተላከ ነው...", "success");
+
+            const userId = myTelegramId || "123456";
+            const rewardUrl = `https://ethiobingo-jk6x.onrender.com/reward?user_id=${userId}`;
+
+            const response = await fetch(rewardUrl, { method: "POST" });
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                showToastMessage(`🎁 እንኳን ደስ አለዎ! ${data.bonus_amount || 10} ETB ሽልማት አግኝተዋል።`, "success");
+                refreshUserBalance(); // የተጫዋቹን ባላንስ ማደስ
+            } else {
+                showToastMessage("⚠️ ሽልማቱን መስጠት አልተቻለም፦ " + (data.message || "የሰርቨር ስህተት"), "error");
+            }
+        }
+    } catch (error) {
+        if (error && error.error) {
+            console.log("Adsgram Error/Skipped:", error);
+            showToastMessage("⚠️ ማስታወቂያው ሳይጠናቀቅ ተዘግቷል!", "error");
+        } else {
+            console.error("Adsgram Execution Error:", error);
+        }
+    }
+}
