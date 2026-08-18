@@ -6,8 +6,9 @@
     <title>Yegna Bingo</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- 📢 Adsgram SDK -->
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
     <style>
-        /* 📌 1. አፑን ሙሉ ስክሪን (Full Screen) የማድረጊያ CSS */
         html, body {
             margin: 0 !important;
             padding: 0 !important;
@@ -16,9 +17,8 @@
             background-color: #1e272e;
             overflow-x: hidden;
             box-sizing: border-box;
-            padding-bottom: 60px !important; /* ለታችኛው ናቪጌሽን ባር ቦታ ይተዋል */
+            padding-bottom: 60px !important;
         }
-
         .container {
             width: 100% !important;
             max-width: 100% !important;
@@ -27,8 +27,6 @@
             padding: 10px !important;
             box-sizing: border-box;
         }
-
-        /* 🛠️ የውርርድ በተኖች ውበትና የአክቲቭ (የተመረጠ) በተን መለያ */
         .bet-selector-box {
             display: flex;
             gap: 5px;
@@ -55,8 +53,6 @@
             border-color: #ffd700;
             box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
         }
-
-        /* 🎨 የ Dropdown (Select) ሳጥኖች ዲዛይን */
         .modal-select-input {
             width: 100%;
             padding: 12px;
@@ -76,8 +72,6 @@
             color: #ffffff;
             padding: 10px;
         }
-
-        /* 📱 የታችኛው Bottom Navigation Bar CSS */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -92,7 +86,6 @@
             z-index: 9999;
             box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
         }
-
         .nav-item {
             display: flex;
             flex-direction: column;
@@ -105,19 +98,10 @@
             font-weight: bold;
             cursor: pointer;
             transition: color 0.2s ease;
-            width: 25%; /* 4 በተኖች ስላሉ እኩል እንዲካፈሉ 25% ተደርጓል */
+            width: 25%;
         }
-
-        .nav-item.active, .nav-item:hover {
-            color: #ffd700;
-        }
-
-        .nav-item span.icon {
-            font-size: 20px;
-            margin-bottom: 2px;
-        }
-
-        /* 🏆 Leaderboard CSS Stylings */
+        .nav-item.active, .nav-item:hover { color: #ffd700; }
+        .nav-item span.icon { font-size: 20px; margin-bottom: 2px; }
         .podium-container {
             display: flex;
             justify-content: center;
@@ -140,12 +124,8 @@
             box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
             order: 2;
         }
-        .podium-card.rank-2 {
-            order: 1;
-        }
-        .podium-card.rank-3 {
-            order: 3;
-        }
+        .podium-card.rank-2 { order: 1; }
+        .podium-card.rank-3 { order: 3; }
         .crown-badge {
             position: absolute;
             top: -12px;
@@ -163,8 +143,6 @@
             margin-bottom: 8px;
             border-left: 4px solid #2ed573;
         }
-
-        /* 📜 History Item Styling */
         .history-item {
             background: #2f3542;
             padding: 12px;
@@ -183,61 +161,31 @@
             border-bottom: 1px dashed #4b6584;
             padding-bottom: 4px;
         }
-        .history-item .user-cards {
-            color: #a4b0be;
-        }
+        .history-item .user-cards { color: #a4b0be; }
     </style>
 </head>
 <body>
-
 <div class="container">
-
     <div id="pickScreen">
-
-        <div class="copyright">
-            © 2026 Yegna_Groups. All Rights Reserved.
-        </div>
-        
+        <div class="copyright">© 2026 Yegna_Groups. All Rights Reserved.</div>
         <div class="app-logo-neon-container" style="text-align: center; margin-top: 15px; margin-bottom: 15px;">
-            <h1 style="font-size: 32px; font-weight: 900; color: #ffffff; margin: 0; text-shadow: 0 0 10px #2ed573, 0 0 20px #2ed573; font-family: sans-serif; letter-spacing: 1px;">
-                የYegnaኛ
-            </h1>
-            <span style="font-size: 40px; font-weight: 900; color: #ffd700; text-transform: uppercase; display: inline-block; margin-top: -5px; text-shadow: 0 0 15px #ffcc00, 0 0 30px #ffa500; letter-spacing: 3px;">
-                BINGO
-            </span>
-            <div style="font-size: 11px; color: #a4b0be; text-transform: uppercase; letter-spacing: 4px; margin-top: 5px;">
-                • Mini App Game •
-            </div>
+            <h1 style="font-size: 32px; font-weight: 900; color: #ffffff; margin: 0; text-shadow: 0 0 10px #2ed573, 0 0 20px #2ed573; font-family: sans-serif; letter-spacing: 1px;">የYegnaኛ</h1>
+            <span style="font-size: 40px; font-weight: 900; color: #ffd700; text-transform: uppercase; display: inline-block; margin-top: -5px; text-shadow: 0 0 15px #ffcc00, 0 0 30px #ffa500; letter-spacing: 3px;">BINGO</span>
+            <div style="font-size: 11px; color: #a4b0be; text-transform: uppercase; letter-spacing: 4px; margin-top: 5px;">• Mini App Game •</div>
         </div>
-
         <div class="timer-container-circle">
-            <div class="circle-timer">
-                <span id="timerText">30</span>
-                <small>Seconds</small>
-            </div>
+            <div class="circle-timer"><span id="timerText">30</span><small>Seconds</small></div>
         </div>
-
         <div class="wallet-action-row" style="display: flex; justify-content: center; gap: 10px; margin: 15px 0;">
-            <button onclick="openWalletModal('deposit')" style="background: #2ed573; color: white; border: none; padding: 10px 18px; font-weight: bold; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(46, 213, 115, 0.3);">
-                📥 ብር ማስገቢያ (Deposit)
-            </button>
-            <button onclick="openWalletModal('withdraw')" style="background: #ff4757; color: white; border: none; padding: 10px 18px; font-weight: bold; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(255, 71, 87, 0.3);">
-                📤 ብር ማውጫ (Withdraw)
-            </button>
+            <button onclick="openWalletModal('deposit')" style="background: #2ed573; color: white; border: none; padding: 10px 18px; font-weight: bold; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(46, 213, 115, 0.3);">📥 ብር ማስገቢያ (Deposit)</button>
+            <button onclick="openWalletModal('withdraw')" style="background: #ff4757; color: white; border: none; padding: 10px 18px; font-weight: bold; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(255, 71, 87, 0.3);">📤 ብር ማውጫ (Withdraw)</button>
         </div>
-            
         <div class="top-status-bar">
             <div class="derash-badge" id="derashBadge">Derash: 0 ETB 📋</div>
-            
-            <div style="margin-top: 5px; font-size: 11px; color: #a4b0be; text-align: center;">
-                Support: 
-                <a href="https://t.me/YegnaaBingo_Support" target="_blank" style="color: #ffd700; text-decoration: none;">@YegnaaBingo_Support</a>
-            </div>
+            <div style="margin-top: 5px; font-size: 11px; color: #a4b0be; text-align: center;">Support: <a href="https://t.me/YegnaaBingo_Support" target="_blank" style="color: #ffd700; text-decoration: none;">@YegnaaBingo_Support</a></div>
         </div>
-
         <div class="stats-grid">
             <div class="stat-box">Game<strong>-</strong></div>
-            
             <div class="stat-box" style="grid-column: span 1; display: flex; flex-direction: column; gap: 4px;">
                 <span style="font-size: 11px; color: #a4b0be;">Bet Amount</span>
                 <div class="bet-selector-box">
@@ -246,20 +194,15 @@
                     <button class="bet-btn" onclick="changeBetRoom(50)">50</button>
                 </div>
             </div>
-
             <div class="stat-box">Active Game<strong>-</strong></div>
             <div class="stat-box">Wallet<strong id="walletBalance">- ETB</strong></div>
             <div class="stat-box">Gift <strong><span id="gift-coin-display">0.00</span> Coin</strong></div>
         </div>
-
         <div class="card-grid-200" id="cardGrid"></div>
-
         <div class="pick-actions" style="margin-bottom: 20px;">
             <button class="btn-confirm" id="confirmBtn" style="width: 100%;">CONFIRM PICKS</button>
         </div>
-        
     </div> 
-    
     <div id="drawScreen" style="display: none;">
         <div class="bingo-header">
             <div class="info-group">
@@ -436,7 +379,6 @@
             <div style="display: flex; justify-content: space-between;"><span>💵 ያሸነፉት አጠቃላይ ብር:</span><strong id="prof-winnings" style="color: #ffd700;">0.00 ETB</strong></div>
         </div>
 
-        <!-- 📜 TRANSACTIONS LIST SECTION -->
         <div style="border-top: 1px dashed #3d3d3d; padding-top: 12px;">
             <h4 style="margin: 0 0 10px 0; color: #ffd700; font-size: 14px;">📜 የቅርብ ጊዜ የገንዘብ እንቅስቃሴዎች</h4>
             <div id="prof-transactions-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto;">
@@ -461,9 +403,16 @@
             <div style="display: flex; justify-content: space-between;"><span>🥈 2ኛ የወጣ፦</span><strong style="color: #c0c0c0;">3000 ETB</strong></div>
             <div style="display: flex; justify-content: space-between;"><span>🥉 3ኛ የወጣ፦</span><strong style="color: #cd7f32;">1000 ETB</strong></div>
         </div>
-        <div style="background: #3a3f4d; padding: 10px; border-radius: 8px; text-align: center; font-size: 12px; border: 1px solid #ffd700;">
+        <div style="background: #3a3f4d; padding: 10px; border-radius: 8px; text-align: center; font-size: 12px; border: 1px solid #ffd700; margin-bottom: 15px;">
             የእርስዎ የሳምንቱ ደረጃ፦ <strong id="bonus-user-rank" style="color: #ffd700;">-</strong><br>
             የተጫወቱት የካርድ ብዛት፦ <strong id="bonus-user-cards" style="color: #2ed573;">0 ካርድ</strong>
+        </div>
+
+        <!-- 💰 ADSGRAM REWARD VIDEO BUTTON -->
+        <div style="text-align: center;">
+            <button onclick="playAdsgramAd()" style="width: 100%; background: linear-gradient(135deg, #ffd700, #ffa500); color: #1e272e; border: none; padding: 12px; font-weight: 900; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4); display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span>🎬</span> 💰 ቪዲዮ ይመልከቱ & Gift Coin ያግኙ
+            </button>
         </div>
     </div>
 </div>
