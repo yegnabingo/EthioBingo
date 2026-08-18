@@ -344,7 +344,7 @@ function connectWebSocket() {
                 if (autoModal) {
                     autoModal.remove();
                 }
-            }, 7000);
+            }, 5000);
 
             selectedCards = []; 
             temporarilySelectedCards = [];
