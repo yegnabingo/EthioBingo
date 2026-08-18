@@ -99,6 +99,33 @@ class ClaimBonusPayload(BaseModel):
 # 🚀 API Endpoints
 # --------------------------------------------------------------------------
 
+# 📺 0. ADSGRAM REWARD WEBHOOK (አዲስ የተጨመረ - Adsgram ማስታወቂያ ሽልማት መስጫ)
+@router.post("/reward")
+@router.post("/users/reward")
+def adsgram_reward_webhook(user_id: str, db: Session = Depends(get_db)):
+    tg_id_str = str(user_id).strip()
+    if not tg_id_str:
+        return {"success": False, "message": "Invalid User ID"}
+
+    user = db.query(User).filter(User.telegram_id == tg_id_str).first()
+    if not user:
+        return {"success": False, "message": "ተጠቃሚው አልተገኘም!"}
+
+    # ማስታወቂያ ላየ ተጫዋች የሚሰጥ የGift Coin መጠን (ለምሳሌ 10.0 Gift Coin)
+    reward_bonus = 10.0
+    current_gift = getattr(user, "gift_coin", 0.0) or 0.0
+    user.gift_coin = current_gift + reward_bonus
+
+    db.commit()
+
+    return {
+        "success": True,
+        "bonus_amount": reward_bonus,
+        "new_gift_balance": user.gift_coin,
+        "message": f"🎉 ማስታወቂያ ስለተመለከቱ {reward_bonus} Gift Coin በስኬት ተጨምሮልዎታል!"
+    }
+
+
 # 👤 1. የተጫዋች ፕሮፋይል መረጃ ማሳያ API (Profile Modal)
 @router.get("/users/profile/{telegram_id}")
 def get_user_profile(telegram_id: str, db: Session = Depends(get_db)):
@@ -292,7 +319,7 @@ def user_daily_checkin(telegram_id: str, db: Session = Depends(get_db)):
     }
 
 
-# 📢 6. ለቦቱ ማስታወቂያ መላኪያ የሁሉም ተጠቃሚዎች ID ማውጫ API (የተስተካከለ)
+# 📢 6. ለቦቱ ማስታወቂያ መላኪያ የሁሉም ተጠቃሚዎች ID ማውጫ API
 @router.get("/users/all_ids")
 def get_all_user_telegram_ids(db: Session = Depends(get_db)):
     try:
