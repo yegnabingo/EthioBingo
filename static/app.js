@@ -1165,8 +1165,8 @@ async function playAdsgramAd() {
     }
 
     try {
-        // Adsgram controller initialization (Block ID: 43326)
-        const AdController = window.Adsgram.init({ blockId: "43326" });
+        // Adsgram controller initialization (Block ID: 43788)
+        const AdController = window.Adsgram.init({ blockId: "43788" });
         const result = await AdController.show();
 
         // ተጫዋቹ ማስታወቂያውን እስከ መጨረሻው ካየ በኋላ የሚሰራ
