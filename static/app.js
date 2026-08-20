@@ -1180,7 +1180,7 @@ async function playAdsgramAd() {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                showToastMessage(`🎁 እንኳን ደስ አለዎ! ${data.bonus_amount || 10} ETB ሽልማት አግኝተዋል።`, "success");
+                showToastMessage(`🎁 እንኳን ደስ አለዎ! ${data.bonus_amount || 10} Points ሽልማት አግኝተዋል።`, "success");
                 refreshUserBalance(); // የተጫዋቹን ባላንስ ማደስ
             } else {
                 showToastMessage("⚠️ ሽልማቱን መስጠት አልተቻለም፦ " + (data.message || "የሰርቨር ስህተት"), "error");
