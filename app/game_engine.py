@@ -90,7 +90,7 @@ class GameEngine:
 
         # ከሌሊቱ 6:00 እስከ ጠዋቱ 12:00 (ከ0:00 እስከ 5:59)
         else:
-            return random.randint(30, 60)
+            return random.randint(50, 100)
 
     async def auto_buy_bot_cards(self, game_id: int):
         """
