@@ -103,7 +103,7 @@ async function refreshTakenCards() {
         const response = await fetch(`/api/cards/status?bet_amount=${currentBetAmount}`);
         if (response.ok) {
             const takenCards = await response.json();
-            update200CardsColors(takenCards);
+            update500CardsColors(takenCards);
         }
     } catch (e) {
         console.error("⚠️ የተሸጡ ካርዶችን ማደስ አልተቻለም፦", e);
@@ -116,7 +116,7 @@ function connectWebSocket() {
 
     ws.onopen = () => {
         console.log("✅ ከቢንጎ ሞተር ጋር ተገናኘን!");
-        generate200Cards(); 
+        generate500Cards(); 
         refreshTakenCards(); 
     };
 
@@ -126,7 +126,7 @@ function connectWebSocket() {
         // 🛠️ ካርድ ሲገዛ የመጣው መልዕክት ከአሁኑ ክፍል ጋር እኩል ከሆነ ብቻ UI ማደስ
         if (data.type === "taken_cards_update") {
             if (data.bet_amount === undefined || data.bet_amount === currentBetAmount) {
-                update200CardsColors(data.taken_cards);
+                update500CardsColors(data.taken_cards);
             }
         }
 
@@ -367,12 +367,12 @@ if (typeof markedCellsMap === "undefined") {
     var markedCellsMap = {};
 }
 
-// 🎴 1-200 የካርድ ቁልፎች መፍጠሪያ
-function generate200Cards() {
+// 🎴 1-500 የካርድ ቁልፎች መፍጠሪያ
+function generate500Cards() {
     const grid = document.getElementById("cardGrid");
     if (!grid) return;
     grid.innerHTML = "";
-    for (let i = 1; i <= 200; i++) {
+    for (let i = 1; i <= 500; i++) {
         const btn = document.createElement("button");
         btn.className = "card-btn";
         btn.id = `pick-card-${i}`;
@@ -384,8 +384,8 @@ function generate200Cards() {
     }
 }
 
-function update200CardsColors(takenCardsList) {
-    for (let i = 1; i <= 200; i++) {
+function update500CardsColors(takenCardsList) {
+    for (let i = 1; i <= 500; i++) {
         const btn = document.getElementById(`pick-card-${i}`);
         if (!btn) continue;
         if (temporarilySelectedCards.includes(i)) continue;
@@ -416,8 +416,8 @@ function selectCardTemporarily(cardNumber) {
         return;
     }
 
-    if (temporarilySelectedCards.length + selectedCards.length >= 5) {
-        showToastMessage("⚠️ በአንድ ጨዋታ መግዛት የሚችሉት ከፍተኛው የካርድ መጠን 5 ብቻ ነው!", "error");
+    if (temporarilySelectedCards.length + selectedCards.length >= 10) {
+        showToastMessage("⚠️ በአንድ ጨዋታ መግዛት የሚችሉት ከፍተኛው የካርቴላ መጠን 10 ብቻ ነው!", "error");
         return;
     }
 
@@ -431,7 +431,7 @@ function selectCardTemporarily(cardNumber) {
 
 async function confirmAllSelectedPicks() {
     if (temporarilySelectedCards.length === 0) {
-        showToastMessage("⚠️ እባክህ መጀመሪያ የሚገዙትን የካርድ ቁጥሮች ይምረጡ!", "error");
+        showToastMessage("⚠️ እባክህ መጀመሪያ የሚገዙትን የካርቴላ ቁጥሮች ይምረጡ!", "error");
         return;
     }
 
@@ -477,7 +477,7 @@ async function confirmAllSelectedPicks() {
                     walletBalanceEl.innerText = result.current_balance + " ETB";
                 }
                 
-                showToastMessage("🎉 ካርዱ በተሳካ ሁኔታ ተገዝቷል!", "success");
+                showToastMessage("🎉 ካርቴላው በተሳካ ሁኔታ ተገዝቷል!", "success");
             }
         } catch (e) {
             console.log(e);
@@ -987,7 +987,7 @@ async function openBonusModal() {
             if (data.success && data.bonus_info) {
                 const b = data.bonus_info;
                 document.getElementById('bonus-user-rank').innerText = b.user_current_rank || "-";
-                document.getElementById('bonus-user-cards').innerText = `${b.user_weekly_games || 0} ካርድ`;
+                document.getElementById('bonus-user-cards').innerText = `${b.user_weekly_games || 0} ካርቴላ`;
             }
         }
     } catch (e) {
@@ -995,7 +995,7 @@ async function openBonusModal() {
     }
 }
 
-// 3. 🏆 የሳምንቱን ምርጥ ተጫዋቾች (Leaderboard Top 10)
+// 3. 🏆 የሳምንቱን ምርጥ ተጫዋቾች (Leaderboard Top 50)
 async function openLeaderboardModal() {
     closeAllModals(); // የቀደሙትን ይዘጋል
     const modal = document.getElementById('leaderboardModal');
@@ -1040,7 +1040,7 @@ async function openLeaderboardModal() {
                 const listContainer = document.getElementById('leaderboard-list');
                 if (listContainer) {
                     listContainer.innerHTML = "";
-                    const restUsers = list.slice(3, 10);
+                    const restUsers = list.slice(3, 50);
 
                     if (restUsers.length > 0) {
                         restUsers.forEach((user, idx) => {
@@ -1091,7 +1091,7 @@ async function openHistoryModal() {
             data.history.forEach(item => {
                 const userCardsText = item.user_picked_cards && item.user_picked_cards.length > 0 
                     ? item.user_picked_cards.join(', ') 
-                    : 'ምንም ካርድ አልተገዛም';
+                    : 'ምንም ካርቴላ አልተገዙም';
 
                 const winnersList = item.winners || (item.winner ? [item.winner] : []);
                 let winnersHtml = '';
@@ -1106,7 +1106,7 @@ async function openHistoryModal() {
                             <div class="winner-info" style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding-top:4px; ${index > 0 ? 'border-top: 1px dashed #4b6584;' : ''}">
                                 <span>🏆 አሸናፊ፦ <b style="color:#2ed573;">${winnerName}</b> (+${prize} ETB)</span>
                                 <div style="background:#2ed573; color:white; padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; display:flex; align-items:center; gap:4px;">
-                                    👁 ካርድ #${cardNum}
+                                    👁 ካርቴላ #${cardNum}
                                 </div>
                             </div>
                         `;
@@ -1122,7 +1122,7 @@ async function openHistoryModal() {
                         <span>🎮 Game #${item.game_no}</span>
                         <span style="color:#ffd700;">ID: ${item.game_id}</span>
                     </div>
-                    <div class="user-cards">🎫 የእርስዎ ካርዶች፦ <b>${userCardsText}</b></div>
+                    <div class="user-cards">🎫 የእርስዎ ካርቴላዋች፦ <b>${userCardsText}</b></div>
                     ${winnersHtml}
                 `;
                 container.appendChild(cardElem);
@@ -1140,58 +1140,4 @@ async function openHistoryModal() {
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.style.display = 'none';
-}
-
-// ==========================================================================
-// 📺 ADSGRAM REWARD VIDEO INTEGRATION
-// ==========================================================================
-
-// 1. Adsgram SDK በራሱ ጊዜ መጫኑን ማረጋገጫ
-(function initAdsgramSDK() {
-    if (!document.getElementById("adsgram-sdk-script")) {
-        const script = document.createElement("script");
-        script.id = "adsgram-sdk-script";
-        script.src = "https://sad.adsgram.ai/js/sad.min.js";
-        script.async = true;
-        document.head.appendChild(script);
-    }
-})();
-
-// 2. HTML ላይ ላለው button (playAdsgramAd) የተዘጋጀ ፈንክሽን
-async function playAdsgramAd() {
-    if (!window.Adsgram) {
-        showToastMessage("⚠️ Adsgram ማስታወቂያ ገና አልተጫነም! እባክዎ ትንሽ ቆይተው ይሞክሩ።", "error");
-        return;
-    }
-
-    try {
-        // Adsgram controller initialization (Block ID: 43788)
-        const AdController = window.Adsgram.init({ blockId: "43788" });
-        const result = await AdController.show();
-
-        // ተጫዋቹ ማስታወቂያውን እስከ መጨረሻው ካየ በኋላ የሚሰራ
-        if (result && result.done) {
-            showToastMessage("🎉 ማስታወቂያውን ስለጨረሱ ሽልማቱ እየተላከ ነው...", "success");
-
-            const userId = myTelegramId || "123456";
-            const rewardUrl = `https://ethiobingo-jk6x.onrender.com/reward?user_id=${userId}`;
-
-            const response = await fetch(rewardUrl, { method: "POST" });
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                showToastMessage(`🎁 እንኳን ደስ አለዎ! ${data.bonus_amount || 10} Points ሽልማት አግኝተዋል።`, "success");
-                refreshUserBalance(); // የተጫዋቹን ባላንስ ማደስ
-            } else {
-                showToastMessage("⚠️ ሽልማቱን መስጠት አልተቻለም፦ " + (data.message || "የሰርቨር ስህተት"), "error");
-            }
-        }
-    } catch (error) {
-        if (error && error.error) {
-            console.log("Adsgram Error/Skipped:", error);
-            showToastMessage("⚠️ ማስታወቂያው ሳይጠናቀቅ ተዘግቷል!", "error");
-        } else {
-            console.error("Adsgram Execution Error:", error);
-        }
-    }
 }
