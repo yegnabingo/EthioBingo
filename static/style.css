@@ -84,7 +84,7 @@ body {
 }
 
 /* 🎰 የ1-200 ግሪድ አቀማመጥ */
-.card-grid-200 {
+.card-grid-500 {
     display: grid;
     grid-template-columns: repeat(10, 1fr); /* በየረድፉ 10 ቁጥር */
     gap: 5px;
@@ -96,7 +96,7 @@ body {
     margin-bottom: 15px;
 }
 
-/* 🎴 የ 1-200 የካርድ ቁልፎች (የተጣጣመው ዋና ክላስ) */
+/* 🎴 የ 1-500 የካርድ ቁልፎች (የተጣጣመው ዋና ክላስ) */
 .card-btn {
     color: #000000;
     aspect-ratio: 1;
