@@ -117,7 +117,7 @@ class GameEngine:
                 needed = target_count - bot_current_count
 
                 if needed > 0:
-                    available_numbers = [num for num in range(1, 201) if num not in taken_numbers]
+                    available_numbers = [num for num in range(1, 501) if num not in taken_numbers]
                     if available_numbers:
                         cards_to_buy_count = min(needed, len(available_numbers))
                         cards_to_buy = random.sample(available_numbers, cards_to_buy_count)
@@ -353,10 +353,10 @@ class GameEngine:
             for pc in db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).all():
                 bought_cards[pc.card_number] = {"user_id": pc.user_id, "bet_amount": pc.bet_amount}
 
-            all_200_cards = {}
+            all_500_cards = {}
             for c in db.query(Card).all():
                 card_data = json.loads(c.data) if isinstance(c.data, str) else c.data
-                all_200_cards[str(c.card_number)] = card_data
+                all_500_cards[str(c.card_number)] = card_data
 
             settings = db.query(Setting).first()
             comm_percent = settings.game_commission_percent if (settings and hasattr(settings, 'game_commission_percent')) else 20.0
@@ -422,7 +422,7 @@ class GameEngine:
                 })
 
                 result = self.process_drawn_ball_and_check_winner_v3(
-                    db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards, room_status
+                    db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_500_cards, room_status
                 )
 
                 if result["status"] == "WINNER_FOUND":
@@ -483,7 +483,7 @@ class GameEngine:
                         "winning_card": primary_winner["card_number"],
                         "prize": primary_winner["prize"],
                         "room_fee": primary_winner["room_fee"],
-                        "message": f"🎉 አሸናፊ፦ {display_winner_name} (ካርድ #{primary_winner['card_number']})!",
+                        "message": f"🎉 አሸናፊ፦ {display_winner_name} (ካርቴላ #{primary_winner['card_number']})!",
                         "card_number": primary_winner["card_number"],
                         "winner_id": primary_winner["winner_id"],
                         "winning_numbers": primary_winner["winning_numbers"], 
@@ -500,7 +500,7 @@ class GameEngine:
                 await asyncio.sleep(draw_interval)
 
             if not winner_detected and self.running and target_house_wins > 0:
-                result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
+                result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_500_cards)
                 
                 bot_winners_list = []
                 for fee in active_rooms:
@@ -543,7 +543,7 @@ class GameEngine:
                     "phone_number": primary_bot["phone_number"],
                     "winning_card": primary_bot["card_number"],
                     "prize": primary_bot["prize"],
-                    "message": f"🎉 አሸናፊ፦ {primary_bot['telegram_name']} (ካርድ #{primary_bot['card_number']})!",
+                    "message": f"🎉 አሸናፊ፦ {primary_bot['telegram_name']} (ካርቴላ #{primary_bot['card_number']})!",
                     "card_number": primary_bot["card_number"],
                     "winner_id": primary_bot["winner_id"],
                     "winning_numbers": result.get("winning_numbers", []),
@@ -581,7 +581,7 @@ class GameEngine:
 
         return False, [], ""
 
-    def process_drawn_ball_and_check_winner_v3(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards, room_status):
+    def process_drawn_ball_and_check_winner_v3(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_500_cards, room_status):
         bot_user = self.get_bot_user(db)
         detected_winners = []
         
@@ -591,7 +591,7 @@ class GameEngine:
             if room_status.get(fee) == "FORCE_HOUSE" and card_info["user_id"] != bot_user.id:
                 continue
 
-            card_matrix = all_200_cards.get(str(card_num))
+            card_matrix = all_500_cards.get(str(card_num))
             if card_matrix:
                 is_win, win_nums, pattern = self.check_bingo_patterns(card_matrix, current_drawn_balls)
                 if is_win:
@@ -677,14 +677,14 @@ class GameEngine:
             db.rollback()
             print(f"❌ Error committing prize distribution: {e}")
 
-    def force_house_win(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards):
+    def force_house_win(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_500_cards):
         bot_user = self.get_bot_user(db)
         
         real_player_bought = [card_num for card_num, info in bought_cards.items() if info["user_id"] != bot_user.id]
-        available_ids = [idx for idx in range(1, 201) if idx not in real_player_bought]
+        available_ids = [idx for idx in range(1, 501) if idx not in real_player_bought]
         
         winning_card_num = random.choice(available_ids) if available_ids else 1
-        card_matrix = all_200_cards.get(str(winning_card_num), [[0]*5 for _ in range(5)])
+        card_matrix = all_500_cards.get(str(winning_card_num), [[0]*5 for _ in range(5)])
         
         possible_patterns = []
         if len(card_matrix) == 5:
