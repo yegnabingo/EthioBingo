@@ -81,7 +81,7 @@ async def trigger_bot_card_purchases(game_id: int, bet_amount: float = 10.0):
         if needed <= 0:
             return
 
-        available_numbers = [num for num in range(1, 201) if num not in taken_numbers]
+        available_numbers = [num for num in range(1, 501) if num not in taken_numbers]
         cards_to_buy_count = min(needed, len(available_numbers))
         
         if cards_to_buy_count <= 0:
@@ -202,8 +202,8 @@ async def pick_card(request: AdvancedPickCardRequest, background_tasks: Backgrou
             PlayerCard.user_id == user.id
         ).count()
         
-        if already_bought_count >= 5:
-            return {"success": False, "message": "በአንድ ጨዋታ መግዛት የሚችሉት ከፍተኛው የካርድ መጠን 5 ብቻ ነው!"}
+        if already_bought_count >= 10:
+            return {"success": False, "message": "በአንድ ጨዋታ መግዛት የሚችሉት ከፍተኛው የካርቴላ መጠን 10 ብቻ ነው!"}
 
         card_taken = db.query(PlayerCard).filter(
             PlayerCard.game_id == game.id,
@@ -211,7 +211,7 @@ async def pick_card(request: AdvancedPickCardRequest, background_tasks: Backgrou
             PlayerCard.bet_amount == request.bet_amount
         ).first()
         if card_taken:
-            return {"success": False, "message": f"ካርድ ቁጥር {request.card_number} በ {int(request.bet_amount)} ብር ክፍል አስቀድሞ ተይዟል!"}
+            return {"success": False, "message": f"ካርቴላ ቁጥር {request.card_number} በ {int(request.bet_amount)} ብር ክፍል አስቀድሞ ተይዟል!"}
 
         total_available = (user.balance or 0.0) + (user.gift_coin or 0.0)
         if total_available < request.bet_amount:
@@ -263,7 +263,7 @@ async def pick_card(request: AdvancedPickCardRequest, background_tasks: Backgrou
 
         return {
             "success": True, 
-            "message": "ካርዱ በተሳካ ሁኔታ ተገዝቷል!", 
+            "message": "ካርቴላው በተሳካ ሁኔታ ተገዝቷል!", 
             "current_balance": user.balance,
             "current_gift": user.gift_coin,
             "card_number": request.card_number,
