@@ -83,15 +83,14 @@ body {
     margin-top: 2px;
 }
 
-/* 🎰 የ1-500 ግሪድ አቀማመጥ (ID ቱን በ #cardGrid አድርጎ ማስተካከል) */
 #cardGrid {
     display: grid;
     grid-template-columns: repeat(10, 1fr); /* በየረድፉ 10 ቁጥር */
-    gap: 5px;
+    gap: 4px;
     width: 100%;
-    max-height: 320px;
+    max-height: 280px; /* ስክሪኑ ላይ ቦታ እንዳይጠብበት ትንሽ መቀነስ ይቻላል */
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch; /* ለሞባይል ስልኮች ሰለስ ማድረጊያ */
+    -webkit-overflow-scrolling: touch;
     padding: 5px;
     background: #090a14;
     border-radius: 12px;
@@ -99,22 +98,21 @@ body {
     box-sizing: border-box;
 }
 
-/* 🎴 የ 1-500 የካርድ ቁልፎች */
+/* የካርድ ቁልፎች በሁሉም ስልኮች ላይ በግልጽ እንዲታዩ */
 .card-btn {
-    background-color: #ffffff; /* ነጭ ሆኖ እንዳይቀር ነባር ቀለም መስጠት */
-    color: #000000;
+    background-color: #ffffff !important;
+    color: #000000 !important;
     aspect-ratio: 1;
     display: flex;
     justify-content: center;
     align-items: center;
-    border-radius: 6px;
-    font-size: 11px;
+    border-radius: 4px;
+    font-size: 10px;
     font-weight: bold;
     cursor: pointer;
-    border: none;
+    border: 1px solid #ddd;
     width: 100%;
     padding: 0 !important;
-    transition: all 0.2s ease-in-out;
 }
 
 /* 🤍 ያልተያዙ ቁጥሮች መነሻ ቀለም (ነጭ) */
