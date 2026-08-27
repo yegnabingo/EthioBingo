@@ -83,35 +83,36 @@ body {
     margin-top: 2px;
 }
 
-#cardGrid {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr); /* በየረድፉ 10 ቁጥር */
-    gap: 4px;
-    width: 100%;
-    max-height: 280px; /* ስክሪኑ ላይ ቦታ እንዳይጠብበት ትንሽ መቀነስ ይቻላል */
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 5px;
-    background: #090a14;
-    border-radius: 12px;
-    margin-bottom: 15px;
-    box-sizing: border-box;
+/* ለካርድ ማቀፊያ (Grid Container) */
+#cardGrid, .card-grid-500 {
+    display: grid !important;
+    grid-template-columns: repeat(10, 1fr) !important;
+    gap: 4px !important;
+    width: 100% !important;
+    max-height: 280px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 5px !important;
+    background: #090a14 !important;
+    border-radius: 12px !important;
+    margin-bottom: 15px !important;
+    box-sizing: border-box !important;
 }
 
-/* የካርድ ቁልፎች በሁሉም ስልኮች ላይ በግልጽ እንዲታዩ */
+/* የካርድ ቁልፎች (Card Buttons) */
 .card-btn {
     background-color: #ffffff !important;
     color: #000000 !important;
-    aspect-ratio: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: bold;
-    cursor: pointer;
-    border: 1px solid #ddd;
-    width: 100%;
+    aspect-ratio: 1 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    border-radius: 4px !important;
+    font-size: 10px !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    border: 1px solid #ddd !important;
+    width: 100% !important;
     padding: 0 !important;
 }
 
