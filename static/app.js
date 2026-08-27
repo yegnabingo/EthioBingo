@@ -583,7 +583,7 @@ async function renderMyBoughtCards() {
     container.innerHTML = "";
 
     if (selectedCards.length === 0) {
-        container.innerHTML = "<div style='color:white; text-align:center; padding:20px;'>በዚህ ዙር ምንም ካርድ አልገዙም!</div>";
+        container.innerHTML = "<div style='color:white; text-align:center; padding:20px;'>በዚህ ዙር ምንም ካርቴላ አልገዙም!</div>";
         return;
     }
     const activeCardNum = selectedCards[currentCardIndex];
@@ -666,11 +666,16 @@ function moveSlider(direction) {
     renderMyBoughtCards();
 }
 
-window.onload = () => {
+document.addEventListener("DOMContentLoaded", () => {
+    // 🛠️ ማንም ሰው በየትኛውም ስልክ ሲከፍተው ካርዶቹ ወዲያውኑ እንዲፈጠሩ እዚህ እናስቀምጣለን
+    generate500Cards();
     connectWebSocket();
+    
     const confirmBtn = document.getElementById("confirmBtn");
-    if (confirmBtn) confirmBtn.onclick = () => confirmAllSelectedPicks();
-};
+    if (confirmBtn) {
+        confirmBtn.onclick = () => confirmAllSelectedPicks();
+    }
+});
 
 function toggleMarkingMode() {
     isAutoMark = !isAutoMark;
