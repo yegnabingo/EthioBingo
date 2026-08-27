@@ -6,8 +6,6 @@
     <title>Yegna Bingo</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- 📢 Adsgram SDK -->
-    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
     <style>
         html, body {
             margin: 0 !important;
@@ -133,35 +131,6 @@
             transform: translateX(-50%);
             font-size: 16px;
         }
-        .leader-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #2f3542;
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            border-left: 4px solid #2ed573;
-        }
-        .history-item {
-            background: #2f3542;
-            padding: 12px;
-            border-radius: 8px;
-            border-left: 4px solid #ffd700;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            font-size: 12px;
-        }
-        .history-item .game-header {
-            display: flex;
-            justify-content: space-between;
-            font-weight: bold;
-            color: #ffffff;
-            border-bottom: 1px dashed #4b6584;
-            padding-bottom: 4px;
-        }
-        .history-item .user-cards { color: #a4b0be; }
     </style>
 </head>
 <body>
@@ -241,7 +210,6 @@
             </div>
         </div>
     </div>
-
 </div>
 
 <!-- 📱 የታችኛው BOTTOM NAVIGATION BAR -->
@@ -407,6 +375,8 @@
             የእርስዎ የሳምንቱ ደረጃ፦ <strong id="bonus-user-rank" style="color: #ffd700;">-</strong><br>
             የተጫወቱት የካርቴላ ብዛት፦ <strong id="bonus-user-cards" style="color: #2ed573;">0 ካርድ</strong>
         </div>
+    </div>
+</div>
 
 <!-- 🏆 LEADERBOARD / RANK MODAL -->
 <div id="leaderboardModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; color: white;">
