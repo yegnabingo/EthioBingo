@@ -117,7 +117,7 @@ class GameEngine:
                 needed = target_count - bot_current_count
 
                 if needed > 0:
-                    available_numbers = [num for num in range(1, 501) if num not in taken_numbers]
+                    available_numbers = [num for num in range(1, 201) if num not in taken_numbers]
                     if available_numbers:
                         cards_to_buy_count = min(needed, len(available_numbers))
                         cards_to_buy = random.sample(available_numbers, cards_to_buy_count)
