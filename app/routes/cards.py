@@ -81,7 +81,7 @@ async def trigger_bot_card_purchases(game_id: int, bet_amount: float = 10.0):
         if needed <= 0:
             return
 
-        available_numbers = [num for num in range(1, 501) if num not in taken_numbers]
+        available_numbers = [num for num in range(1, 201) if num not in taken_numbers]
         cards_to_buy_count = min(needed, len(available_numbers))
         
         if cards_to_buy_count <= 0:
