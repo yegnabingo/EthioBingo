@@ -46,7 +46,7 @@ def generate_all_cards():
 
     used = set()
 
-    while len(cards) < 500:
+    while len(cards) < 200:
 
         card = generate_card()
 
