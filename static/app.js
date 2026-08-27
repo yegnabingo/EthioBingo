@@ -103,7 +103,7 @@ async function refreshTakenCards() {
         const response = await fetch(`/api/cards/status?bet_amount=${currentBetAmount}`);
         if (response.ok) {
             const takenCards = await response.json();
-            update500CardsColors(takenCards);
+            update200CardsColors(takenCards);
         }
     } catch (e) {
         console.error("⚠️ የተሸጡ ካርዶችን ማደስ አልተቻለም፦", e);
@@ -116,7 +116,7 @@ function connectWebSocket() {
 
     ws.onopen = () => {
         console.log("✅ ከቢንጎ ሞተር ጋር ተገናኘን!");
-        generate500Cards(); 
+        generate200Cards(); 
         refreshTakenCards(); 
     };
 
@@ -126,7 +126,7 @@ function connectWebSocket() {
         // 🛠️ ካርድ ሲገዛ የመጣው መልዕክት ከአሁኑ ክፍል ጋር እኩል ከሆነ ብቻ UI ማደስ
         if (data.type === "taken_cards_update") {
             if (data.bet_amount === undefined || data.bet_amount === currentBetAmount) {
-                update500CardsColors(data.taken_cards);
+                update200CardsColors(data.taken_cards);
             }
         }
 
@@ -368,11 +368,11 @@ if (typeof markedCellsMap === "undefined") {
 }
 
 // 🎴 1-500 የካርድ ቁልፎች መፍጠሪያ
-function generate500Cards() {
+function generate200Cards() {
     const grid = document.getElementById("cardGrid");
     if (!grid) return;
     grid.innerHTML = "";
-    for (let i = 1; i <= 500; i++) {
+    for (let i = 1; i <= 200; i++) {
         const btn = document.createElement("button");
         btn.className = "card-btn";
         btn.id = `pick-card-${i}`;
@@ -384,8 +384,8 @@ function generate500Cards() {
     }
 }
 
-function update500CardsColors(takenCardsList) {
-    for (let i = 1; i <= 500; i++) {
+function update200CardsColors(takenCardsList) {
+    for (let i = 1; i <= 200; i++) {
         const btn = document.getElementById(`pick-card-${i}`);
         if (!btn) continue;
         if (temporarilySelectedCards.includes(i)) continue;
@@ -668,7 +668,7 @@ function moveSlider(direction) {
 
 document.addEventListener("DOMContentLoaded", () => {
     // 🛠️ ማንም ሰው በየትኛውም ስልክ ሲከፍተው ካርዶቹ ወዲያውኑ እንዲፈጠሩ እዚህ እናስቀምጣለን
-    generate500Cards();
+    generate200Cards();
     connectWebSocket();
     
     const confirmBtn = document.getElementById("confirmBtn");
