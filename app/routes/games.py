@@ -1,4 +1,4 @@
-import json
+Import json
 import random
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -27,15 +27,15 @@ def current_game(
     # 1. መጀመሪያ የተጫዋቹን መረጃ ከዳታቤዝ መፈለግ
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
     
-    # 🎯 ተጫዋቹ በዳታቤዝ ከሌለ እና በራሱ ሰርቨር ሲመዘገብ መፍጠር
+    # 🎯 ፊክስ፦ ተጫዋቹ በዳታቤዝ ከሌለ እና በራሱ ሰርቨር ሲመዘገብ ከ crud.py እና users.py ጋር እንዲስማማ ማድረግ
     if not user:
         user = User(
             telegram_id=telegram_id,
             telegram_name=f"User_{telegram_id}",
             first_name="Player",
             balance=0.0,
-            wallet=0.0,
-            gift_coin=0.0,
+            wallet=0.0,      # ሁለቱንም የሞዴል አማራጮች ለመጠበቅ
+            gift_coin=0.0,   # ከቀድሞው ሞዴል 'gift_coin' ጋር ስሙ ተስተካክሏል
             is_admin=False
         )
         db.add(user)
@@ -47,12 +47,12 @@ def current_game(
 
     # ⚙️ የሲስተሙን የመግቢያ ዋጋ (Setting) ማምጣት (ከሌለ Default 10 ብር)
     settings = db.query(Setting).first()
-    current_ticket_price = settings.game_fee if (settings and hasattr(settings, 'game_fee')) else 10.0
+    current_ticket_price = settings.game_fee if settings else 10.0
 
     # 💡 ጨዋታ በዳታቤዝ ውስጥ ጨርሶ ከሌለ አዲስ መፍጠር
     if not game:
         game = Game(
-            game_no=str(random.randint(100000, 199999)),
+            game_no=str(random.randint(100000, 199999)),  # ልክ በፎቶው ላይ እንዳለው (ለምሳሌ፡ 100481)
             status="running",
             ticket_price=current_ticket_price,
             total_players=0,
@@ -64,13 +64,14 @@ def current_game(
 
     # 🔄 ጨዋታው ካለቀ አዲስ የነቃ ጨዋታ ማዘጋጀት (Auto-Loop)
     elif game.status == "finished":
+        # 🛠 ፊክስ፦ የቁጥር ግጭትን ለመከላከል ቁጥሩ ትክክለኛ ኢንቲጀር መሆኑን ማረጋገጥ
         try:
             next_game_no = str(int(game.game_no) + 1)
-        except (ValueError, TypeError):
+        except ValueError:
             next_game_no = str(random.randint(200000, 299999))
 
         game = Game(
-            game_no=next_game_no,
+            game_no=next_game_no,  # የጨዋታውን ቁጥር በ1 መጨመር
             status="running",
             ticket_price=current_ticket_price,
             total_players=0,
@@ -85,24 +86,26 @@ def current_game(
 
     # 💰 4. ጠቅላላ የተሰበሰበው ብር (Pool) እና አሸናፊው የሚደርሰው የብር መጠን (Derash 80%)
     total_pool_money = total_cards_bought * game.ticket_price
-    derash_money = total_pool_money * 0.80
-
-    user_balance = getattr(user, 'balance', getattr(user, 'wallet', 0.0))
-    user_gift = getattr(user, 'gift_coin', 0.0)
+    derash_money = total_pool_money * 0.80  # 80% ህግ
 
     # 🎯 5. ለተጫዋቹ የፊት ገጽ (Frontend) እና ለቦቱ መረጃውን መመለስ
     return {
         "success": True,
-        "game_id": game.id,
-        "game_no": str(getattr(game, 'game_no', 100000 + game.id)),
+        "game_id": game.id,                      # የዳታቤዝ መታወቂያ
+        "game_no": game.game_no,                  # Game (ለምሳሌ፡ 100481)
         "status": game.status,
-        "bet": game.ticket_price,
-        "active_game": 1 if game.status == "running" else 0,
-        "wallet": user_balance,
-        "balance": user_balance,
-        "gift": user_gift,
-        "players": total_cards_bought,
-        "derash": round(derash_money, 2),
+        
+        # 📊 ለአኒሜሽን ገጾች የሚያስፈልጉት ሰባቱ ቁልፍ መረጃዎች፦
+        "bet": game.ticket_price,                 # Bet (10, 20, 50...)
+        "active_game": 1 if game.status == "running" else 0, # Active Game
+        
+        # 🎯 ፊክስ፦ ፍሮንትኤንዱም ሆነ ቴሌግራም ቦቱ በየትኛውም ስም ቢፈልጉት እንዳያጡት ሁለቱንም በአንድ ላይ እንልካለን
+        "wallet": user.balance,                   # ለአሮጌው ፍሮንትኤንድ/ቦት ሎጂክ
+        "balance": user.balance,                  # ለአዲሱ የተስተካከለው ሎጂክ
+        
+        "gift": user.gift_coin,                   # Gift Coin (የተስተካከለ)
+        "players": total_cards_bought,            # Players (የተያዘ የካርድ ብዛት)
+        "derash": round(derash_money, 2),         # Derash (ካሸነፈ የሚደርሰው የ 80% ብር)
         "total_pool": total_pool_money
     }
 
@@ -128,7 +131,7 @@ def get_game_history(telegram_id: str, db: Session = Depends(get_db)):
         ).all()
         user_card_numbers = [c[0] for c in user_cards]
 
-        # 🎯 የሁሉንም አሸናፊዎች መረጃ የሚይዝ List
+        # 🎯 የሁሉንም አሸናፊዎች መረጃ የሚይዝ List/Array
         winners_list = []
         
         # 🔴 1. በቅድሚያ game_engine.py የፃፈውን winners_info (ባለብዙ አሸናፊዎች) የማንበብ ሎጂክ
@@ -136,6 +139,7 @@ def get_game_history(telegram_id: str, db: Session = Depends(get_db)):
             try:
                 raw_winners = json.loads(g.winners_info)
                 if isinstance(raw_winners, list) and len(raw_winners) > 0:
+                    # 🔄 በዙሩ ያሸነፉትን የሁሉም ተጫዋቾች መረጃ በ Loop መሰብሰብ
                     for w_item in raw_winners:
                         winning_card_grid = None
                         win_card_num = w_item.get("winning_card_number") or w_item.get("card_number")
@@ -147,34 +151,24 @@ def get_game_history(telegram_id: str, db: Session = Depends(get_db)):
                             except Exception:
                                 winning_card_grid = None
 
-                        drawn_balls_list = []
-                        if g.drawn_balls:
-                            try:
-                                drawn_balls_list = json.loads(g.drawn_balls) if isinstance(g.drawn_balls, str) else g.drawn_balls
-                            except Exception:
-                                drawn_balls_list = []
-
                         winners_list.append({
                             "winner_name": w_item.get("winner_name") or w_item.get("telegram_name") or "ተጫዋች",
                             "winner_phone": w_item.get("phone_number", "ያልተመዘገበ"),
                             "winning_card_number": win_card_num or "N/A",
-                            "room_fee": w_item.get("room_fee", 10.0),
-                            "prize": float(w_item.get("prize", 0.0)),
-                            "drawn_balls": drawn_balls_list,
-                            "card_grid": winning_card_grid,
-                            "winning_reason": w_item.get("winning_reason", "ቢንጎ")
+                            "prize": w_item.get("prize", 0.0),
+                            "drawn_balls": json.loads(g.drawn_balls) if g.drawn_balls else [],
+                            "card_grid": winning_card_grid
                         })
             except Exception as e:
-                print("❌ Error parsing winners_info in history route:", e)
+                print("Error parsing winners_info in history route:", e)
 
         # 🔴 2. winners_info ከሌለ ወይም ባዶ ከሆነ (Fallback)
         if not winners_list and g.winner_id is not None:
             winner_user = db.query(User).filter(User.id == g.winner_id).first()
             w_name = (winner_user.telegram_name or winner_user.first_name) if winner_user else "ተጫዋች"
-            w_phone = getattr(winner_user, 'phone_number', "ያልተመዘገበ") if (winner_user and hasattr(winner_user, 'phone_number')) else "ያልተመዘገበ"
+            w_phone = getattr(winner_user, 'phone_number', "ያልተመዘገበ") if winner_user else "ያልተመዘገበ"
 
             winning_card_grid = None
-            first_win_card_num = "N/A"
             if g.winning_card:
                 try:
                     first_win_card_num = int(str(g.winning_card).split(',')[0])
@@ -184,30 +178,21 @@ def get_game_history(telegram_id: str, db: Session = Depends(get_db)):
                 except Exception:
                     winning_card_grid = None
 
-            drawn_balls_list = []
-            if g.drawn_balls:
-                try:
-                    drawn_balls_list = json.loads(g.drawn_balls) if isinstance(g.drawn_balls, str) else g.drawn_balls
-                except Exception:
-                    drawn_balls_list = []
-
             winners_list.append({
                 "winner_name": w_name,
                 "winner_phone": w_phone,
-                "winning_card_number": first_win_card_num,
-                "room_fee": getattr(g, 'ticket_price', 10.0),
-                "prize": float(g.prize) if g.prize else 0.0,
-                "drawn_balls": drawn_balls_list,
-                "card_grid": winning_card_grid,
-                "winning_reason": "ቢንጎ"
+                "winning_card_number": g.winning_card or "N/A",
+                "prize": g.prize or 0.0,
+                "drawn_balls": json.loads(g.drawn_balls) if g.drawn_balls else [],
+                "card_grid": winning_card_grid
             })
 
         history_data.append({
             "game_id": g.id,
-            "game_no": str(getattr(g, "game_no", 100000 + g.id)),
+            "game_no": getattr(g, "game_no", str(100000 + g.id)),
             "user_picked_cards": user_card_numbers,
-            "winners": winners_list, 
-            "winner": winners_list[0] if winners_list else None 
+            "winners": winners_list,  # 👈 የሁሉም አሸናፊዎች Array
+            "winner": winners_list[0] if winners_list else None # 👈 ለአሮጌ Frontend ተኳሃኝነት
         })
 
     return {"success": True, "history": history_data}
