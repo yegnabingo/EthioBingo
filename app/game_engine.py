@@ -353,7 +353,7 @@ class GameEngine:
             for pc in db.query(PlayerCard).filter(PlayerCard.game_id == saved_game_id).all():
                 bought_cards[pc.card_number] = {"user_id": pc.user_id, "bet_amount": pc.bet_amount}
 
-            all_500_cards = {}
+            all_200_cards = {}
             for c in db.query(Card).all():
                 card_data = json.loads(c.data) if isinstance(c.data, str) else c.data
                 all_200_cards[str(c.card_number)] = card_data
