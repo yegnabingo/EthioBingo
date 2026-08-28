@@ -1,4 +1,4 @@
-Import json
+import json
 import random
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
