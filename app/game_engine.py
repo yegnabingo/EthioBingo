@@ -385,7 +385,7 @@ class GameEngine:
                     else:
                         room_status[fee] = "FORCE_HOUSE"
 
-                max_draw_balls = random.randint(10, 13)
+                max_draw_balls = random.randint(10, 20)
 
             winner_detected = False
 
