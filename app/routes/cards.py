@@ -39,27 +39,30 @@ def get_bot_user(db):
 
 def get_target_bot_card_count() -> int:
     """🕒 በውይይታችን መሰረት የተስተካከለ ሰዓትን መሰረት ያደረገ የቦት ካርድ ብዛት (UTC+3)"""
-    now = datetime.datetime.utcnow() + datetime.timedelta(hours=3)
+    now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=3)
     hour = now.hour
 
     # ከጠዋቱ 12:00 እስከ ቀኑ 7:00 (ከ6:00 እስከ 12:59)
     if 6 <= hour < 13:
-        return random.randint(20, 30)
+        return random.randint(10, 20)
     # ከቀኑ 7:00 እስከ ሌሊቱ 6:00 (ከ13:00 እስከ 23:59)
     elif 13 <= hour <= 23:
-        return random.randint(30, 50)
-    # ከሌሊቱ 6:00 እስከ ጠዋቱ 12:00 (ከ0:00 እስከ 5:59)
+        return random.randint(20, 30)
+    # ከሌሊቱ 6:00 እስከ ሌሊቱ 9:00 (ከ0:00 እስከ 2:59)
+    elif 0 <= hour < 3:
+        return random.randint(5, 10)
+    # ከሌሊቱ 9:00 እስከ ጠዋቱ 12:00 (ከ3:00 እስከ 5:59)
     else:
-        return random.randint(30, 40)
+        return random.randint(3, 6)
 
 async def trigger_bot_card_purchases(game_id: int, bet_amount: float = 10.0):
     """
     🤖 ቦቱ በ 10 ETB ክፍል ብቻ በዘፈቀደ ላልተያዙ የካርድ ቁጥሮች ተራ በተራ ግዢ ይፈጽማል።
-    ✨ ካርዶቹ እውነተኛ ተጫዋቾች እንደሚገዙት ተራ በተራ በቦርዱ ላይ ቢጫ እየሆኑ ይታያሉ!
     """
     if bet_amount != 10.0:
         return
 
+    # ቦቱ ግዢዎችን ሲያከናውን የዳታቤዝ ክፍለ-ጊዜዎችን (Sessions) እንዳይቆልፍ እንከላከላለን
     db = SessionLocal()
     try:
         game = db.query(Game).filter(Game.id == game_id, Game.status.in_(["running", "waiting"])).first()
@@ -88,32 +91,50 @@ async def trigger_bot_card_purchases(game_id: int, bet_amount: float = 10.0):
             return
 
         selected_bot_cards = random.sample(available_numbers, cards_to_buy_count)
+    except Exception as e:
+        print(f"⚠️ Bot initialization error: {e}")
+        return
+    finally:
+        db.close()
 
-        # 🎭 እውነተኛ ለማስመሰል ካርዶቹን ተራ በተራ (በጥቂት ሰከንድ ልዩነት) መግዛት
-        for card_num in selected_bot_cards:
-            active_check = db.query(Game).filter(Game.id == game_id, Game.status.in_(["running", "waiting"])).first()
-            if not active_check:
+    # 🎭 ካርዶቹን ተራ በተራ ሰከንድ እየጠበቁ መግዛት
+    for card_num in selected_bot_cards:
+        db_loop = SessionLocal()
+        try:
+            active_game = db_loop.query(Game).filter(Game.id == game_id, Game.status.in_(["running", "waiting"])).first()
+            if not active_game:
                 break
 
+            # ካርዱ በሌላ ተጫዋች አለመያዙን ማረጋገጥ
+            already_taken = db_loop.query(PlayerCard).filter(
+                PlayerCard.game_id == game_id,
+                PlayerCard.card_number == card_num,
+                PlayerCard.bet_amount == bet_amount
+            ).first()
+
+            if already_taken:
+                continue
+
+            bot_user = get_bot_user(db_loop)
             bot_card = PlayerCard(
-                game_id=game.id,
+                game_id=game_id,
                 user_id=bot_user.id,
                 card_number=card_num,
                 bet_amount=bet_amount
             )
-            db.add(bot_card)
+            db_loop.add(bot_card)
 
-            main_card = db.query(Card).filter(Card.card_number == card_num).first()
+            main_card = db_loop.query(Card).filter(Card.card_number == card_num).first()
             if main_card:
                 main_card.is_taken = True
                 main_card.reserved_by = bot_user.id
-                main_card.current_game_id = game.id
+                main_card.current_game_id = game_id
 
-            db.commit()
+            db_loop.commit()
 
-            # 📡 እያንዳንዱ ካርድ በተገዛ ቁጥር ለተጫዋቾች በየተራ ቢጫ ሆኖ እንዲታይ broadcast ማድረግ
-            all_taken = db.query(PlayerCard).filter(
-                PlayerCard.game_id == game.id,
+            # Broadcast
+            all_taken = db_loop.query(PlayerCard).filter(
+                PlayerCard.game_id == game_id,
                 PlayerCard.bet_amount == bet_amount
             ).all()
             taken_list = [c.card_number for c in all_taken]
@@ -124,16 +145,14 @@ async def trigger_bot_card_purchases(game_id: int, bet_amount: float = 10.0):
                 "taken_cards": taken_list
             })
 
-            # ⏱️ ተፈጥሮአዊ እንዲመስል በየካርዱ መካከል ከ 0.4 እስከ 1.2 ሰከንድ ማረፍ
-            await asyncio.sleep(random.uniform(0.05, 0.15))
+        except Exception as e:
+            db_loop.rollback()
+            print(f"⚠️ Bot single purchase error: {e}")
+        finally:
+            db_loop.close()
 
-    except Exception as e:
-        if db:
-            db.rollback()
-        print(f"⚠️ Bot card purchase error: {e}")
-    finally:
-        if db:
-            db.close()
+        # ተፈጥሯዊ እንዲመስል በካርዶች መካከል ከ 0.3 እስከ 0.8 ሰከንድ ማረፍ
+        await asyncio.sleep(random.uniform(0.3, 0.8))
 
 
 # =========================================================
@@ -161,12 +180,13 @@ def get_cards_status(
         bot_current_count = sum(1 for c in taken_cards if c.user_id == bot_user.id)
         target_count = get_target_bot_card_count()
 
-        # 🤖 የቦቱ ካርድ መጠን ከዒላማው ያነሰ ከሆነ ባክግራውንድ ላይ ገዢ እንዲቀጥል ማነሳሳት
+        # የቦት ካርድ መጠን ከዒላማው ያነሰ ከሆነ ባክግራውንድ ላይ ገዢ እንዲቀጥል ማነሳሳት
         if bet_amount == 10.0 and bot_current_count < target_count:
             background_tasks.add_task(trigger_bot_card_purchases, active_game.id, bet_amount)
 
         return [c.card_number for c in taken_cards]
-    except Exception:
+    except Exception as e:
+        print(f"⚠️ Status check error: {e}")
         return []
     finally:
         db.close()
@@ -217,13 +237,14 @@ async def pick_card(request: AdvancedPickCardRequest, background_tasks: Backgrou
         if total_available < request.bet_amount:
             return {"success": False, "message": f"በቂ ባላንስ የሎትም! የእርሶ ጠቅላላ ባላንስ {total_available} ETB ነው።"}
 
+        # የባላንስ ተቀናሽ ስሌት
         if (user.gift_coin or 0.0) >= request.bet_amount:
             user.gift_coin -= request.bet_amount
         else:
             remaining_fee = request.bet_amount - (user.gift_coin or 0.0)
             user.gift_coin = 0.0
-            user.balance -= remaining_fee
-            user.wallet -= remaining_fee
+            user.balance = (user.balance or 0.0) - remaining_fee
+            user.wallet = max(0.0, (user.wallet or 0.0) - remaining_fee)
 
         new_player_card = PlayerCard(
             game_id=game.id,
