@@ -382,7 +382,7 @@ class GameEngine:
                         room_status[fee] = "FORCE_HOUSE"
 
                 # 🎯 የተስተካከለ፦ የቤት ማሸነፊያ ጥሪዎች ብዛት ከ 10 እስከ 15 ተደርጓል
-                max_draw_balls = random.randint(12, 16)
+                max_draw_balls = random.randint(15, 17)
 
             winner_detected = False
 
