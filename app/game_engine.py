@@ -81,11 +81,11 @@ class GameEngine:
 
         # ከጠዋቱ 12:00 እስከ ቀኑ 7:00 (ከ6:00 እስከ 12:59)
         if 6 <= hour < 13:
-            return random.randint(50, 100)
+            return random.randint(80, 130)
 
         # ከቀኑ 7:00 እስከ ሌሊቱ 6:00 (ከ13:00 እስከ 23:59)
         elif 13 <= hour <= 23:
-            return random.randint(100, 150)
+            return random.randint(120, 170)
 
         # ከሌሊቱ 6:00 እስከ ሌሊቱ 9:00 (ከ0:00 እስከ 2:59)
         elif 0 <= hour < 3:
