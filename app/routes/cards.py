@@ -47,13 +47,13 @@ def get_target_bot_card_count() -> int:
         return random.randint(30, 40)
     # ከቀኑ 7:00 እስከ ሌሊቱ 6:00 (ከ13:00 እስከ 23:59)
     elif 13 <= hour <= 23:
-        return random.randint(30, 50)
+        return random.randint(50, 80)
     # ከሌሊቱ 6:00 እስከ ሌሊቱ 9:00 (ከ0:00 እስከ 2:59)
     elif 0 <= hour < 3:
-        return random.randint(20, 30)
+        return random.randint(30, 50)
     # ከሌሊቱ 9:00 እስከ ጠዋቱ 12:00 (ከ3:00 እስከ 5:59)
     else:
-        return random.randint(10, 20)
+        return random.randint(20, 30)
 
 async def trigger_bot_card_purchases(game_id: int, bet_amount: float = 10.0):
     """
