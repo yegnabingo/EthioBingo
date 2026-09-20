@@ -10,22 +10,22 @@ from app.database import SessionLocal
 from app.models import Game, Setting, User, AdminStats, PlayerCard, Card
 
 BOT_NAMES = [
-    "user_45456", "user_Guneres", "user_Wesen", "user_65788", "user_Gadissa", "user_43688",  
+    "user_45456", "user_MUTD", "user_Dereje16", "user_65788", "user_Gadissa", "user_43688",  
     "user_89856", "user_56488", "user_Finfine", "user_88786", "user_Abeti", "user_54321",
-    "user_Shimeles", "user_78646", "user_KING", "user_56787", "user_Berihun", "user_32743",
-    "user_Anuwar", "user_Forever", "user_Tarekegni", "user_77633", "user_Chuchu", "user_55894",
-    "user_36648", "user_93121", "user_Temu19", "user_48539", "user_ዳስጣል", "user_89175",
-    "user_53929", "user_79348", "user_Abdissa", "user_91976", "user_Obssa", "user_የናቱልጅ",
-    "user_48271", "user_Fiyameta", "user_73924", "user_Mikiyas", "user_74583", "user_Habte",
-    "user_92746", "user_Sami16", "user_35482", "user_Eyob", "user_81635", "user_Lemma",
-    "user_56391", "user_Nati", "user_74826", "user_Yonas", "user_39157", "user_Mesafent",
-    "user_68432", "user_Dani", "user_82519", "user_Amare", "user_47683", "user_Fikru",
-    "user_95317", "user_Sele", "user_63845", "user_Tesfa", "user_21764", "user_Kaleb",
-    "user_87431", "user_Robi", "user_52689", "user_Mulatu", "user_76352", "user_Teddy8",
-    "user_41976", "user_Girma", "user_68524", "user_Yaredo", "user_93168", "user_ገብርዬ",
-    "user_57243", "user_Amanuel", "user_84617", "user_Sisay", "user_31582", "user_Bereket",
-    "user_76439", "user_Mered", "user_52816", "user_Abel", "user_69354", "user_Freedom",
-    "user_81726", "user_Habib", "user_45938", "user_ሀገሬ", "user_72615", "user_Eyou19"
+    "user_Shegaw16", "user_78646", "user_Abenu888", "user_56787", "user_Berihun19", "user_32743",
+    "user_Kaka", "user_Forever", "user_Tarekegni", "user_77633", "user_Chuchu", "user_55894",
+    "user_36648", "user_93121", "user_Temu19", "user_48539", "user_የማሪያምልጅ21", "user_89175",
+    "user_53929", "user_79348", "user_Abdissa", "user_91976", "user_Obssa21", "user_Degu22",
+    "user_48271", "user_Bekele", "user_73924", "user_Miki22", "user_74583", "user_Habte",
+    "user_92746", "user_Sami19", "user_35482", "user_Eyob", "user_81635", "user_Lemma17",
+    "user_56391", "user_Nati", "user_74826", "user_Yonas21", "user_39157", "user_Mesfin",
+    "user_68432", "user_Dani", "user_82519", "user_Amare16", "user_47683", "user_Fikru",
+    "user_95317", "user_Solomon", "user_63845", "user_Tesfa19", "user_21764", "user_Kebede",
+    "user_87431", "user_Robi22", "user_52689", "user_Mulatu", "user_76352", "user_Teddy18",
+    "user_41976", "user_Girma", "user_68524", "user_Yared20", "user_93168", "user_Bini",
+    "user_57243", "user_Amanuel19", "user_84617", "user_Sisay", "user_31582", "user_Bereket21",
+    "user_76439", "user_Mered", "user_52816", "user_Abel17", "user_69354", "user_Freedom",
+    "user_81726", "user_ብርሃን21", "user_45938", "user_ሀገሬ", "user_72615", "user_Eyou19"
 ]
 
 BOT_PHONE_NUMBERS = [
@@ -56,6 +56,15 @@ class GameEngine:
         self.current_game = None
         self.house_counters = {10.0: 0, 20.0: 0, 50.0: 0}
         self.game_counter = 0  # 🎯 የጨዋታ ቁጥር መቁጠሪያ
+
+    def get_dynamic_bot_winner_count(self, db: Session) -> int:
+        """
+        ከዳታቤዝ Setting ሰንጠረዥ extra_bot_winners_count ኮለምን በማንበብ የሚጨመሩትን የቦት አሸናፊዎች ብዛት ይወስናል
+        """
+        settings = db.query(Setting).first()
+        if settings and hasattr(settings, 'extra_bot_winners_count') and settings.extra_bot_winners_count is not None:
+            return settings.extra_bot_winners_count
+        return 3  # ኮለሙ ካልተገኘ ወይም ባዶ ከሆነ የሚጠቀምበት ዲፎልት እሴት
 
     def get_bot_user(self, db: Session):
         bot = db.query(User).filter(User.telegram_id == "BOT_VIRTUAL_PLAYER").first()
@@ -677,40 +686,44 @@ class GameEngine:
                         "winning_pattern": pattern
                     })
         
-        # 2. አሸናፊ ከተገኘ በኋላ የሚሰራ ሎጅክ (target_house_wins == 0 ቢሆንም ይሰራል።)
+        # 2. አሸናፊ ከተገኘ በኋላ የሚሰራ ሎጅክ
         if detected_winners:
-            # 🎯 በየ 3 ጨዋታው አንዴ እውነተኛ ሰው ሲያሸንፍ 3 ቦት አሸናፊዎችን አብሮ መጨመር
-            if self.game_counter % 1 == 0:
+            # 🎯 በየ 3 ጨዋታው አንዴ እውነተኛ ሰው ሲያሸንፍ የቦት አሸናፊዎችን አብሮ መጨመር
+            if self.game_counter % 3 == 0:
                 real_winners = [w for w in detected_winners if w["winner_id"] != bot_user.id]
                 if real_winners:
                     real_winner = real_winners[0]
                     fee = real_winner["bet_amount"]
 
-                    # ለቦቶቹ ከተወሰዱት ቦት ካርዶች ውስጥ 3 ካርቴላዎችን መምረጥ
-                    bot_cards = [c_num for c_num, info in bought_cards.items() if info["user_id"] == bot_user.id]
-                    
-                    # አሸናፊው ካርቴላ እንዳይደገም ማድረግ
-                    bot_cards = [c for c in bot_cards if c != real_winner["card_number"]]
+                    # 🎯 የሚጨመሩትን የቦት አሸናፊዎች ብዛት ከ Setting.extra_bot_winners_count ያነባል
+                    target_bot_count = self.get_dynamic_bot_winner_count(db)
 
-                    if len(bot_cards) < 3:
-                        fallback_cards = [i for i in range(1, 201) if i != real_winner["card_number"]]
-                        sampled_bot_cards = random.sample(fallback_cards, 3)
-                    else:
-                        sampled_bot_cards = random.sample(bot_cards, 3)
-
-                    # የተመደቡትን 3 የቦት ካርዶች ወደ detected_winners መዝገብ መጨመር
-                    for b_card in sampled_bot_cards:
-                        b_matrix = all_200_cards.get(str(b_card), [[0]*5 for _ in range(5)])
-                        b_flat = [item for sublist in b_matrix for item in sublist] if len(b_matrix) == 5 else []
+                    if target_bot_count > 0:
+                        # ለቦቶቹ ከተወሰዱት ቦት ካርዶች ውስጥ የተፈለገውን ያህል ካርቴላዎችን መምረጥ
+                        bot_cards = [c_num for c_num, info in bought_cards.items() if info["user_id"] == bot_user.id]
                         
-                        detected_winners.append({
-                            "winner_id": bot_user.id,
-                            "card_number": b_card,
-                            "bet_amount": fee,
-                            "winning_numbers": real_winner["winning_numbers"],
-                            "card_numbers": b_flat,
-                            "winning_pattern": real_winner["winning_pattern"]
-                        })
+                        # የእውነተኛው አሸናፊ ካርቴላ እንዳይደገም ማድረግ
+                        bot_cards = [c for c in bot_cards if c != real_winner["card_number"]]
+
+                        if len(bot_cards) < target_bot_count:
+                            fallback_cards = [i for i in range(1, 201) if i != real_winner["card_number"]]
+                            sampled_bot_cards = random.sample(fallback_cards, target_bot_count)
+                        else:
+                            sampled_bot_cards = random.sample(bot_cards, target_bot_count)
+
+                        # የተመደቡትን የቦት ካርዶች ወደ detected_winners መዝገብ መጨመር
+                        for b_card in sampled_bot_cards:
+                            b_matrix = all_200_cards.get(str(b_card), [[0]*5 for _ in range(5)])
+                            b_flat = [item for sublist in b_matrix for item in sublist] if len(b_matrix) == 5 else []
+                            
+                            detected_winners.append({
+                                "winner_id": bot_user.id,
+                                "card_number": b_card,
+                                "bet_amount": fee,
+                                "winning_numbers": real_winner["winning_numbers"],
+                                "card_numbers": b_flat,
+                                "winning_pattern": real_winner["winning_pattern"]
+                            })
 
             # የሽልማት ክፍፍልና ስሌት
             room_winner_counts = {}
