@@ -202,7 +202,7 @@ class Setting(Base):
     jackpot_percent = Column(Float, default=10.0)
     is_registration_open = Column(Boolean, default=True)
     house_win_ratio = Column(Integer, default=3)
-
+    extra_bot_winners_count = Column(Integer, default=3)  # 🎯 አዲሱ የቦት አሸናፊዎች ብዛት መቆጣጠሪያ
 
 class Admin(Base):
     __tablename__ = "admins"
