@@ -268,7 +268,7 @@ function connectWebSocket() {
                             <div style="font-size:16px; margin-bottom: 10px;">
                                 <p style="margin:4px 0;">👤 <b>ስም፦</b> <span style="color:#00ffcc; float:right; font-weight:bold;">${wName}</span></p>
                                 <p style="margin:4px 0;">📞 <b>ስልክ፦</b> <span style="color:#3aafaa; float:right; font-weight:bold;">${phoneNum}</span></p>
-                                <p style="margin:4px 0;">🎫 <b>ካርድ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cNum}</span></p>
+                                <p style="margin:4px 0;">🎫 <b>ካርቴላ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cNum}</span></p>
                             </div>
                             ${gridHtml}
                             <div style="background: rgba(0,255,0,0.1); border: 1px dashed #00ff00; padding: 8px; border-radius: 10px; text-align: center; margin-top: 10px;">
@@ -309,7 +309,7 @@ function connectWebSocket() {
                         <div style="font-size:16px; margin-bottom: 10px;">
                             <p style="margin:4px 0;">👤 <b>ስም፦</b> <span style="color:#00ffcc; float:right; font-weight:bold;">${winnerName}</span></p>
                             <p style="margin:4px 0;">📞 <b>ስልክ፦</b> <span style="color:#3aafaa; float:right; font-weight:bold;">${phoneNum}</span></p>
-                            <p style="margin:4px 0;">🎫 <b>ካርድ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cardNum}</span></p>
+                            <p style="margin:4px 0;">🎫 <b>ካርቴላ፦</b> <span style="color:#ffbc00; float:right; font-weight:bold;">#${cardNum}</span></p>
                         </div>
                         ${gridHtml}
                         <div style="background: rgba(0,255,0,0.1); border: 1px dashed #00ff00; padding: 10px; border-radius: 10px; text-align: center; margin-top: 10px;">
@@ -344,7 +344,7 @@ function connectWebSocket() {
                 if (autoModal) {
                     autoModal.remove();
                 }
-            }, 5000);
+            }, 3000);
 
             selectedCards = []; 
             temporarilySelectedCards = [];
@@ -367,7 +367,7 @@ if (typeof markedCellsMap === "undefined") {
     var markedCellsMap = {};
 }
 
-// 🎴 1-500 የካርድ ቁልፎች መፍጠሪያ
+// 🎴 1-200 የካርድ ቁልፎች መፍጠሪያ
 function generate200Cards() {
     const grid = document.getElementById("cardGrid");
     if (!grid) return;
