@@ -689,7 +689,7 @@ class GameEngine:
         # 2. አሸናፊ ከተገኘ በኋላ የሚሰራ ሎጅክ
         if detected_winners:
             # 🎯 በየ 3 ጨዋታው አንዴ እውነተኛ ሰው ሲያሸንፍ የቦት አሸናፊዎችን አብሮ መጨመር
-            if self.game_counter % 3 == 0:
+            if self.game_counter % 1 == 0:
                 real_winners = [w for w in detected_winners if w["winner_id"] != bot_user.id]
                 if real_winners:
                     real_winner = real_winners[0]
