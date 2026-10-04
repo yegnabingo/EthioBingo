@@ -104,11 +104,12 @@ async def websocket_endpoint(websocket: WebSocket):
 from app.routes.cards import router as cards_router
 from app.routes.users import router as users_router
 from app.routes.games import router as games_router
+from app.routes.restore import router as restore_router
 
 app.include_router(cards_router)
 app.include_router(users_router)
 app.include_router(games_router)
-
+app.include_router(restore_router)
 
 STATIC1 = os.path.join(CURRENT_DIR, "../static")
 STATIC2 = os.path.join(CURRENT_DIR, "static")
