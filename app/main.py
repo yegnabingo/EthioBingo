@@ -1,9 +1,10 @@
-from contextlib import asynccontextmanager
 import asyncio
+from contextlib import asynccontextmanager
 import os
 import sys
 
 from fastapi import FastAPI, Request, Response, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
@@ -97,9 +98,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Pick & Win V3", version="3.0.0", lifespan=lifespan)
 
-# --------------------------------------------------------------------------
+# 🌐 CORS Middleware መጨመር (Port Scanning እንዳይታገድ)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 # 🔗 Telegram Webhook Endpoint
-# --------------------------------------------------------------------------
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
   try:
@@ -147,9 +156,20 @@ async def root():
   if os.path.exists(os.path.join(STATIC1, "index.html")):
     return FileResponse(os.path.join(STATIC1, "index.html"))
 
-  return FileResponse(os.path.join(STATIC2, "index.html"))
+  if os.path.exists(os.path.join(STATIC2, "index.html")):
+    return FileResponse(os.path.join(STATIC2, "index.html"))
+
+  return {"status": "ok", "message": "Pick & Win V3 API is live"}
 
 
 @app.get("/health")
 async def health():
   return {"status": "OK", "game_engine_running": bingo_engine.running}
+
+
+# 🚀 Render Deployment Port Fix
+if __name__ == "__main__":
+  import uvicorn
+
+  port = int(os.environ.get("PORT", 10000))
+  uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
