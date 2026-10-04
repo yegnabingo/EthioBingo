@@ -1,15 +1,18 @@
 from fastapi import APIRouter
 import psycopg2
 
-# router variable እዚህ ጋር መፈጠር አለበት
 router = APIRouter()
 
-RENDER_DB = "postgresql://yegnabingo_user:your_render_password@dpg-xxxx-a.render.com/yegnabingo"
-NEON_DB = "postgresql://neondb_owner:your_neon_password@ep-xxxx.neon.tech/neondb?sslmode=require"
+# 1. የድሮው Render DB (የተስተካከለ External URL)
+RENDER_DB = "postgresql://dop:co6pCP2KqkcxjRlmSs4GrT1ljdTAfkQi@dpg-d9p7gb142hec739b9mhg-a.oregon-postgres.render.com/yegnabingo"
+
+# 2. የአዲሱ Neon DB
+NEON_DB = "postgresql://neondb_owner:npg_JSOjKIfw4y5b@ep-tiny-dawn-b58l5km4.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require"
 
 @router.get("/restore-users-now")
 def restore_users_data():
     try:
+        # ከ Render ዳታ ማንበብ
         src_conn = psycopg2.connect(RENDER_DB)
         src_cur = src_conn.cursor()
         src_cur.execute("SELECT * FROM users;")
@@ -17,6 +20,7 @@ def restore_users_data():
         colnames = [desc[0] for desc in src_cur.description]
         src_conn.close()
 
+        # ወደ Neon ዳታ ማስገባት
         dst_conn = psycopg2.connect(NEON_DB)
         dst_cur = dst_conn.cursor()
         
